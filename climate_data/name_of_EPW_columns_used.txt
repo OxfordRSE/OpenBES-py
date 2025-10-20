@@ -1,0 +1,7 @@
+Variable - name of column in EPW file
+Dry Bulb Temp - Dry-bulb (C)
+Rel Humidity -  RHum (%)
+Global Horiz Rad - GHI (W/m^2)
+Direct Norm Rad - DNI (W/m^2)
+Diffuse Rad - DHI (W/m^2)
+Wind Speed - Wspd (m/s)
