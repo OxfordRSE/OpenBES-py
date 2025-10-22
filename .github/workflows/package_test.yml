@@ -6,12 +6,12 @@ on:
   pull_request:
     branches: [main]
 
-matrix:
-  python-version: [3.11, 3.12, 3.13]
-
 jobs:
   install_and_run_pipeline:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12, 3.13]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
