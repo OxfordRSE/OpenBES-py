@@ -1,6 +1,6 @@
 from pandas import DataFrame, Float64Dtype, concat
 
-from src.openbes.types import (
+from .types import (
     OpenBESSpecification,
     OpenBESParameters,
     MONTHS,

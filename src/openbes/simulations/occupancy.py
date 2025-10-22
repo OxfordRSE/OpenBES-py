@@ -1,7 +1,7 @@
 """
 Helper functions to simulate occupancy patterns in buildings.
 """
-from src.openbes.types import DAYS
+from ..types import DAYS
 
 def day_of_the_week(day_number_in_year: int) -> DAYS:
     """Calculate the day of the week for a given day number in the year.

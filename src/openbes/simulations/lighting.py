@@ -2,8 +2,8 @@ from pandas import DataFrame, read_csv
 from os import path
 import logging
 
-from src.openbes.simulations.utils import OPERATIONAL_DAYS_DF
-from src.openbes.types import OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS
+from .utils import OPERATIONAL_DAYS_DF
+from ..types import OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS
 
 logger = logging.getLogger(__name__)
 

@@ -1,8 +1,8 @@
 import logging
 from pandas import DataFrame
 
-from src.openbes.simulations.utils import OPERATIONAL_DAYS_DF
-from src.openbes.types import OpenBESSpecification
+from .utils import OPERATIONAL_DAYS_DF
+from ..types import OpenBESSpecification
 
 logger = logging.getLogger(__name__)
 
