@@ -45,9 +45,11 @@ Lighting energy use is calculated as the energy used by each zone per hour, summ
 Hot water energy use is calculated by defining a `water_system_energy_source` and a `water_system_efficiency_cop`.
 
 The daily hot water demand is calculated by:
+    
     demand = 4.18 * `water_demand` * (`water_reference_temperature` - `water_supply_temperature`) * (1/3600)
 
 The energy required to meet this demand is then calculated by dividing the demand by the system efficiency:
+    
     demand / `water_system_efficiency_cop`
 
 This energy is then summed over all days in the year to give the annual hot water energy use.
@@ -59,6 +61,7 @@ by the total number of mechanical ventilation hours in the year.
 
 Mechanical ventilation hours are calculated based on the occupancy schedule.
 The basic formula is:
+    
     mechanical_ventilation_hours = ventilation_% * day_type
 
 Day type is 1 for occupied, 0 for unoccupied (holiday or weekend). 
@@ -71,6 +74,7 @@ In short, ventilation is modelled as on for a set number of hours/day during occ
 When on, it consumes its rated input power.
 
 So the monthly ventilation energy use is:
+    
     monthly_ventilation_energy_use = `ventilation_system1_rated_input_power` * occupied_days_in_month * ventilation_hours_per_day
 
 ### Cooling and heating
@@ -88,8 +92,11 @@ The efficiency of the cooling system is calculated based on:
 - energy efficiency ratio (cooling output:input power) (min 0.01)
 
     nominal_cooling_capacity = `cooling_system1_number` * `cooling_system1_nominal_capacity`
+    
     sensible_cooling_capacity = `cooling_system1_number` * `cooling_system1_sensible_nominal_capacity`
+    
     energy_efficiency_ratio = `cooling_system1_energy_efficifiency_ratio`
+    
     nominal_cooling_consumption = `cooling_system1_nominal_capacity` / `cooling_system1_eer`
 
 #### Cooling system kWh calculation
@@ -153,10 +160,7 @@ The consumption calculated below only matters when the building is occupied and 
 
     target_temperature = `setpoint_summer_day` - temperature_tolerance
 
-#### Natural temperature calculation
-The natural temperature is calculated using a simplified thermal model that considers:
-- External temperature (monthly averages)
-- 
+
 
 ## Data representation
 
