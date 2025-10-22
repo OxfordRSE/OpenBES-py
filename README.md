@@ -15,10 +15,10 @@ The following simulation categories are implemented and tested:
 - [x] Others
 - [x] Building standby
 - [x] Lighting
+- [x] Hot water
+- [x] Ventilation
 
 The following categories are planned and under development:
-- [ ] Hot water
-- [ ] Ventilation
 - [ ] Cooling
 - [ ] Heating
 
