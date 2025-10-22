@@ -23,13 +23,4 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .
       - name: Run pipeline example
-        run: |
-          python -c "
-import sys
-from src.openbes.pipeline import pipeline
-from src.openbes.types.dataclasses import OpenBESSpecification, OpenBESParameters
-spec = OpenBESSpecification()
-params = OpenBESParameters()
-result = pipeline(spec, params)
-print('Pipeline result:', result)
-"
+        run: python .github/workflows/scripts/run_pipeline_example.py
