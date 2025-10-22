@@ -27,9 +27,9 @@ class OpenBESSpecification:
     cooling_system1_energy_efficifiency_ratio: Optional[float] = None
     cooling_system1_energy_source: Optional[float] = None
     cooling_system1_nominal_capacity: Optional[float] = None
-    cooling_system1_number: Optional[float] = None
-    cooling_system1_off_time: Optional[float] = None
-    cooling_system1_on_time: Optional[float] = None
+    cooling_system1_number: Optional[int] = None
+    cooling_system1_off_time: Optional[int] = None
+    cooling_system1_on_time: Optional[int] = None
     cooling_system1_sensible_nominal_capacity: Optional[float] = None
     cooling_system1_simultaneity_factor_canteen: Optional[float] = None
     cooling_system1_simultaneity_factor_common: Optional[float] = None

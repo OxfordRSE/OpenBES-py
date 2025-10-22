@@ -13,7 +13,12 @@ This README is a place to keep development notes and tips.
   - Hot water: CS4
   - Ventilation: DC4
     - MV Operating period: IP118
-    - 
+  - Heating and Cooling:
+    - Cooling monthly breakdown: AX32
+      - Numbers come from AY9, in turn from HI56, in turn from summing HI118...
+      - 4_BES-Inputs!C344 gives cooling system characteristics
+      - 
+    - Heating monthly breakdown: AN32
 
 ## Simulation implementations
 
@@ -68,6 +73,91 @@ When on, it consumes its rated input power.
 So the monthly ventilation energy use is:
     monthly_ventilation_energy_use = `ventilation_system1_rated_input_power` * occupied_days_in_month * ventilation_hours_per_day
 
+### Cooling and heating
+
+Cooling and heating energy use are the most complex parts of the simulation.
+They both work by estimating the difference between the building's natural temperature and the desired setpoint temperature,
+and then calculating the energy required to bridge that gap based on the building's thermal properties and system efficiencies.
+
+    energy_use = efficiency * demand
+
+#### Cooling system efficiency
+The efficiency of the cooling system is calculated based on:
+- nominal cooling capacity (min 0.01)
+- nominal sensible cooling capacity (about 80% of nominal cooling capacity; min 0.01)
+- energy efficiency ratio (cooling output:input power) (min 0.01)
+
+    nominal_cooling_capacity = `cooling_system1_number` * `cooling_system1_nominal_capacity`
+    sensible_cooling_capacity = `cooling_system1_number` * `cooling_system1_sensible_nominal_capacity`
+    energy_efficiency_ratio = `cooling_system1_energy_efficifiency_ratio`
+    nominal_cooling_consumption = `cooling_system1_nominal_capacity` / `cooling_system1_eer`
+
+#### Cooling system kWh calculation
+The cooling energy consumption is calculated on an hourly basis, then summed to monthly totals.
+The consumption calculated below only matters when the building is occupied and the natural temperature exceeds the cooling setpoint temperature (minus tolerance).
+
+    consumption = nominal_cooling_consumption * reference_consumption_by_temp * reference_consumption_FCP
+
+    reference_consumption_by_temp = 
+      0.1117801 + 
+      0.028493334 * relative_humidity -
+      0.000411156 * relative_humidity^2 +
+      0.021414276 * dry_bulb_temperature +
+      0.000161125 * dry_bulb_temperature^2 -
+      0.000679104 * dry_bulb_temperature * relative_humidity
+
+    reference_consumption_FCP = 
+      0.2012307 - 
+      0.0312175 * fan_cooling_power +
+      1.9504979 * (fan_cooling_power^2) -
+      1.1205104 * (fan_cooling_power^3)
+
+    relative_humidity = 55 % (assumed constant)
+
+    dry_bulb_temperature is taken from an hourly meteorological file for the given location
+
+    fan_cooling_power = demand / reference_sensible_cooling_capacity
+
+    demand = -(heat_transfer_rate * total_heating_area)/1000
+
+    heat_transfer_rate = 
+      min(cooling_target_temperature, 0) * `params.cooling_load_factor`
+      [if natural_temperature > cooling_setpoint_temperature, else 0]
+    
+    total_heating_area = 
+      (heated_zone_1_area * heated_zone_1_simultaneity_factor) + 
+      (heated_zone_2_area * heated_zone_2_simultaneity_factor) +
+      ...
+
+    heated_zone_N_area = 
+      `ground_floor_area_zN` + 
+      `first_floor_area_zN` + 
+      ...
+
+    heated_zone_N_simultaneity_factor = 
+      `cooling_system1_simultaneity_factor_[X]` [where X is the zone description e.g. office]
+
+    reference_sensible_cooling_capacity = 
+      sensible_cooling_capacity * reference_capacity_by_temp
+
+    reference_capacity_by_temp = 
+      0.500601825 -
+      0.046438331 * baseline_indoor_temperature -
+      0.000324724 * (baseline_indoor_temperature^2) +
+      0.069957819 * target_temperature -
+      0.0000342756 * (target_temperature^2) -
+      0.013202081 * dry_bulb_temperature + 
+      0.0000793065 * (dry_bulb_temperature^2)
+
+    baseline_indoor_temperature is simply defined as 18.5
+
+    target_temperature = `setpoint_summer_day` - temperature_tolerance
+
+#### Natural temperature calculation
+The natural temperature is calculated using a simplified thermal model that considers:
+- External temperature (monthly averages)
+- 
+
 ## Data representation
 
 ### Long format
@@ -85,6 +175,10 @@ Operational days/month count is used for scaling daily energy use to monthly ene
 In the case of lighting, for July and August, this value is hardcoded, whereas for other months and other
 energy uses it is calculated based on the hourly simulation and occupancy information.
 
+### Magic numbers
+
+The heating/cooling calculation uses a number of "magic numbers" (i.e., hardcoded constants) that are derived from regression analysis.
+Perhaps eventually we can give each a sensible name, but for now they are left as-is for clarity and traceability to the original Excel implementation.
 
 ## Tool issues:
 
