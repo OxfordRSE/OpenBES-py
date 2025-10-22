@@ -1,0 +1,35 @@
+name: Package Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+matrix:
+  python-version: [3.11, 3.12, 3.13]
+
+jobs:
+  install_and_run_pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Run pipeline example
+        run: |
+          python -c "
+import sys
+from src.openbes.pipeline import pipeline
+from src.openbes.types.dataclasses import OpenBESSpecification, OpenBESParameters
+spec = OpenBESSpecification()
+params = OpenBESParameters()
+result = pipeline(spec, params)
+print('Pipeline result:', result)
+"
