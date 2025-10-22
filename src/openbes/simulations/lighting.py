@@ -1,8 +1,9 @@
 from pandas import DataFrame, read_csv
 from os import path
 import logging
-from src.openbes.dataclasses import OpenBESSpecification
-from src.openbes.utils import LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, OPERATIONAL_DAYS_PER_MONTH
+
+from src.openbes.simulations.utils import OPERATIONAL_DAYS_DF
+from src.openbes.types import OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS
 
 logger = logging.getLogger(__name__)
 
@@ -98,9 +99,11 @@ def get_kwh_per_month_per_zone(spec: OpenBESSpecification) -> DataFrame:
         DataFrame: kWh used by each zone in each requested month
     """
     df = get_kwh_per_day_per_zone(spec)
-    operational_days_per_month = DataFrame({m.value: d for m, d in OPERATIONAL_DAYS_PER_MONTH.items()}, index=["days"])
-    cross = df["kWh/day"].values[:, None] * operational_days_per_month.values
-    return DataFrame(cross, columns=operational_days_per_month.columns, index=df.index)
+    operational_days_df = OPERATIONAL_DAYS_DF.copy()
+    operational_days_df["Jul"] = 21  # hardcoded in the Excel spreadsheet
+    operational_days_df["Aug"] = 22  # hardcoded in the Excel spreadsheet
+    cross = df["kWh/day"].values[:, None] * operational_days_df.values
+    return DataFrame(cross, columns=operational_days_df.columns, index=df.index)
 
 def get_kwh_per_month(spec: OpenBESSpecification) -> DataFrame:
     """
@@ -113,3 +116,5 @@ def get_kwh_per_month(spec: OpenBESSpecification) -> DataFrame:
     per_month = get_kwh_per_month_per_zone(spec).sum().to_frame().transpose()
     per_month.index = ["kWh/month"]
     return per_month
+
+

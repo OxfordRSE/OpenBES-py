@@ -1,6 +1,6 @@
 from pandas import DataFrame, Float64Dtype
 
-from src.openbes.utils import ENERGY_USE_CATEGORIES
+from src.openbes.types import ENERGY_USE_CATEGORIES
 
 
 def aggregate_monthly_zonal_energy(monthly_zonal_data: DataFrame, category: ENERGY_USE_CATEGORIES) -> DataFrame:

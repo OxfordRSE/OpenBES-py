@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from src.openbes.utils import LIGHTING_BALLASTS, LIGHTING_TECHNOLOGIES
+from .enums import LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, ENERGY_SOURCES
 
 
 @dataclass
@@ -220,10 +220,10 @@ class OpenBESSpecification:
     uvalue_roof: Optional[float] = None
     uvalue_window: Optional[float] = None
     ventilation_system1_airflow: Optional[float] = None
-    ventilation_system1_energy_source: Optional[float] = None
+    ventilation_system1_energy_source: Optional[ENERGY_SOURCES] = None
     ventilation_system1_heat_recovery_efficiency: Optional[float] = None
-    ventilation_system1_off_time: Optional[float] = None
-    ventilation_system1_on_time: Optional[float] = None
+    ventilation_system1_off_time: Optional[int] = None
+    ventilation_system1_on_time: Optional[int] = None
     ventilation_system1_rated_input_power: Optional[float] = None
     ventilation_system1_type: Optional[float] = None
     ventilation_system1_ventilated_area: Optional[float] = None
@@ -231,7 +231,7 @@ class OpenBESSpecification:
     water_reference_temperature: Optional[float] = None
     water_supply_temperature: Optional[float] = None
     water_system_efficiency_cop: Optional[float] = None
-    water_system_energy_source: Optional[float] = None
+    water_system_energy_source: Optional[ENERGY_SOURCES] = None
     water_system_nominal_capacity: Optional[float] = None
     water_system_type: Optional[float] = None
     window_frame_factor: Optional[float] = None

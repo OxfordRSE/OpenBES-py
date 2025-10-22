@@ -1,7 +1,6 @@
 import unittest
 from pandas import DataFrame
-from src.openbes.dataclasses import OpenBESSpecification
-from src.openbes.utils import LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, MONTHS
+from src.openbes.types import MONTHS, OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS
 from src.openbes.simulations.lighting import get_w_per_luminaire
 from tests.test_holywell_house import DECIMAL_PLACES
 

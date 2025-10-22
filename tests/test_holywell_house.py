@@ -1,7 +1,7 @@
 import unittest
 from pandas import DataFrame, NA
 
-from src.openbes.utils import MONTHS, ENERGY_SOURCES, ENERGY_USE_CATEGORIES
+from src.openbes.types import MONTHS, ENERGY_SOURCES, ENERGY_USE_CATEGORIES
 from src.openbes.wip import (
     sum_energy_totals,
     aggregate_energy_totals,
@@ -86,7 +86,7 @@ class HolywellHousePipeline(unittest.TestCase):
 
     def test_pipeline(self):
         from src.openbes.pipeline import pipeline
-        from src.openbes.dataclasses import OpenBESSpecification, OpenBESParameters
+        from src.openbes.types.dataclasses import OpenBESSpecification, OpenBESParameters
 
         input = OpenBESSpecification()
         parameters = OpenBESParameters()

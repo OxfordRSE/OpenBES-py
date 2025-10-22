@@ -5,6 +5,10 @@ class ListableEnum(Enum):
     def list(cls):
         return list(map(lambda c: c.value, cls))
 
+    @classmethod
+    def get_by_index(cls, index):
+        return cls(cls.list()[index])
+
 
 class MONTHS(ListableEnum):
     Jan = "Jan"
@@ -19,6 +23,16 @@ class MONTHS(ListableEnum):
     Oct = "Oct"
     Nov = "Nov"
     Dec = "Dec"
+
+
+class DAYS(ListableEnum):
+    Mon = "Mon"
+    Tue = "Tue"
+    Wed = "Wed"
+    Thu = "Thu"
+    Fri = "Fri"
+    Sat = "Sat"
+    Sun = "Sun"
 
 
 class ENERGY_SOURCES(ListableEnum):
@@ -40,6 +54,22 @@ class ENERGY_USE_CATEGORIES(ListableEnum):
     Heating = "Heating"
 
 
+OPERATIONAL_DAYS_PER_MONTH = {
+    MONTHS.Jan: 18,
+    MONTHS.Feb:	20,
+    MONTHS.Mar:	23,
+    MONTHS.Apr:	22,
+    MONTHS.May:	23,
+    MONTHS.Jun:	22,
+    MONTHS.Jul:	23,
+    MONTHS.Aug:	23,
+    MONTHS.Sep:	22,
+    MONTHS.Oct:	23,
+    MONTHS.Nov:	22,
+    MONTHS.Dec:	17,
+}
+
+
 class LIGHTING_TECHNOLOGIES(ListableEnum):
     FT_T8 = "Tubular fluorescent T8"
     FT_T5 = "Tubular fluorescent T5"
@@ -56,19 +86,3 @@ class LIGHTING_TECHNOLOGIES(ListableEnum):
 class LIGHTING_BALLASTS(ListableEnum):
     BE = "Electronic ballast"
     BF = "Ferromagnetic ballast"
-
-
-OPERATIONAL_DAYS_PER_MONTH = {
-    MONTHS.Jan: 18,
-    MONTHS.Feb:	20,
-    MONTHS.Mar:	23,
-    MONTHS.Apr:	22,
-    MONTHS.May:	23,
-    MONTHS.Jun:	22,
-    MONTHS.Jul:	21,
-    MONTHS.Aug:	22,
-    MONTHS.Sep:	22,
-    MONTHS.Oct:	23,
-    MONTHS.Nov:	22,
-    MONTHS.Dec:	17,
-}

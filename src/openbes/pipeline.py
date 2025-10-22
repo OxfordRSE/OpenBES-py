@@ -1,14 +1,17 @@
 from pandas import DataFrame, Float64Dtype, concat
 
-from .dataclasses import OpenBESSpecification, OpenBESParameters
-from .utils import (
+from src.openbes.types import (
+    OpenBESSpecification,
+    OpenBESParameters,
     MONTHS,
+    ENERGY_USE_CATEGORIES,
     LIGHTING_TECHNOLOGIES,
     LIGHTING_BALLASTS,
-    ENERGY_USE_CATEGORIES,
+    ENERGY_SOURCES,
 )
 from .wip import sum_energy_totals, aggregate_energy_totals
-from .simulations import lighting
+from .simulations import lighting, hot_water, ventilation
+
 
 
 def pipeline(spec: OpenBESSpecification, parameters: OpenBESParameters) -> Float64Dtype:
@@ -40,16 +43,46 @@ def pipeline(spec: OpenBESSpecification, parameters: OpenBESParameters) -> Float
     spec.lighting_system_operating_hours_z2 = 8
     spec.lighting_system_simultaneity_factor_z2 = 0.7
 
+    spec.water_system_energy_source = ENERGY_SOURCES.Electricity
+    spec.water_system_efficiency_cop = 1.0
+    spec.water_demand = 300.0
+    spec.water_reference_temperature = 60.0
+    spec.water_supply_temperature = 16.0
+
+    spec.ventilation_system1_energy_source = ENERGY_SOURCES.Electricity
+    spec.ventilation_system1_rated_input_power = 0.3
+    spec.ventilation_system1_on_time = 10
+    spec.ventilation_system1_off_time = 14
+
     lighting_per_month = lighting.get_kwh_per_month(spec)
     lighting_per_month.index = [ENERGY_USE_CATEGORIES.Lighting]
+
+    if spec.water_system_energy_source == ENERGY_SOURCES.Electricity:
+        water_per_month = hot_water.get_hot_water_per_month(spec)
+        water_per_month.index = [ENERGY_USE_CATEGORIES.Hot_water]
+    else:
+        water_per_month = DataFrame(
+            {
+                ENERGY_USE_CATEGORIES.Hot_water: [0.0] * 12
+            },
+            index=MONTHS.list()
+        )
+
+    if spec.ventilation_system1_energy_source == ENERGY_SOURCES.Electricity:
+        ventilation_per_month = ventilation.get_ventilation_per_month(spec)
+        ventilation_per_month.index = [ENERGY_USE_CATEGORIES.Ventilation]
+    else:
+        ventilation_per_month = DataFrame(
+            {
+                ENERGY_USE_CATEGORIES.Ventilation: [0.0] * 12
+            },
+            index=MONTHS.list()
+        )
 
     data = DataFrame(
         {
             "Others": [spec.other_electricity_usage] * 12,
             "Building standby": [spec.building_standby_load] * 12,
-            "Hot water": [275.88, 306.533333, 352.513333, 337.186667, 352.513333, 337.186667, 352.513333,
-                          352.513333, 337.186667, 352.513333, 337.186667, 260.553333],
-            "Ventilation": [27.0, 30.0, 34.5, 33.0, 34.5, 33.0, 34.5, 34.5, 33.0, 34.5, 33.0, 25.5],
             "Cooling": [0.0, 0.0, 0.0, 77.257219, 0.0, 578.141948, 1148.711630, 522.771472, 63.590424, 0.0,
                         0.0, 0.0],
             "Heating": [0.0] * 12,
@@ -57,7 +90,7 @@ def pipeline(spec: OpenBESSpecification, parameters: OpenBESParameters) -> Float
         index=MONTHS.list()
     ).transpose()
 
-    data = concat([data, lighting_per_month])
+    data = concat([data, lighting_per_month, water_per_month, ventilation_per_month])
 
     monthly_kwh_by_use = data
 
