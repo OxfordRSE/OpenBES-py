@@ -38,3 +38,12 @@ The following categories are planned and under development:
 ## License
 
 The license for this project is under consideration. 
+
+## Credits
+
+We use Pandas for data manipulation and NumPy for numerical calculations.
+
+We use PVLib.iotools for reading EPW (energy plus weather) files.
+
+    Jensen, A., Anderson, K., Holmgren, W., Mikofski, M., Hansen, C., Boeman, L., Loonen, R. “pvlib iotools — Open-source Python functions for seamless access to solar irradiance data.” Solar Energy, 266, 112092, (2023). DOI: 10.1016/j.solener.2023.112092.
+

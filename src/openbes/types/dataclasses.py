@@ -159,7 +159,7 @@ class OpenBESSpecification:
     location: Optional[float] = None
     LPG_annual: Optional[float] = None
     max_building_occupation: Optional[float] = None
-    meteorological_file: Optional[float] = None
+    meteorological_file: Optional[str] = None
     natural_gas_annual: Optional[float] = None
     natural_ventilation_night: Optional[float] = None
     occupancy_close_canteen: Optional[float] = None

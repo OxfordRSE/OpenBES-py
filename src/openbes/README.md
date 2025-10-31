@@ -17,7 +17,7 @@ This README is a place to keep development notes and tips.
     - Cooling monthly breakdown: AX32
       - Numbers come from AY9, in turn from HI56, in turn from summing HI118...
       - 4_BES-Inputs!C344 gives cooling system characteristics
-      - 
+      - Set points winder/summer AD114
     - Heating monthly breakdown: AN32
 
 ## Simulation implementations
@@ -184,9 +184,18 @@ energy uses it is calculated based on the hourly simulation and occupancy inform
 The heating/cooling calculation uses a number of "magic numbers" (i.e., hardcoded constants) that are derived from regression analysis.
 Perhaps eventually we can give each a sensible name, but for now they are left as-is for clarity and traceability to the original Excel implementation.
 
+### Hardcoded list items
+
+Many items should be lists (e.g., lighting zones, heated zones), but are instead hardcoded to a maximum number of items.
+This is to maintain parity with the original Excel implementation, which has fixed ranges for these items.
+When we have achieved full parity, we can consider refactoring to use dynamic lists.
+
 ## Tool issues:
 
 ### Easy fixes
 
 - The headings in the Ventilation usage table (4_BES-Hourly_simulation!DC8:DF8 aren't quite right. I think the Operation one is hours rather than days, and the total should be ventilation rather than water.
-- 
+
+### Known issues
+
+- For 'office' zone only, occupancy start hour is calculated by the minimum of `occupancy_open_*` and `heating_system1_on_time`, while occupancy end hour is always `occupancy_close_*`.

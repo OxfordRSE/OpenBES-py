@@ -70,6 +70,32 @@ OPERATIONAL_DAYS_PER_MONTH = {
 }
 
 
+class FLOORS(ListableEnum):
+    Ground = "ground"
+    First = "first"
+    Second = "second"
+    Third = "third"
+    Fourth = "fourth"
+
+
+class OCCUPATION_ZONES(ListableEnum):
+    Office = "office"
+    Teaching = "teaching"
+    Canteen = "canteen"
+    Common_areas = "common_areas"
+    Other = "other"
+
+
+def get_zone_number(zone: OCCUPATION_ZONES) -> str:
+    return {
+        OCCUPATION_ZONES.Office: "1",
+        OCCUPATION_ZONES.Teaching: "2",
+        OCCUPATION_ZONES.Canteen: "3",
+        OCCUPATION_ZONES.Common_areas: "4",
+        OCCUPATION_ZONES.Other: "5",
+    }[zone]
+
+
 class LIGHTING_TECHNOLOGIES(ListableEnum):
     FT_T8 = "Tubular fluorescent T8"
     FT_T5 = "Tubular fluorescent T5"
