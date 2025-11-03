@@ -1,7 +1,7 @@
 import logging
 from pandas import DataFrame
 
-from .climate import get_hourly_dry_bulb_temperature, RELATIVE_HUMIDITY
+from .climate import get_epw_data, RELATIVE_HUMIDITY
 from .utils import OPERATIONAL_DAYS_DF
 from ..types import OpenBESSpecification
 
@@ -9,6 +9,15 @@ logger = logging.getLogger(__name__)
 
 MIN_COOLING_CAPACITY = 0.01  # kW
 MIN_COOLING_EFFICIENCY = 0.01  # kWh
+
+def get_cooling_operation_hours(spec: OpenBESSpecification) -> DataFrame:
+    """Return the number of hours the cooling system operates per day.
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: Hourly DataFrame with cooling operation ratios (0.0-1.0).
+    """
+    raise NotImplementedError
 
 def get_nominal_cooling_capcaity(spec: OpenBESSpecification) -> float:
     """Return the nominal cooling capacity of the cooling system.
@@ -70,7 +79,7 @@ def get_cooling_consumption_per_hour(spec: OpenBESSpecification) -> DataFrame:
     Returns:
         DataFrame: Hourly cooling energy consumption in kWh.
     """
-    data = get_hourly_dry_bulb_temperature(spec).rename(columns={'temp_air': 'dry_bulb_temperature'})
+    data = get_epw_data(spec).rename(columns={'temp_air': 'dry_bulb_temperature'})
     data["reference_consumption_by_temp"] = 0.1117801 + \
       0.028493334 * RELATIVE_HUMIDITY  - \
       0.000411156 * (RELATIVE_HUMIDITY ^ 2) + \

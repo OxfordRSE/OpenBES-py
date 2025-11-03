@@ -54,9 +54,10 @@ HOURS_DF = DataFrame([
     {
         'month': month_for_day(d),
         'day': d,
-        'hour': h
+        'hour': h,
+        'is_daytime': 8 <= h <= 22
     } for d in range(1, 366) for h in range(1, 25)
-]).set_index(['day'])
+]).set_index(['month', 'day', 'hour'])
 
 
 def day_of_the_week(day_number_in_year: int) -> DAYS:
@@ -197,9 +198,10 @@ def get_occupancy_by_hour(spec: OpenBESSpecification) -> DataFrame:
     df['occupancy_status'] = False
     df['occupancy_ratio'] = 0.0
     # Get a mask for occupied hours in occupied days in occupied months that aren't public holidays
-    month_mask = df['month'].apply(lambda m: is_occupied_month(m, spec))
-    day_mask = df.index.to_series().apply(lambda d: is_occupied_day(d, spec))
-    hour_mask = (df['hour'] >= open_time) & (df['hour'] <= close_time)
+    index_df = df.index.to_frame()
+    month_mask = index_df['month'].apply(lambda m: is_occupied_month(m, spec))
+    day_mask = index_df['day'].apply(lambda d: is_occupied_day(d, spec))
+    hour_mask = (index_df['hour'] >= open_time) & (index_df['hour'] <= close_time)
     mask = month_mask & day_mask & hour_mask
     df.loc[mask, 'occupancy_status'] = True
     df.loc[mask, 'occupancy_ratio'] = get_occupation_ratio(spec)

@@ -211,7 +211,9 @@ When we have achieved full parity, we can consider refactoring to use dynamic li
 ### Easy fixes
 
 - The headings in the Ventilation usage table (4_BES-Hourly_simulation!DC8:DF8 aren't quite right. I think the Operation one is hours rather than days, and the total should be ventilation rather than water.
+- The min/max (summer/winter) setpoint temperature examples are the wrong way around - 22/18 is higher/lower than 21/29
 
-### Known issues
+
+### Known/potential issues
 
 - For 'office' zone only, occupancy start hour is calculated by the minimum of `occupancy_open_*` and `heating_system1_on_time`, while occupancy end hour is always `occupancy_close_*`.

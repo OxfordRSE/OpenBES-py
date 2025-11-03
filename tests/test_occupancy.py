@@ -43,8 +43,9 @@ class Occupancy(unittest.TestCase):
     def test_HOURS_DF(self):
         # Check we have 24 * 365 rows
         self.assertEqual(len(HOURS_DF), 24 * 365)
-        self.assertEqual(HOURS_DF['month'].nunique(), 12)
-        self.assertEqual(HOURS_DF['hour'].nunique(), 24)
+        df = HOURS_DF.copy().reset_index()
+        self.assertEqual(df['month'].nunique(), 12)
+        self.assertEqual(df['hour'].nunique(), 24)
 
     def test_occupation_by_zone(self):
         with self.subTest(method="Occupation/Capacity"):
