@@ -1,10 +1,25 @@
 from pvlib.iotools import read_epw
 from pandas import DataFrame
 import os
-from ..types import OpenBESSpecification
 
+from .occupancy import HOURS_DF
+from ..types import OpenBESSpecification, OpenBESParameters
 
 RELATIVE_HUMIDITY = 55.0  # Percentage
+
+def get_hourly_set_point_temperature(spec: OpenBESSpecification, params: OpenBESParameters) -> DataFrame:
+    """Return an HOURS_DF dataframe with set point temperatures for each hour of the year.
+    The set point temperatures provide a minimum and maximum temperature for comfortable building occupation.
+    This is given by specified target temperatures with an optional tolerance.
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+        params (OpenBESParameters): The simulation parameters.
+    Returns:
+        DataFrame: HOURS_DF with set point temperatures for each hour of the year.
+    """
+    df = HOURS_DF.copy()
+    tolerance = max(params.temperature_tolerance or 0.0, 0.0)
+    
 
 def get_available_epw_files() -> list[str]:
     """

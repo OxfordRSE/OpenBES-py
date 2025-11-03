@@ -95,7 +95,7 @@ class OpenBESSpecification:
     heating_system1_simultaneity_factor_other: Optional[float] = None
     heating_system1_simultaneity_factor_teaching: Optional[float] = None
     heating_system1_type: Optional[float] = None
-    holiday: Optional[float] = None
+    holiday: Optional[bool] = None
     leakage_air_flow: Optional[float] = None
     leakage_air_flow_independent: Optional[float] = None
     lighting_control: Optional[float] = None
@@ -172,33 +172,37 @@ class OpenBESSpecification:
     other_electricity_usage: Optional[float] = None
     other_gas_usage: Optional[float] = None
     roof_angle: Optional[float] = None
-    schedule_april: Optional[float] = None
-    schedule_august: Optional[float] = None
-    schedule_december: Optional[float] = None
-    schedule_february: Optional[float] = None
-    schedule_friday: Optional[float] = None
-    schedule_january: Optional[float] = None
-    schedule_july: Optional[float] = None
-    schedule_june: Optional[float] = None
-    schedule_march: Optional[float] = None
-    schedule_may: Optional[float] = None
-    schedule_monday: Optional[float] = None
-    schedule_november: Optional[float] = None
-    schedule_october: Optional[float] = None
-    schedule_saturday: Optional[float] = None
-    schedule_september: Optional[float] = None
-    schedule_sunday: Optional[float] = None
-    schedule_thursday: Optional[float] = None
-    schedule_tuesday: Optional[float] = None
-    schedule_wednesday: Optional[float] = None
+    schedule_april: Optional[bool] = None
+    schedule_august: Optional[bool] = None
+    schedule_december: Optional[bool] = None
+    schedule_february: Optional[bool] = None
+    schedule_friday: Optional[bool] = None
+    schedule_january: Optional[bool] = None
+    schedule_july: Optional[bool] = None
+    schedule_june: Optional[bool] = None
+    schedule_march: Optional[bool] = None
+    schedule_may: Optional[bool] = None
+    schedule_monday: Optional[bool] = None
+    schedule_november: Optional[bool] = None
+    schedule_october: Optional[bool] = None
+    schedule_saturday: Optional[bool] = None
+    schedule_september: Optional[bool] = None
+    schedule_sunday: Optional[bool] = None
+    schedule_thursday: Optional[bool] = None
+    schedule_tuesday: Optional[bool] = None
+    schedule_wednesday: Optional[bool] = None
     second_floor_area_z1: Optional[float] = None
     second_floor_area_z2: Optional[float] = None
     second_floor_area_z3: Optional[float] = None
     second_floor_area_z4: Optional[float] = None
     second_floor_area_z5: Optional[float] = None
+    # Better described as 'setpoint maximum'
     setpoint_summer_day: Optional[float] = None
+    # Better described as 'setpoint maximum'
     setpoint_summer_night: Optional[float] = None
+    # Better described as 'setpoint minimum'
     setpoint_winter_day: Optional[float] = None
+    # Better described as 'setpoint minimum'
     setpoint_winter_night: Optional[float] = None
     slab_thickness: Optional[float] = None
     solar_external_shading_summer: Optional[float] = None

@@ -1,8 +1,12 @@
 """
 Helper functions to simulate occupancy patterns in buildings.
 """
+import logging
+
 from pandas import DataFrame
-from ..types import DAYS, OpenBESSpecification, OCCUPATION_ZONES, FLOORS
+from ..types import DAYS, OpenBESSpecification, OCCUPATION_ZONES, FLOORS, get_zone_number
+
+logger = logging.getLogger(__name__)
 
 M2_PER_PERSON = DataFrame([
     {"zone": OCCUPATION_ZONES.Office, "m2_per_person": 5},
@@ -12,71 +16,110 @@ M2_PER_PERSON = DataFrame([
     {"zone": OCCUPATION_ZONES.Other, "m2_per_person": 5},
 ]).set_index("zone")
 
-def day_of_the_week(day_number_in_year: int) -> DAYS:
-    """Calculate the day of the week for a given day number in the year.
-    Args:
-        day_number_in_year (int): The day number in the year (0-364).
-    Returns:
-        DAYS: The corresponding day of the week.
-    """
-    return DAYS.get_by_index(day_number_in_year % 7)
-
 
 def month_for_day(day_number_in_year: int) -> int:
     """Calculate the month for a given day number in the year.
     Args:
-        day_number_in_year (int): The day number in the year (0-364).
+        day_number_in_year (int): The day number in the year (1-365).
     Returns:
         int: The corresponding month (1-12).
     """
-    if day_number_in_year < 31:
+    if day_number_in_year <= 31:
         return 1
-    elif day_number_in_year < 59:
+    elif day_number_in_year <= 59:
         return 2
-    elif day_number_in_year < 90:
+    elif day_number_in_year <= 90:
         return 3
-    elif day_number_in_year < 120:
+    elif day_number_in_year <= 120:
         return 4
-    elif day_number_in_year < 151:
+    elif day_number_in_year <= 151:
         return 5
-    elif day_number_in_year < 181:
+    elif day_number_in_year <= 181:
         return 6
-    elif day_number_in_year < 212:
+    elif day_number_in_year <= 212:
         return 7
-    elif day_number_in_year < 243:
+    elif day_number_in_year <= 243:
         return 8
-    elif day_number_in_year < 273:
+    elif day_number_in_year <= 273:
         return 9
-    elif day_number_in_year < 304:
+    elif day_number_in_year <= 304:
         return 10
-    elif day_number_in_year < 334:
+    elif day_number_in_year <= 334:
         return 11
     else:
         return 12
+
+# Blank DataFrame of each hour with month info, indexed by day of the year
+HOURS_DF = DataFrame([
+    {
+        'month': month_for_day(d),
+        'day': d,
+        'hour': h
+    } for d in range(1, 366) for h in range(1, 25)
+]).set_index(['day'])
+
+
+def day_of_the_week(day_number_in_year: int) -> DAYS:
+    """Calculate the day of the week for a given day number in the year.
+    Args:
+        day_number_in_year (int): The day number in the year (1-365).
+    Returns:
+        DAYS: The corresponding day of the week.
+    """
+    return DAYS.get_by_index((day_number_in_year - 1) % 7)
 
 
 def is_public_holiday(day_number_in_year: int) -> bool:
     """Check if a given day number in the year is a public holiday.
     Args:
-        day_number_in_year (int): The day number in the year (0-364).
+        day_number_in_year (int): The day number in the year (1-365).
     Returns:
         bool: True if the day is a public holiday, False otherwise.
     """
     # Example public holidays (day numbers in the year)
-    if day_number_in_year <= 4:
+    if day_number_in_year <= 5:
         return True  # First week of January
-    return day_number_in_year >= 357  # Every day after Xmas is a holiday
+    return day_number_in_year >= 358  # Every day after Xmas is a holiday
+
+def is_occupied_month(month: int, spec: OpenBESSpecification) -> bool:
+    """Determine if a given month is an occupied month.
+    """
+    if month == 1:
+        return spec.schedule_january
+    if month == 2:
+        return spec.schedule_february
+    if month == 3:
+        return spec.schedule_march
+    if month == 4:
+        return spec.schedule_april
+    if month == 5:
+        return spec.schedule_may
+    if month == 6:
+        return spec.schedule_june
+    if month == 7:
+        return spec.schedule_july
+    if month == 8:
+        return spec.schedule_august
+    if month == 9:
+        return spec.schedule_september
+    if month == 10:
+        return spec.schedule_october
+    if month == 11:
+        return spec.schedule_november
+    if month == 12:
+        return spec.schedule_december
+    raise ValueError("Invalid month")
 
 
 def is_occupied_day(day_number_in_year: int, spec: OpenBESSpecification) -> bool:
     """Determine if a given day number in the year is an occupied day.
     Args:
-        day_number_in_year (int): The day number in the year (0-364).
+        day_number_in_year (int): The day number in the year (1-365).
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:
         bool: True if the day is occupied, False otherwise.
     """
-    if not spec.holiday and is_public_holiday(day_number_in_year):
+    if spec.holiday and is_public_holiday(day_number_in_year):
         return False
     day = day_of_the_week(day_number_in_year)
     if day == DAYS.Mon:
@@ -106,88 +149,58 @@ def get_zone_total_area(spec: OpenBESSpecification, zone: OCCUPATION_ZONES) -> f
     z = get_zone_number(zone)
     total_area = 0.0
     for floor in FLOORS:
-        area = getattr(spec, f"{zone.value}_floor_{floor.value}_area") or 0.0
+        area = getattr(spec, f"{floor.value}_floor_area_z{z}") or 0.0
         total_area += area
     return total_area
 
-def get_occupation_percentage_by_zone(spec: OpenBESSpecification) -> DataFrame:
-    """Calculate the occupation percentage based on the building schedule.
+def get_occupation_ratio(spec: OpenBESSpecification) -> float:
+    """Calculate the occupation ratio (occupation/capacity) based on the building schedule.
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:
-        DataFrame: The occupation percentage (0.0 to 100.0) by zone.
+        float: The occupation ratio (0.0 to 1.0).
     """
-    capacity = spec.building_max_occupation or 1
-    current_occupation = spec.typical_occupation or 1
-    data = []
+    capacity = spec.max_building_occupation
+    current_occupation = spec.typical_occupation
+    if current_occupation is None or current_occupation < 0:
+        logger.warning(
+            "Cannot calculate occupation percentage without `typical_occupation`. Defaulting to 100% occupation."
+        )
+        return 1.0
     try:
         if capacity > 0 and current_occupation > 0:
-            p = current_occupation / capacity * 100.0
-            data = [{"zone": zone, "occupation_percentage": p} for zone in OCCUPATION_ZONES]
+            return current_occupation / capacity
     except (ZeroDivisionError, TypeError):
-        data = [{
-            "zone": zone,
-            "occupation_percentage":
-                M2_PER_PERSON.loc[zone, "m2_per_person"] * get_zone_total_area(spec=spec, zone=zone)
-        } for zone in OCCUPATION_ZONES]
-
-    df = (DataFrame(data)
-    df.set_index("zone"))
-    return df
+        pass
+    zonal_occupation_capacity = [
+        get_zone_total_area(spec=spec, zone=zone) / M2_PER_PERSON.loc[zone, "m2_per_person"]
+        for zone in OCCUPATION_ZONES
+    ]
+    return current_occupation / sum(zonal_occupation_capacity)
     
-
+    
 def get_occupancy_by_hour(spec: OpenBESSpecification) -> DataFrame:
     """Generate an occupancy schedule by hour for the entire year.
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:
-        DataFrame: A DataFrame with occupancy status (1 for occupied, 0 for unoccupied) for each hour of the year for each occupancy zone.
+        DataFrame: HOURS_DF with occupancy status (occupied = True) and ratio (0.0-1.0) for each hour of the year.
     """
-    hours_in_year = 365 * 24
-    _data = []
-    for zone in OCCUPATION_ZONES:
-        if zone == 'office':
-            # Special case - in the Excel spreadsheet office uses minimum of heating on time and office open time
-            open_time = getattr(spec, f"occupancy_open_{zone}")
-            heating_on_time = spec.heating_system1_on_time
-            if open_time is not None and heating_on_time is not None:
-                open_time = min(open_time, heating_on_time)
-            else:
-                if open_time is None:
-                    open_time = heating_on_time
-                else:
-                    open_time = heating_on_time
-            close_time = getattr(spec, f"occupancy_close_{zone}")
-            _data.append({
-                "zone": zone,
-                "open": open_time - 1,  # systems have to get ready 1 hour before occupancy
-                "close": close_time,
-            })
-        else:
-            _data.append({
-                "zone": zone,
-                "open": getattr(spec, f"occupancy_open_{zone}") - 1,
-                "close": getattr(spec, f"occupancy_close_{zone}"),
-            })
-    occupancy_zone_hours = DataFrame(_data).set_index("zone")
+    open_times = [spec.occupancy_open_office, spec.occupancy_open_canteen, spec.occupancy_open_teaching]
+    close_times = [spec.occupancy_close_office, spec.occupancy_close_canteen, spec.occupancy_close_teaching]
+    if all(ot is None for ot in open_times) or all(ct is None for ct in close_times):
+        raise ValueError("Occupancy open and close times must be specified in the building specification.")
+    open_time = min(ot for ot in open_times if ot is not None)
+    close_time = max(ct for ct in close_times if ct is not None)
 
-    occupancy_schedule = []
-    for day in range(365):
-        occupied = is_occupied_day(day, spec=spec)
-        for hour in range(24):
-            zone_occupancy = get_occupation_percentage_by_zone(spec=spec)
-            for zone in OCCUPATION_ZONES:
-                zone_occupied = (
-                        occupied and
-                        (occupancy_zone_hours.loc[zone, "open"] <= hour < occupancy_zone_hours.loc[zone, "close"])
-                )
-                if not zone_occupied:
-                    zone_occupancy.loc[zone, "occupation_percentage"] = 0.0
-            occupancy_schedule.append({
-                "month": month_for_day(day),
-                "day": day,
-                "hour": hour,
-                **zone_occupancy
-            })
-
-    return DataFrame(occupancy_schedule, index=range(hours_in_year), columns=["Occupancy"])
+    df = HOURS_DF.copy()
+    df['occupancy_status'] = False
+    df['occupancy_ratio'] = 0.0
+    # Get a mask for occupied hours in occupied days in occupied months that aren't public holidays
+    month_mask = df['month'].apply(lambda m: is_occupied_month(m, spec))
+    day_mask = df.index.to_series().apply(lambda d: is_occupied_day(d, spec))
+    hour_mask = (df['hour'] >= open_time) & (df['hour'] <= close_time)
+    mask = month_mask & day_mask & hour_mask
+    df.loc[mask, 'occupancy_status'] = True
+    df.loc[mask, 'occupancy_ratio'] = get_occupation_ratio(spec)
+    return df

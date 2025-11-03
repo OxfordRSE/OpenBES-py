@@ -13,11 +13,18 @@ This README is a place to keep development notes and tips.
   - Hot water: CS4
   - Ventilation: DC4
     - MV Operating period: IP118
+  - Occupancy:
+    - Occupation profile: 4_BES-Inputs!B-E185; 4_BES-Inputs!K185
+  - Temperature
+    - Set points (target temperatures) are specified in input for winter/summer day/night: 4_XL-BES_tool!I82:J83
+    - These are recapitulated in 4_BES-Inputs!C133:D134
+    - And then to determine set-points in 4_BES-Inputs!G185:H213 by combining with occupancy data and tolerance
+    - And then there's a comfort zone (currently hardcoded)
   - Heating and Cooling:
     - Cooling monthly breakdown: AX32
       - Numbers come from AY9, in turn from HI56, in turn from summing HI118...
       - 4_BES-Inputs!C344 gives cooling system characteristics
-      - Set points winder/summer AD114
+      - Set points winter/summer AD114
     - Heating monthly breakdown: AN32
 
 ## Simulation implementations
@@ -31,6 +38,15 @@ Occupancy is defined by an occupancy schedule, which specifies the occupied hour
 It accounts for public holidays.
 
 The first day of the year is assumed to be a Monday.
+
+Months can be marked as unoccupied, as can days of the week.
+
+Occupation density is given by `max_building_occupation` / `typical_occupation`. 
+If one or both of these figures is unavailable, occupation density is calculated by 
+dividing the typical occupation density for the zone type (according to CTE DB-SI Table 2.1 [2_database!R47]) 
+by the area of the zone (sum of `[ground/first/.../fourth]_floor_area_z#`). 
+
+Occupation density is always 0 during unoccupied hours.
 
 ### Lighting
 
