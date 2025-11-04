@@ -7,6 +7,7 @@ from src.openbes.simulations.climate import (
     get_heating_and_cooling_degrees_days,
     get_relative_humidity,
     get_wet_bulb_temperature,
+    get_internal_surface_temp,
 )
 from src.openbes.simulations.occupancy import HOURS_DF
 from src.openbes.types import OpenBESParameters
@@ -61,7 +62,20 @@ class Climate(unittest.TestCase):
         expected.index = computed.index
         expected = expected.astype(computed.dtype).round(DECIMAL_PLACES)
         self.assertTrue(expected.equals(computed), expected.compare(computed))
-        
+
+    def test_internal_surface_temperature(self):
+        df = get_internal_surface_temp(self.spec)
+        self.assertIn('internal_surface_temp', df.columns)
+        self.assertEqual(len(df), len(HOURS_DF))
+        expected = Series([
+            17.189529, 16.938033, 16.693035, 16.455385, 16.248080,
+            16.038826, 15.834325, 15.639793, 15.427721, 15.254648
+        ])
+        computed = df.iloc[range(10)]['internal_surface_temp'].round(DECIMAL_PLACES)
+        expected.index = computed.index
+        expected = expected.astype(computed.dtype).round(DECIMAL_PLACES)
+        self.assertTrue(expected.equals(computed), expected.compare(computed))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,9 +1,14 @@
 import logging
 from pandas import DataFrame
 
+from .climate import (
+    get_epw_data,
+    get_internal_surface_temp,
+    get_supply_air_temp,
+)
 from .geometry import get_conditioned_floor_area
 from .lighting import get_lighting_ratio, get_lighting_heat, get_parasitic_heat
-from .occupancy import get_occupancy_by_hour, get_metabolic_rate_per_m2
+from .occupancy import get_occupancy_by_hour, get_metabolic_rate_per_m2, HOURS_DF
 from ..types import OpenBESSpecification
 
 logger = logging.getLogger(__name__)
@@ -136,21 +141,101 @@ def get_internal_heat(spec: OpenBESSpecification) -> DataFrame:
     )
     return df[['internal_heat']]
 
+def get_internal_heat_adjusted(spec: OpenBESSpecification) -> DataFrame:
+    """Calculate the adjusted internal heat gains based on building specifications.""
+    ϕia [Hourly Simulation column AQ]
+
+    Adjusted internal heat gains are the internal heat gains multiplied by an adjustment factor.
+
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: The adjusted internal heat gains in W/m2.
+    """
+    adjustment_factor = 0.5  # Hardcoded in spreadsheet column AQ
+    df = get_internal_heat(spec=spec)
+    df['internal_heat_adjusted'] = df['internal_heat'] * adjustment_factor
+    return df[['internal_heat_adjusted']]
+
+def get_air_free_temp_0m(spec: OpenBESSpecification) -> DataFrame:
+    """Return a DataFrame with air free temperature at 0m for each hour of the year.
+    Ѳair,0 [Hourly Simulation column AY]
+
+    Calculated by considering:
+    - Internal surface temperature and its heat transfer rate to air
+    - Heat transmission by ventilation and supply air temperature
+    - Internal heat gains (adjusted)
+    - HC_nd (assumed to be 0)
+    and dividing by the total heat transfer rates to air (from surfaces and ventilation).
+
+    This produces a weighted sum of these temperature influences to estimate the air free temperature at 0m height.
+
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: HOURS_DF with air free temperature at 0m for each hour of the year.
+    """
+    df = HOURS_DF.copy()
+    temp_air = get_epw_data(spec)['temp_air']
+    temp_air.index = df.index
+    df = df.join(temp_air)
+    df = df.join(get_internal_surface_temp(spec=spec))
+    df = df.join(get_heat_transmission_by_ventilation(spec=spec))
+    df = df.join(get_supply_air_temp(spec=spec))
+    df = df.join(get_internal_heat_adjusted(spec=spec))
+    conditioned_area = get_conditioned_floor_area(spec=spec)
+    area_at = 4.5  # Hardcoded in Hourly Simulation cell AM84: EN ISO 13790, 7.2.2
+    total_area = area_at * conditioned_area
+    # Heat transfer rate from air to surfaces in W/K [Hourly simulation cell AR83]
+    Htr_is_W_per_K = 3.45 * total_area
+    # Heat transfer rate from air to surfaces in W/m2K [Hourly Simulation cell AR98]
+    Htr_is = Htr_is_W_per_K / conditioned_area
+    HC_nd = 0  # Hardcoded in Hourly Simulation cell AR111
+    df['air_free_temp_0m'] = (
+                                 Htr_is * df['internal_surface_temp'] +
+                                 df['heat_transmission_by_ventilation'] * df['supply_air_temp'] +
+                                 df['internal_heat_adjusted'] +
+                                 HC_nd
+                             ) / ( Htr_is + df['heat_transmission_by_ventilation'] )
+    return df[['air_free_temp_0m']]
 
 def get_solar_heat_window(spec: OpenBESSpecification) -> DataFrame:
     """Calculate the solar heat gains through windows based on building specifications.
     ϕsol,w [Hourly Simulation column LF]
+
+    Wattage is given by the sum of solar radiation on each window multiplied by its
+    area and solar heat gain coefficient.
+    Solar radiation is a function of climate data and building orientation.
+
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:
         DataFrame: Hourly solar heat gains through windows in W/m2.
     """
-    raise NotImplementedError
+    kv116 = 22  # Hardcoded in Hourly Simulation cell KV116
+    df = get_air_free_temp_0m(spec=spec)
+    df['solar_heat_window'] = df.apply(
+        lambda row: row
+    )
+    # if $AY117 < kv116:
+    #     rest = (KW$95*(KW$107*($KV118*$KW$100))*M118)-(KW$80*($KS118*KW$104*KW$105*KW$81*$KW$82))
+    # else:
+    #     rest = (KW$95*(KW$108*($KV118*0.9))*M118)-(KW$80*($KS118*KW$104*KW$105*KW$81*$KW$82))
+    # return max(
+    #     0,
+    #     rest
+    # )
 
 
 def get_solar_heat_opaque(spec: OpenBESSpecification) -> DataFrame:
     """Calculate the solar heat gains through opaque surfaces based on building specifications.
     ϕsol,op [Hourly Simulation column LR]
+
+    Wattage is given by the sum of solar radiation on each opaque surface multiplied by its
+    area and solar heat gain coefficient.
+    Solar radiation is a function of climate data and building orientation.
+    Horizontal solar radiation is also included because of roof surfaces.
+
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:
@@ -162,6 +247,10 @@ def get_solar_heat_opaque(spec: OpenBESSpecification) -> DataFrame:
 def get_solar_heat(spec: OpenBESSpecification) -> DataFrame:
     """Calculate the solar heat gains based on building specifications.
     ϕsol [Hourly Simulation column AJ, KM]
+
+    Wattage per square meter is given by the sum of solar heat gains through windows
+    and opaque surfaces, divided by the conditioned floor area.
+
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:

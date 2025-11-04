@@ -27,13 +27,13 @@ class HolywellHousePipeline(unittest.TestCase):
             [266.560000, 209.440000, 0.000000, 0.000000, 0.000000, 0.000000],
         ]
         columns = [f"Zone type {i}" for i in range(1, 7)]
-        input = DataFrame(data, index=MONTHS.list(), columns=columns)
+        input = DataFrame(data, index=MONTHS.list_values(), columns=columns)
         expected = DataFrame(
             [
                 504.000000, 560.000000, 644.000000, 616.000000, 644.000000, 616.000000,
                 588.000000, 616.000000, 616.000000, 644.000000, 616.000000, 476.000000,
             ],
-            index=MONTHS.list(),
+            index=MONTHS.list_values(),
             columns=[ENERGY_USE_CATEGORIES.Lighting.value],
         ).round(DECIMAL_PLACES)
         calculated = aggregate_monthly_zonal_energy(input, ENERGY_USE_CATEGORIES.Lighting).round(DECIMAL_PLACES)
@@ -53,11 +53,11 @@ class HolywellHousePipeline(unittest.TestCase):
                             0.0, 0.0],
                 "Heating": [0.0] * 12,
             },
-            index=MONTHS.list()
+            index=MONTHS.list_values()
         )
         expected = DataFrame(
             {"kWh/yr": [13632.000000, 27854.400000, 7140.000000, 3954.280000, 387.000000, 2390.472693, 0.000000]},
-            index=ENERGY_USE_CATEGORIES.list()
+            index=ENERGY_USE_CATEGORIES.list_values()
         ).round(DECIMAL_PLACES)
         calculated = aggregate_energy_totals(input).round(DECIMAL_PLACES)
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
@@ -67,7 +67,7 @@ class HolywellHousePipeline(unittest.TestCase):
             sum_energy_totals(
                 DataFrame(
                     {"kWh/yr": [13632.000000, 27854.400000, 7140.000000, 3954.280000, 387.000000, 2390.472693, 0.000000]},
-                    index=ENERGY_USE_CATEGORIES.list()
+                    index=ENERGY_USE_CATEGORIES.list_values()
                 )
             ),
             55_358.152693
@@ -78,7 +78,7 @@ class HolywellHousePipeline(unittest.TestCase):
             sum_energy_totals(
                 DataFrame(
                     {"kWh/yr": [54_874.2, NA, NA, 52_235.2, NA, NA]},
-                    index=ENERGY_SOURCES.list()
+                    index=ENERGY_SOURCES.list_values()
                 )
             ),
             107109.4

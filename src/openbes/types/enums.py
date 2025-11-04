@@ -2,12 +2,12 @@ from enum import Enum
 
 class ListableEnum(Enum):
     @classmethod
-    def list(cls):
+    def list_values(cls):
         return list(map(lambda c: c.value, cls))
 
     @classmethod
     def get_by_index(cls, index):
-        return cls(cls.list()[index])
+        return cls(cls.list_values()[index])
 
 
 class MONTHS(ListableEnum):
@@ -120,6 +120,17 @@ class LIGHTING_CONTROL(ListableEnum):
 
 
 class ORIENTATIONS(ListableEnum):
+    """
+    Cardinal directions for building orientation. These are relative to the building layout, with the assumption that
+    "Up" corresponds to the front of the building.
+    """
+    Up = "Up"
+    Right = "Right"
+    Down = "Down"
+    Left = "Left"
+
+
+class COMPASS_POINTS(ListableEnum):
     North = "North"
     NorthEast = "NorthEast"
     East = "East"
@@ -128,3 +139,11 @@ class ORIENTATIONS(ListableEnum):
     SouthWest = "SouthWest"
     West = "West"
     NorthWest = "NorthWest"
+
+
+class THERMAL_BREAKS(ListableEnum):
+    Facade_ground = "Façade (ground)"
+    Facade_intermediate = "Façade (intermediate)"
+    Facade_roof = "Façade (roof)"
+    Windows = "Windows (lintels, jambs, sills)"
+    Shading = "Shading devices (roller blinds)"

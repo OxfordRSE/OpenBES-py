@@ -31,7 +31,7 @@ class OpenBESParameters:
     cooling_system2_simultaneity_factor_teaching: Optional[float] = None
     cooling_system2_type: Optional[float] = None
     courtyard_length: Optional[float] = None
-    courtyard_number: Optional[float] = None
+    courtyard_number: Optional[int] = 0
     courtyard_width: Optional[float] = None
     density_of_air: Optional[float] = None
     facade_absorption_coefficient: Optional[float] = None
@@ -69,10 +69,10 @@ class OpenBESParameters:
     open_courtyard_depth_b1: Optional[float] = None
     open_courtyard_depth_c1: Optional[float] = None
     open_courtyard_depth_d1: Optional[float] = None
-    open_courtyard_number_a1: Optional[float] = None
-    open_courtyard_number_b1: Optional[float] = None
-    open_courtyard_number_c1: Optional[float] = None
-    open_courtyard_number_d1: Optional[float] = None
+    open_courtyard_number_a1: Optional[int] = 0
+    open_courtyard_number_b1: Optional[int] = 0
+    open_courtyard_number_c1: Optional[int] = 0
+    open_courtyard_number_d1: Optional[int] = 0
     pressure_of_air: Optional[float] = None
     roof_absorption_coefficient: Optional[float] = None
     roof_correction_factor: Optional[float] = None
@@ -90,7 +90,7 @@ class OpenBESParameters:
     ventilation_system2_ventilated_area: Optional[float] = None
     view_factor_to_sky_facade: Optional[float] = None
     view_factor_to_sky_roof: Optional[float] = None
-    window_correction_factor: Optional[float] = None
+    window_correction_factor: Optional[float] = 1.0
 
 
 @dataclass
@@ -303,11 +303,11 @@ class OpenBESSpecification:
     solar_external_shading_summer: Optional[float] = None
     solar_external_shading_winter: Optional[float] = None
     terrain_class: Optional[float] = None
-    thermal_bridge_facade_ground: Optional[float] = None
-    thermal_bridge_facade_intermediate: Optional[float] = None
-    thermal_bridge_facade_roof: Optional[float] = None
-    thermal_bridge_shading: Optional[float] = None
-    thermal_bridge_window: Optional[float] = None
+    thermal_bridge_facade_ground: Optional[bool] = None
+    thermal_bridge_facade_intermediate: Optional[bool] = None
+    thermal_bridge_facade_roof: Optional[bool] = None
+    thermal_bridge_shading: Optional[bool] = None
+    thermal_bridge_window: Optional[bool] = None
     third_floor_area_z1: Optional[float] = None
     third_floor_area_z2: Optional[float] = None
     third_floor_area_z3: Optional[float] = None

@@ -223,7 +223,7 @@ class LightingPipeline(unittest.TestCase):
                 [344.96, 271.04, 0.0, 0.0, 0.0, 0.0],
                 [266.56, 209.44, 0.0, 0.0, 0.0, 0.0],
             ],
-            index=MONTHS.list(),
+            index=MONTHS.list_values(),
             columns=[f"Zone type {i}" for i in range(1, 7)],
         ).transpose().round(DECIMAL_PLACES)
         self.assertTrue(expected.equals(output), expected.compare(output))
@@ -237,7 +237,7 @@ class LightingPipeline(unittest.TestCase):
                 588.000000, 616.000000, 616.000000, 644.000000, 616.000000, 476.000000,
             ]],
             index=["kWh/month"],
-            columns=MONTHS.list()
+            columns=MONTHS.list_values()
         )
         self.assertTrue(expected.equals(output), expected.compare(output))
 

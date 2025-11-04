@@ -47,7 +47,7 @@ class Ventilation(unittest.TestCase):
                 90, 100, 115, 110, 115, 110, 115, 115, 110, 115, 110, 85
             ]],
             index=["mv_hours"],
-            columns=MONTHS.list()
+            columns=MONTHS.list_values()
         )
         calculated = get_mv_hours_per_month(self.input)
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
@@ -59,7 +59,7 @@ class Ventilation(unittest.TestCase):
                 27.0, 30.0, 34.5, 33.0, 34.5, 33.0, 34.5, 34.5, 33.0, 34.5, 33.0, 25.5
             ]],
             index=["kWh"],
-            columns=MONTHS.list()
+            columns=MONTHS.list_values()
         ).round(DECIMAL_PLACES)
         calculated = get_ventilation_per_month(self.input).round(DECIMAL_PLACES)
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))

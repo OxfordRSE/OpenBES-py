@@ -4,10 +4,19 @@ from pvlib.iotools import read_epw
 from pandas import DataFrame
 import os
 
+from .geometry import get_conditioned_floor_area, get_window_area, get_window_shading
 from .occupancy import HOURS_DF
-from ..types import OpenBESSpecification, OpenBESParameters
+from ..types import OpenBESSpecification, OpenBESParameters, THERMAL_BREAKS
 
 RELATIVE_HUMIDITY = 55.0  # Percentage
+
+THERMAL_BREAK_TRANSMITTANCE = {
+    THERMAL_BREAKS.Facade_ground: 0.54,
+    THERMAL_BREAKS.Facade_intermediate: 0.60,
+    THERMAL_BREAKS.Facade_roof: 0.44,
+    THERMAL_BREAKS.Windows: 0.50,
+    THERMAL_BREAKS.Shading: 0.80,
+}
 
 def get_hourly_set_point_temperature(spec: OpenBESSpecification, params: OpenBESParameters) -> DataFrame:
     """Return an HOURS_DF dataframe with set point temperatures for each hour of the year.
@@ -76,6 +85,85 @@ def get_heating_and_cooling_degrees_days(spec: OpenBESSpecification, base_temper
     days = days.drop(columns=['temp_air'])
     return days
 
+def get_internal_air_temp(spec: OpenBESSpecification) -> DataFrame:
+    """Return a DataFrame with estimated internal air temperature for each hour of the year.
+    Ѳair
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: HOURS_DF with estimated internal air temperature for each hour of the year.
+    """
+    raise NotImplementedError
+
+def get_heat_transfer_rate_windows(spec: OpenBESSpecification) -> float:
+    """Calculate the heat transfer rate through windows (W/m²K).
+    Htr_w [Hourly Simulation cell AR97]
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        float: Heat transfer rate through windows (W/m²K).
+    """
+    conditioned_area = get_conditioned_floor_area(spec=spec)
+    correction_factor = spec.parameters.window_correction_factor
+    window_area = get_window_area(spec=spec)
+    u_value = spec.uvalue_window
+    if spec.thermal_bridge_shading:
+        shading = get_window_shading(spec=spec) * THERMAL_BREAK_TRANSMITTANCE[THERMAL_BREAKS.Shading]
+    else:
+        shading = 0.0
+    return (
+        window_area * u_value +
+        shading
+    ) * correction_factor / conditioned_area
+
+def get_heat_transfer_rate_opaque(spec: OpenBESSpecification) -> float:
+    """Calculate the heat transfer rate through opaque envelope (W/m²K).
+    Htr_opaque [Hourly Simulation cell AR93]
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        float: Heat transfer rate through opaque envelope (W/m²K).
+    """
+    raise NotImplementedError
+
+def get_heat_transfer_ms(spec: OpenBESSpecification) -> float:
+    """Calculate the heat transfer coefficient between internal air and internal surface (W/m²K).
+    Htr_ms [Hourly Simulation cell AR95] EN ISO 13790 12.2.2
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        float: Heat transfer coefficient between internal air and internal surface (W/m²K).
+    """
+    factor = 9.1  # Unnamed factor in cell AR95
+    return (get_heat_transfer_rate_windows(spec=spec) + get_heat_transfer_rate_opaque(spec=spec)) * factor
+
+def get_internal_surface_temp(spec: OpenBESSpecification) -> DataFrame:
+    """Return a DataFrame with estimated internal surface temperature for each hour of the year.
+    Ѳs [Hourly Simulation column AX]
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: HOURS_DF with estimated internal surface temperature for each hour of the year.
+    """
+    Htr_ms = get_heat_transfer_ms(spec=spec)
+    (
+        $AR$95 * AW118 +
+        AS118 +
+        $AR$97 * $I118 +
+        $AM118 * ($AG118 + (AQ118 + $AR$111) / $AL118)
+    ) / ($AR$95 + $AR$97 + $AM118)
+    raise NotImplementedError
+
+def get_supply_air_temp(spec: OpenBESSpecification) -> DataFrame:
+    """Return a DataFrame with supply air temperature for each hour of the year.
+    Ѳsup
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: HOURS_DF with supply air temperature for each hour of the year.
+    """
+    raise NotImplementedError
+
 def get_relative_humidity(spec: OpenBESSpecification) -> DataFrame:
     """Return a DataFrame with relative humidity for each hour of the year.
     Args:
@@ -109,23 +197,3 @@ def get_wet_bulb_temperature(spec: OpenBESSpecification) -> DataFrame:
         axis=1
     )
     return df[['wet_bulb_temp']]
-
-def get_internal_air_temp(spec: OpenBESSpecification) -> DataFrame:
-    """Return a DataFrame with estimated internal air temperature for each hour of the year.
-    Ѳair
-    Args:
-        spec (OpenBESSpecification): The building specifications spec data class.
-    Returns:
-        DataFrame: HOURS_DF with estimated internal air temperature for each hour of the year.
-    """
-    raise NotImplementedError
-
-def get_internal_surface_temp(spec: OpenBESSpecification) -> DataFrame:
-    """Return a DataFrame with estimated internal surface temperature for each hour of the year.
-    Ѳs
-    Args:
-        spec (OpenBESSpecification): The building specifications spec data class.
-    Returns:
-        DataFrame: HOURS_DF with estimated internal surface temperature for each hour of the year.
-    """
-    raise NotImplementedError

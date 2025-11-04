@@ -2,6 +2,7 @@
 Helper functions to simulate occupancy patterns in buildings.
 """
 import logging
+from typing import List
 
 from pandas import DataFrame
 from ..types import (
@@ -146,17 +147,20 @@ def is_occupied_day(day_number_in_year: int, spec: OpenBESSpecification) -> bool
         return spec.schedule_sunday
     raise ValueError("Invalid day number in year")
 
-def get_zone_total_area(spec: OpenBESSpecification, zone: OCCUPATION_ZONES) -> float:
+def get_zone_total_area(spec: OpenBESSpecification, zone: OCCUPATION_ZONES, floors: List[FLOORS] = None) -> float:
     """Get the total area for a given occupation zone.
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
         zone (OCCUPATION_ZONES): The occupation zone.
+        floors: List of floors to consider. If None, all floors are considered.
     Returns:
         float: The total area of the zone in m².
     """
+    if floors is None:
+        floors = list(FLOORS)
     z = get_zone_number(zone)
     total_area = 0.0
-    for floor in FLOORS:
+    for floor in floors:
         area = getattr(spec, f"{floor.value}_floor_area_z{z}") or 0.0
         total_area += area
     return total_area

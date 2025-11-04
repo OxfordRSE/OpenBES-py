@@ -65,7 +65,7 @@ def pipeline(spec: OpenBESSpecification, parameters: OpenBESParameters) -> Float
             {
                 ENERGY_USE_CATEGORIES.Hot_water: [0.0] * 12
             },
-            index=MONTHS.list()
+            index=MONTHS.list_values()
         )
 
     if spec.ventilation_system1_energy_source == ENERGY_SOURCES.Electricity:
@@ -76,7 +76,7 @@ def pipeline(spec: OpenBESSpecification, parameters: OpenBESParameters) -> Float
             {
                 ENERGY_USE_CATEGORIES.Ventilation: [0.0] * 12
             },
-            index=MONTHS.list()
+            index=MONTHS.list_values()
         )
 
     data = DataFrame(
@@ -87,7 +87,7 @@ def pipeline(spec: OpenBESSpecification, parameters: OpenBESParameters) -> Float
                         0.0, 0.0],
             "Heating": [0.0] * 12,
         },
-        index=MONTHS.list()
+        index=MONTHS.list_values()
     ).transpose()
 
     data = concat([data, lighting_per_month, water_per_month, ventilation_per_month])

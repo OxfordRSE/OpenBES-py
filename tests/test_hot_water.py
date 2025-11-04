@@ -75,7 +75,7 @@ class HotWaterPipeline(unittest.TestCase):
                     352.513333, 352.513333, 337.186667, 352.513333, 337.186667, 260.553333,
                 ]
             ],
-            columns=MONTHS.list(),
+            columns=MONTHS.list_values(),
             index=["kWh"]
         ).round(DECIMAL_PLACES)
         output = get_hot_water_per_month(self.input).round(DECIMAL_PLACES)
