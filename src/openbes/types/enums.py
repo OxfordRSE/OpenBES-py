@@ -112,3 +112,19 @@ class LIGHTING_TECHNOLOGIES(ListableEnum):
 class LIGHTING_BALLASTS(ListableEnum):
     BE = "Electronic ballast"
     BF = "Ferromagnetic ballast"
+
+
+class LIGHTING_CONTROL(ListableEnum):
+    Manual = "Manual"
+    Automatic = "Automatic"
+
+
+class ORIENTATIONS(ListableEnum):
+    North = "North"
+    NorthEast = "NorthEast"
+    East = "East"
+    SouthEast = "SouthEast"
+    South = "South"
+    SouthWest = "SouthWest"
+    West = "West"
+    NorthWest = "NorthWest"

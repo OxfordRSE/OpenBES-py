@@ -211,9 +211,81 @@ When we have achieved full parity, we can consider refactoring to use dynamic li
 ### Easy fixes
 
 - The headings in the Ventilation usage table (4_BES-Hourly_simulation!DC8:DF8 aren't quite right. I think the Operation one is hours rather than days, and the total should be ventilation rather than water.
-- The min/max (summer/winter) setpoint temperature examples are the wrong way around - 22/18 is higher/lower than 21/29
-
+- [x] The min/max (summer/winter) setpoint temperature examples are the wrong way around - 22/18 is higher/lower than 21/29
+  - Users can input values as they wish, so this is fine.
+- [x] Only Office and Teaching zones are considered for calculating occupancy (m2/person) in 4_BES-Inputs!C139)
+  - People only 'belong' in these zones, so this is fine. If they're in other zones, they're generating heat there, but not their 'home' zone, so the energy generation is still the same.
+- 4_BES-Inputs!C144 is a constant that could be a parameter
 
 ### Known/potential issues
 
 - For 'office' zone only, occupancy start hour is calculated by the minimum of `occupancy_open_*` and `heating_system1_on_time`, while occupancy end hour is always `occupancy_close_*`.
+- Table G.10 in 2_database!R32 has some strange values outside the edge of the table that are used for finding the metabolic rate per square meter
+- Metabolic energy generation appears to use maximum sensible occupation (4_BES-Inputs!C139,137) rather than actual occupation
+- 4_BES-Inputs!C137 is a simultaneity factor that appears just for converting people in a zone to maximum occupation. Hardcoded to 0.75?
+
+
+## Nomenclature
+
+From Lizana et al 2018:
+
+Here is the nomenclature formatted for Markdown:
+
+### Nomenclature
+
+| Symbol      | Description                                      |
+|-------------|--------------------------------------------------|
+| A           | area (m²)                                        |
+| Af          | conditioned usable area (m²)                     |
+| Am          | effective mass area (m²)                         |
+| btr         | correction factors                               |
+| Cm          | internal heat capacity of a conditioned space (J/K) |
+| COP         | coefficient of performance                       |
+| DH          | discomfort hours (%)                             |
+| ED          | energy demand (kWh)                              |
+| EPBD        | European Energy Performance in Buildings Directive|
+| EPC         | energy performance certificates                  |
+| FEC         | final energy consumption (kWh)                   |
+| Fsh;gl      | shading factor                                   |
+| H           | heat transfer (W/m²·K)                           |
+| HVAC&R      | heating, ventilation, air conditioning and refrigeration |
+| Isol;k      | solar radiation value (W/m²)                     |
+| mn          | mean                                             |
+| ms          | coupling conductance                             |
+| NP          | nominal lighting power (W/m²)                    |
+| P           | equipment power (kW)                             |
+| PEC         | primary energy consumption (kWh)                 |
+| PECnr       | non-renewable primary energy consumption (kWh)   |
+| Q           | thermal gains or losses (kWh)                    |
+| QC,nd       | cooling energy demand (kWh)                      |
+| QH,nd       | heating energy demand (kWh)                      |
+| QHC,nd      | heating and cooling energy demand (kWh)          |
+| qve         | air flow (m³/s per hour)                         |
+| SHW         | sanitary hot water                               |
+| SRF         | shading reduction factor                         |
+| U           | thermal transmittance (W/m²·K)                   |
+| Ѳ           | temperature node (ºC)                            |
+| FHCnd       | heating and/or cooling needs                     |
+| F           | heat gains (W)                                   |
+| j           | linear thermal transmittance (W/m·K)             |
+
+---
+
+#### Subscripts
+
+| Subscript | Meaning                  |
+|-----------|--------------------------|
+| air       | indoor air               |
+| ap        | appliances               |
+| e         | external air             |
+| gl        | movable shading device   |
+| int       | internal                 |
+| li        | lighting                 |
+| m         | building thermal mass    |
+| ob        | external obstacles       |
+| oc        | occupancy                |
+| s         | surface                  |
+| sol       | solar                    |
+| sup       | supply air               |
+| tr        | transmission             |
+| ve        | ventilation              |

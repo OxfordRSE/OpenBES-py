@@ -1,7 +1,96 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
+from . import LIGHTING_CONTROL
 from .enums import LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, ENERGY_SOURCES
+
+
+@dataclass
+class OpenBESParameters:
+    """
+    Data class for OpenBES simulation parameters.
+    """
+    advanced_heat_capacity_am: Optional[float] = None
+    air_heat_capacity: Optional[float] = None
+    altitude: Optional[float] = None
+    appliance_on_off: Optional[bool] = True
+    cooling_load_factor: Optional[float] = None
+    cooling_system1_min_demand: Optional[float] = None
+    cooling_system2_energy_efficifiency_ratio: Optional[float] = None
+    cooling_system2_energy_source: Optional[float] = None
+    cooling_system2_min_demand: Optional[float] = None
+    cooling_system2_nominal_capacity: Optional[float] = None
+    cooling_system2_number: Optional[float] = None
+    cooling_system2_off_time: Optional[float] = None
+    cooling_system2_on_time: Optional[float] = None
+    cooling_system2_sensible_nominal_capacity: Optional[float] = None
+    cooling_system2_simultaneity_factor_canteen: Optional[float] = None
+    cooling_system2_simultaneity_factor_common: Optional[float] = None
+    cooling_system2_simultaneity_factor_office: Optional[float] = None
+    cooling_system2_simultaneity_factor_other: Optional[float] = None
+    cooling_system2_simultaneity_factor_teaching: Optional[float] = None
+    cooling_system2_type: Optional[float] = None
+    courtyard_length: Optional[float] = None
+    courtyard_number: Optional[float] = None
+    courtyard_width: Optional[float] = None
+    density_of_air: Optional[float] = None
+    facade_absorption_coefficient: Optional[float] = None
+    facade_correction_factor: Optional[float] = None
+    facade_emissivity: Optional[float] = None
+    floor_correction_factor: Optional[float] = None
+    heat_capacity_correction_factor: Optional[float] = None
+    heat_capacity_joule: Optional[float] = None
+    heating_load_factor: Optional[float] = None
+    heating_system1_min_demand: Optional[float] = None
+    heating_system2_efficiency_cop: Optional[float] = None
+    heating_system2_energy_source: Optional[float] = None
+    heating_system2_min_demand: Optional[float] = None
+    heating_system2_nominal_capacity: Optional[float] = None
+    heating_system2_number: Optional[float] = None
+    heating_system2_off_time: Optional[float] = None
+    heating_system2_on_time: Optional[float] = None
+    heating_system2_simultaneity_factor_canteen: Optional[float] = None
+    heating_system2_simultaneity_factor_common: Optional[float] = None
+    heating_system2_simultaneity_factor_office: Optional[float] = None
+    heating_system2_simultaneity_factor_other: Optional[float] = None
+    heating_system2_simultaneity_factor_teaching: Optional[float] = None
+    heating_system2_type: Optional[float] = None
+    infiltration_correction_factor: Optional[float] = None
+    leakage_air_flow_dependent: Optional[float] = None
+    lighting_on_off: Optional[bool] = True
+    # Fraction of gross building area that is inhabitable (i.e. minus walls, shafts, etc)
+    nia_gba_ratio: Optional[float] = 0.95
+    occupancy_close_common: Optional[float] = None
+    occupancy_close_other: Optional[float] = None
+    occupancy_on_off: Optional[bool] = True
+    occupancy_open_common: Optional[float] = None
+    occupancy_open_other: Optional[float] = None
+    open_courtyard_depth_a1: Optional[float] = None
+    open_courtyard_depth_b1: Optional[float] = None
+    open_courtyard_depth_c1: Optional[float] = None
+    open_courtyard_depth_d1: Optional[float] = None
+    open_courtyard_number_a1: Optional[float] = None
+    open_courtyard_number_b1: Optional[float] = None
+    open_courtyard_number_c1: Optional[float] = None
+    open_courtyard_number_d1: Optional[float] = None
+    pressure_of_air: Optional[float] = None
+    roof_absorption_coefficient: Optional[float] = None
+    roof_correction_factor: Optional[float] = None
+    roof_emissivity: Optional[float] = None
+    shading_correction_factor: Optional[float] = None
+    specific_heat_of_air: Optional[float] = None
+    temperature_tolerance: Optional[float] = None
+    ventilation_system2_airflow: Optional[float] = None
+    ventilation_system2_energy_source: Optional[float] = None
+    ventilation_system2_heat_recovery_efficiency: Optional[float] = None
+    ventilation_system2_off_time: Optional[float] = None
+    ventilation_system2_on_time: Optional[float] = None
+    ventilation_system2_rated_input_power: Optional[float] = None
+    ventilation_system2_type: Optional[float] = None
+    ventilation_system2_ventilated_area: Optional[float] = None
+    view_factor_to_sky_facade: Optional[float] = None
+    view_factor_to_sky_roof: Optional[float] = None
+    window_correction_factor: Optional[float] = None
 
 
 @dataclass
@@ -9,6 +98,7 @@ class OpenBESSpecification:
     """
     Data class for OpenBES spec parameters.
     """
+    parameters: Optional[OpenBESParameters] = field(default_factory=OpenBESParameters)
     appliances_load: Optional[float] = None
     biomass_annual: Optional[float] = None
     biomass_pellets_annual: Optional[float] = None
@@ -19,11 +109,16 @@ class OpenBESSpecification:
     building_standby_load: Optional[float] = None
     building_type: Optional[float] = None
     building_width: Optional[float] = None
-    condition_z1: Optional[float] = None
-    condition_z2: Optional[float] = None
-    condition_z3: Optional[float] = None
-    condition_z4: Optional[float] = None
-    condition_z5: Optional[float] = None
+    # Conditioned=True, Unconditioned=False
+    condition_z1: Optional[bool] = None
+    # Conditioned=True, Unconditioned=False
+    condition_z2: Optional[bool] = None
+    # Conditioned=True, Unconditioned=False
+    condition_z3: Optional[bool] = None
+    # Conditioned=True, Unconditioned=False
+    condition_z4: Optional[bool] = None
+    # Conditioned=True, Unconditioned=False
+    condition_z5: Optional[bool] = None
     cooling_system1_energy_efficifiency_ratio: Optional[float] = None
     cooling_system1_energy_source: Optional[float] = None
     cooling_system1_nominal_capacity: Optional[float] = None
@@ -98,7 +193,7 @@ class OpenBESSpecification:
     holiday: Optional[bool] = None
     leakage_air_flow: Optional[float] = None
     leakage_air_flow_independent: Optional[float] = None
-    lighting_control: Optional[float] = None
+    lighting_control: Optional[LIGHTING_CONTROL] = None
     lighting_off_time: Optional[float] = None
     lighting_on_time: Optional[float] = None
     lighting_simultaneity_factor: Optional[float] = None
@@ -267,90 +362,3 @@ class OpenBESSpecification:
     zone_name_z3: Optional[float] = None
     zone_name_z4: Optional[float] = None
     zone_name_z5: Optional[float] = None
-
-
-@dataclass
-class OpenBESParameters:
-    """
-    Data class for OpenBES simulation parameters.
-    """
-    advanced_heat_capacity_am: Optional[float] = None
-    air_heat_capacity: Optional[float] = None
-    altitude: Optional[float] = None
-    appliance_on_off: Optional[float] = None
-    cooling_load_factor: Optional[float] = None
-    cooling_system1_min_demand: Optional[float] = None
-    cooling_system2_energy_efficifiency_ratio: Optional[float] = None
-    cooling_system2_energy_source: Optional[float] = None
-    cooling_system2_min_demand: Optional[float] = None
-    cooling_system2_nominal_capacity: Optional[float] = None
-    cooling_system2_number: Optional[float] = None
-    cooling_system2_off_time: Optional[float] = None
-    cooling_system2_on_time: Optional[float] = None
-    cooling_system2_sensible_nominal_capacity: Optional[float] = None
-    cooling_system2_simultaneity_factor_canteen: Optional[float] = None
-    cooling_system2_simultaneity_factor_common: Optional[float] = None
-    cooling_system2_simultaneity_factor_office: Optional[float] = None
-    cooling_system2_simultaneity_factor_other: Optional[float] = None
-    cooling_system2_simultaneity_factor_teaching: Optional[float] = None
-    cooling_system2_type: Optional[float] = None
-    courtyard_length: Optional[float] = None
-    courtyard_number: Optional[float] = None
-    courtyard_width: Optional[float] = None
-    density_of_air: Optional[float] = None
-    facade_absorption_coefficient: Optional[float] = None
-    facade_correction_factor: Optional[float] = None
-    facade_emissivity: Optional[float] = None
-    floor_correction_factor: Optional[float] = None
-    heat_capacity_correction_factor: Optional[float] = None
-    heat_capacity_joule: Optional[float] = None
-    heating_load_factor: Optional[float] = None
-    heating_system1_min_demand: Optional[float] = None
-    heating_system2_efficiency_cop: Optional[float] = None
-    heating_system2_energy_source: Optional[float] = None
-    heating_system2_min_demand: Optional[float] = None
-    heating_system2_nominal_capacity: Optional[float] = None
-    heating_system2_number: Optional[float] = None
-    heating_system2_off_time: Optional[float] = None
-    heating_system2_on_time: Optional[float] = None
-    heating_system2_simultaneity_factor_canteen: Optional[float] = None
-    heating_system2_simultaneity_factor_common: Optional[float] = None
-    heating_system2_simultaneity_factor_office: Optional[float] = None
-    heating_system2_simultaneity_factor_other: Optional[float] = None
-    heating_system2_simultaneity_factor_teaching: Optional[float] = None
-    heating_system2_type: Optional[float] = None
-    infiltration_correction_factor: Optional[float] = None
-    leakage_air_flow_dependent: Optional[float] = None
-    lighting_on_off: Optional[float] = None
-    nia_gba_ratio: Optional[float] = None
-    occupancy_close_common: Optional[float] = None
-    occupancy_close_other: Optional[float] = None
-    occupancy_on_off: Optional[float] = None
-    occupancy_open_common: Optional[float] = None
-    occupancy_open_other: Optional[float] = None
-    open_courtyard_depth_a1: Optional[float] = None
-    open_courtyard_depth_b1: Optional[float] = None
-    open_courtyard_depth_c1: Optional[float] = None
-    open_courtyard_depth_d1: Optional[float] = None
-    open_courtyard_number_a1: Optional[float] = None
-    open_courtyard_number_b1: Optional[float] = None
-    open_courtyard_number_c1: Optional[float] = None
-    open_courtyard_number_d1: Optional[float] = None
-    pressure_of_air: Optional[float] = None
-    roof_absorption_coefficient: Optional[float] = None
-    roof_correction_factor: Optional[float] = None
-    roof_emissivity: Optional[float] = None
-    shading_correction_factor: Optional[float] = None
-    specific_heat_of_air: Optional[float] = None
-    temperature_tolerance: Optional[float] = None
-    ventilation_system2_airflow: Optional[float] = None
-    ventilation_system2_energy_source: Optional[float] = None
-    ventilation_system2_heat_recovery_efficiency: Optional[float] = None
-    ventilation_system2_off_time: Optional[float] = None
-    ventilation_system2_on_time: Optional[float] = None
-    ventilation_system2_rated_input_power: Optional[float] = None
-    ventilation_system2_type: Optional[float] = None
-    ventilation_system2_ventilated_area: Optional[float] = None
-    view_factor_to_sky_facade: Optional[float] = None
-    view_factor_to_sky_roof: Optional[float] = None
-    window_correction_factor: Optional[float] = None

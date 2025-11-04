@@ -1,6 +1,7 @@
-from src.openbes.types import OpenBESSpecification
+from src.openbes.types import OpenBESSpecification, OpenBESParameters, LIGHTING_CONTROL
 
 HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
+    parameters=OpenBESParameters(),
     appliances_load=None,
     biomass_annual=None,
     biomass_pellets_annual=None,
@@ -11,11 +12,11 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     building_standby_load=None,
     building_type=None,
     building_width=None,
-    condition_z1=None,
-    condition_z2=None,
-    condition_z3=None,
-    condition_z4=None,
-    condition_z5=None,
+    condition_z1=True,
+    condition_z2=True,
+    condition_z3=True,
+    condition_z4=True,
+    condition_z5=False,
     cooling_system1_energy_efficifiency_ratio=None,
     cooling_system1_energy_source=None,
     cooling_system1_nominal_capacity=None,
@@ -90,10 +91,10 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     holiday=True,
     leakage_air_flow=None,
     leakage_air_flow_independent=None,
-    lighting_control=None,
+    lighting_control=LIGHTING_CONTROL.Manual,
     lighting_off_time=None,
     lighting_on_time=None,
-    lighting_simultaneity_factor=None,
+    lighting_simultaneity_factor=0.2,
     lighting_system_ballast_z1=None,
     lighting_system_ballast_z2=None,
     lighting_system_ballast_z3=None,

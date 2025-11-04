@@ -1,8 +1,16 @@
 import unittest
-from pandas import DataFrame
-from src.openbes.types import MONTHS, OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS
-from src.openbes.simulations.lighting import get_w_per_luminaire
+from pandas import DataFrame, read_csv
+
+from src.openbes.simulations.occupancy import HOURS_DF
+from src.openbes.types import MONTHS, OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, OpenBESParameters
+from src.openbes.simulations.lighting import (
+    get_w_per_luminaire,
+    get_lighting_ratio,
+    get_parasitic_heat,
+    get_lighting_heat,
+)
 from tests.test_holywell_house import DECIMAL_PLACES
+from tests.utils import HOLYWELL_HOUSE_SPEC
 
 
 class LightingWattPerLuminaire(unittest.TestCase):
@@ -232,6 +240,34 @@ class LightingPipeline(unittest.TestCase):
             columns=MONTHS.list()
         )
         self.assertTrue(expected.equals(output), expected.compare(output))
+
+    def test_lighting_ratio(self):
+        expected = read_csv('fixtures/hh_lighting_ratio.csv')
+        expected.index = HOURS_DF.index
+        calculated = get_lighting_ratio(HOLYWELL_HOUSE_SPEC)
+        self.assertTrue(expected.equals(calculated), "EXPECTED FAILURE while Spreadsheet begins months on Monday")# expected.compare(calculated))
+
+    def test_parasitic_heat(self):
+        with self.subTest(lighting='on'):
+            expected = round(0.684931507, DECIMAL_PLACES)
+            computed = round(get_parasitic_heat(HOLYWELL_HOUSE_SPEC), DECIMAL_PLACES)
+            self.assertEqual(expected, computed)
+        with self.subTest(lighting='off'):
+            self.assertEqual(
+                0.0,
+                get_parasitic_heat(OpenBESSpecification(parameters=OpenBESParameters(lighting_on_off=False)))
+            )
+
+    def test_lighting_heat(self):
+        with self.subTest(lighting='on'):
+            expected = round(17.6184817, DECIMAL_PLACES)
+            computed = round(get_lighting_heat(HOLYWELL_HOUSE_SPEC), DECIMAL_PLACES)
+            self.assertEqual(expected, computed)
+        with self.subTest(lighting='off'):
+            self.assertEqual(
+                0.0,
+                get_lighting_heat(OpenBESSpecification(parameters=OpenBESParameters(lighting_on_off=False)))
+            )
 
 if __name__ == '__main__':
     unittest.main()

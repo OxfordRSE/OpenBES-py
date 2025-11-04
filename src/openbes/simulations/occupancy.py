@@ -4,10 +4,17 @@ Helper functions to simulate occupancy patterns in buildings.
 import logging
 
 from pandas import DataFrame
-from ..types import DAYS, OpenBESSpecification, OCCUPATION_ZONES, FLOORS, get_zone_number
+from ..types import (
+    DAYS,
+    OpenBESSpecification,
+    OCCUPATION_ZONES,
+    FLOORS,
+    get_zone_number,
+)
 
 logger = logging.getLogger(__name__)
 
+# Occupation m2 per person for different zones (CTE DB-SI Table 2.1, Database cells R42:S46)
 M2_PER_PERSON = DataFrame([
     {"zone": OCCUPATION_ZONES.Office, "m2_per_person": 5},
     {"zone": OCCUPATION_ZONES.Teaching, "m2_per_person": 1.5},
@@ -182,6 +189,7 @@ def get_occupation_ratio(spec: OpenBESSpecification) -> float:
     
 def get_occupancy_by_hour(spec: OpenBESSpecification) -> DataFrame:
     """Generate an occupancy schedule by hour for the entire year.
+    [Hourly Simulation column KF]
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:
@@ -195,7 +203,7 @@ def get_occupancy_by_hour(spec: OpenBESSpecification) -> DataFrame:
     close_time = max(ct for ct in close_times if ct is not None)
 
     df = HOURS_DF.copy()
-    df['occupancy_status'] = False
+    df['is_occupied'] = False
     df['occupancy_ratio'] = 0.0
     # Get a mask for occupied hours in occupied days in occupied months that aren't public holidays
     index_df = df.index.to_frame()
@@ -203,6 +211,64 @@ def get_occupancy_by_hour(spec: OpenBESSpecification) -> DataFrame:
     day_mask = index_df['day'].apply(lambda d: is_occupied_day(d, spec))
     hour_mask = (index_df['hour'] >= open_time) & (index_df['hour'] <= close_time)
     mask = month_mask & day_mask & hour_mask
-    df.loc[mask, 'occupancy_status'] = True
+    df.loc[mask, 'is_occupied'] = True
     df.loc[mask, 'occupancy_ratio'] = get_occupation_ratio(spec)
     return df
+
+def get_occupation_m2_per_person(spec: OpenBESSpecification) -> float:
+    """Calculate the occupation area per person based on building specifications.
+    m2/person [Inputs C139]
+
+    The occupation m2/person is calculated as the building area for zones in which people typically inhabit
+    (office and teaching) divided by the typical occupation (number of people).
+
+    People are assumed to inhabit only office and teaching zones, because when they are in canteen zones,
+    common zones, etc. they are still generating their metabolic heat load, just in a different location.
+    Because locations are amalgamated in OpenBES, we can ignore _where_ people are, and just focus on
+    how many people there are in total, and what area is available to them.
+
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        float: The occupation area per person in m2/person.
+    """
+    occupied_zone_areas = (
+            get_zone_total_area(spec=spec, zone=OCCUPATION_ZONES.Office) +
+            get_zone_total_area(spec=spec, zone=OCCUPATION_ZONES.Teaching)
+    ) * spec.parameters.nia_gba_ratio  # scale by net inhabitable area ratio
+    office_population = get_zone_total_area(spec=spec, zone=OCCUPATION_ZONES.Office) / \
+                        M2_PER_PERSON.loc[OCCUPATION_ZONES.Office, "m2_per_person"]
+    teaching_population = get_zone_total_area(spec=spec, zone=OCCUPATION_ZONES.Teaching) / \
+                          M2_PER_PERSON.loc[OCCUPATION_ZONES.Teaching, "m2_per_person"]
+    simultaneity_factor = 0.75  # [Inputs cell F137]
+    simultaneity_adjusted_population = (office_population + teaching_population) * simultaneity_factor
+    return occupied_zone_areas / simultaneity_adjusted_population
+
+
+def get_metabolic_rate_per_m2(spec: OpenBESSpecification) -> float:
+    """Calculate the metabolic rate per square meter based on building specifications.
+    [Inputs cell C140, Database R32: Table G.10 ISO 13790]
+
+    The more space each person has (m2/person), the lower the metabolic rate per square meter (W/m2).
+    ISO 13790 provides typical values for metabolic rates based on occupation density.
+
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        float: The metabolic rate per square meter in W/m2.
+    """
+    if spec.parameters.occupancy_on_off is not None and not spec.parameters.occupancy_on_off:
+        return 0.0
+    occupation_density = get_occupation_m2_per_person(spec=spec)
+    occupation_density_thresholds = [
+        {'threshold_m2_per_person': 1, 'metabolic_rate_W_per_m2': 15.0},
+        {'threshold_m2_per_person': 2, 'metabolic_rate_W_per_m2': 10.0},
+        {'threshold_m2_per_person': 5.5, 'metabolic_rate_W_per_m2': 5.0},
+        {'threshold_m2_per_person': 14, 'metabolic_rate_W_per_m2': 3.0},
+        {'threshold_m2_per_person': 20, 'metabolic_rate_W_per_m2': 2.0},
+    ]
+    for i in range(len(occupation_density_thresholds)):
+        if occupation_density < occupation_density_thresholds[i]['threshold_m2_per_person']:
+            return occupation_density_thresholds[i]['metabolic_rate_W_per_m2']
+    logger.warning("Occupation density lower than 0.05 person/m2. Using minimum metabolic rate of 2 W/m2.")
+    return 2.0

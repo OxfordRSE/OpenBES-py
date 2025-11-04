@@ -1,5 +1,12 @@
+import logging
+from pandas import DataFrame
+
+from .geometry import get_conditioned_floor_area
+from .lighting import get_lighting_ratio, get_lighting_heat, get_parasitic_heat
+from .occupancy import get_occupancy_by_hour, get_metabolic_rate_per_m2
 from ..types import OpenBESSpecification
 
+logger = logging.getLogger(__name__)
 
 def get_heat_transmission_by_ventilation(spec: OpenBESSpecification) -> float:
     """Calculate the heat transmission by ventilation based on building specifications.
@@ -17,10 +24,10 @@ def get_heat_transmission_by_ventilation(spec: OpenBESSpecification) -> float:
     air_density = 1.2110  # kg/m3
     specific_heat_capacity_air = 1.0150  # kJ/kgK
     heat_capacity_air = air_density * specific_heat_capacity_air / 3.6  # W/m3K
-    qv_total = qv_fresh_inf \
-               + qv_fresh_total + \
-               qv_mechanical_1 + \
-               qv_mechanical_2
+    # qv_total = qv_fresh_inf \
+    #            + qv_fresh_total + \
+    #            qv_mechanical_1 + \
+    #            qv_mechanical_2
     # qv_total is in m3/h
     raise NotImplementedError
 
@@ -57,85 +64,115 @@ def get_heat_transmission_by_infiltration(spec: OpenBESSpecification) -> float:
     """
     raise NotImplementedError
 
-
-def get_internal_heat_from_occupants(spec: OpenBESSpecification) -> float:
+def get_internal_heat_from_occupants(spec: OpenBESSpecification) -> DataFrame:
     """Calculate the internal heat gains from occupants based on building specifications.
     ϕint,oc [Hourly Simulation column KI]
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:
-        float: The internal heat gains from occupants in W/m2.
+        DataFrame: Hourly internal heat gains from occupants in W/m2.
     """
-    return occupation_fraction * metabolic_rate_pp
-    raise NotImplementedError
+    df = get_occupancy_by_hour(spec)
+    df['internal_heat_from_occupants'] = df['occupancy_ratio'] * get_metabolic_rate_per_m2(spec)
+    return df[['internal_heat_from_occupants']]
 
 
-def get_internal_heat_from_appliances(spec: OpenBESSpecification) -> float:
+def get_internal_heat_from_appliances(spec: OpenBESSpecification) -> DataFrame:
     """Calculate the internal heat gains from appliances based on building specifications.
     ϕint,ap [Hourly Simulation column KJ]
+
+    Appliance heat generation is modelled as a constant value per m2, scaled by occupation ratio.
+
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:
-        float: The internal heat gains from appliances in W/m2.
+        DataFrame: Hourly internal heat gains from appliances in W/m2.
     """
-    raise NotImplementedError
+    # Constant, Inputs cell C144, Table G.11 ISO 13790
+    appliance_W_per_m2 = 1.0
+    df = get_occupancy_by_hour(spec)
+    df['internal_heat_from_appliances'] = df['occupancy_ratio'] * appliance_W_per_m2
+    return df[['internal_heat_from_appliances']]
 
 
-def get_internal_heat_from_lighting(spec: OpenBESSpecification) -> float:
+def get_internal_heat_from_lighting(spec: OpenBESSpecification) -> DataFrame:
     """Calculate the internal heat gains from lighting based on building specifications.
-    ϕint,l [Hourly Simulation column KK]
+    ϕint,l [Hourly Simulation column KK, KQ]
+
+    Lighting heat generation is modelled using a constant standby (parasitic) output (Wpc) and
+    an occupancy-scaled output (Wli).
+
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:
-        float: The internal heat gains from lighting in W/m2.
+        DataFrame: Hourly internal heat gains from lighting in W/m2.
     """
-    raise NotImplementedError
+    df = get_lighting_ratio(spec=spec)
+    df['internal_heat_from_lighting'] = (
+        (df['lighting_ratio'] * get_lighting_heat(spec=spec)) + get_parasitic_heat(spec=spec)
+    )
+    return df[['internal_heat_from_lighting']]
 
-
-def get_solar_heat_window(spec: OpenBESSpecification) -> float:
-    """Calculate the solar heat gains through windows based on building specifications.
-    ϕsol,w
-    Args:
-        spec (OpenBESSpecification): The building specifications spec data class.
-    Returns:
-        float: The solar heat gains through windows in W/m2.
-    """
-    raise NotImplementedError
-
-
-def get_solar_heat_opaque(spec: OpenBESSpecification) -> float:
-    """Calculate the solar heat gains through opaque surfaces based on building specifications.
-    ϕsol,op
-    Args:
-        spec (OpenBESSpecification): The building specifications spec data class.
-    Returns:
-        float: The solar heat gains through opaque surfaces in W/m2.
-    """
-    raise NotImplementedError
-
-
-def get_solar_heat(spec: OpenBESSpecification) -> float:
-    """Calculate the solar heat gains based on building specifications.
-    ϕsol [Hourly Simulation column AJ]
-    Args:
-        spec (OpenBESSpecification): The building specifications spec data class.
-    Returns:
-        float: The solar heat gains in W/m2.
-    """
-    raise NotImplementedError
-
-
-def get_internal_heat(spec: OpenBESSpecification) -> float:
+def get_internal_heat(spec: OpenBESSpecification) -> DataFrame:
     """Calculate the internal heat gains based on building specifications.
     ϕint [Hourly Simulation column AI; KL]
+
+    Internal heat gains are the sum of internal heat gains from occupants, appliances, and lighting.
+
     Args:
         spec (OpenBESSpecification): The building specifications spec data class.
     Returns:
-        float: The internal heat gains in W/m2.
+        DataFrame: The internal heat gains in W/m2.
     """
-    return get_internal_heat_from_occupants(spec) + \
-              get_internal_heat_from_appliances(spec) + \
-              get_internal_heat_from_lighting(spec)
+    df = get_internal_heat_from_lighting(spec=spec).join(
+        get_internal_heat_from_occupants(spec=spec)
+    ).join(
+        get_internal_heat_from_appliances(spec=spec)
+    )
+    df['internal_heat'] = (
+            df['internal_heat_from_occupants'] +
+            df['internal_heat_from_appliances'] +
+            df['internal_heat_from_lighting']
+    )
+    return df[['internal_heat']]
+
+
+def get_solar_heat_window(spec: OpenBESSpecification) -> DataFrame:
+    """Calculate the solar heat gains through windows based on building specifications.
+    ϕsol,w [Hourly Simulation column LF]
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: Hourly solar heat gains through windows in W/m2.
+    """
+    raise NotImplementedError
+
+
+def get_solar_heat_opaque(spec: OpenBESSpecification) -> DataFrame:
+    """Calculate the solar heat gains through opaque surfaces based on building specifications.
+    ϕsol,op [Hourly Simulation column LR]
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: Hourly solar heat gains through opaque surfaces in W/m2.
+    """
+    raise NotImplementedError
+
+
+def get_solar_heat(spec: OpenBESSpecification) -> DataFrame:
+    """Calculate the solar heat gains based on building specifications.
+    ϕsol [Hourly Simulation column AJ, KM]
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: Hourly solar heat gains in W/m2.
+    """
+    conditioned_floor_area = get_conditioned_floor_area(spec=spec)
+    df = get_solar_heat_window(spec=spec).join(
+        get_solar_heat_opaque(spec=spec)
+    )
+    df['solar_heat'] = (df['solar_heat_window'] + df['solar_heat_opaque']) / conditioned_floor_area
+    return df[['solar_heat']]
 
 def get_temp_change_demand(spec: OpenBESSpecification) -> float:
     """Calculate the temperature change demand based on building specifications.

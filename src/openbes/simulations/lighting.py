@@ -2,8 +2,9 @@ from pandas import DataFrame, read_csv
 from os import path
 import logging
 
+from .occupancy import get_occupancy_by_hour
 from .utils import OPERATIONAL_DAYS_DF
-from ..types import OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS
+from ..types import OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, LIGHTING_CONTROL
 
 logger = logging.getLogger(__name__)
 
@@ -117,4 +118,59 @@ def get_kwh_per_month(spec: OpenBESSpecification) -> DataFrame:
     per_month.index = ["kWh/month"]
     return per_month
 
+def get_lighting_ratio(spec: OpenBESSpecification) -> DataFrame:
+    """Calculate the lighting ratio based on building specifications.
+    [Hourly Simulation column KG]
 
+    Lighting ratio is the lighting simultaneity factor for occupied hours.
+
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: Hourly lighting ratio.
+    """
+    df = get_occupancy_by_hour(spec=spec)
+    df['lighting_ratio'] = df['is_occupied'] * spec.lighting_simultaneity_factor
+    return df[['lighting_ratio']]
+
+def get_parasitic_heat(spec: OpenBESSpecification) -> float:
+    """Calculate the parasitic heat from lighting based on building specifications.
+    W,pc [Hourly Simulation column KP] 
+
+    Parasitic heat from lighting is modelled using EN 15193 Annex F which gives typical yearly values
+    for school buildings.
+
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        float: Parasitic heat from lighting in W/m2.
+    """
+    if spec.parameters.lighting_on_off is not None and not spec.parameters.lighting_on_off:
+        return 0.0
+    # (emergency_kWh_per_m2_year + standby_kWh_per_m2_year) / hours_per_year * 1000 kW_per_W
+    return (1 + 5) / 8760 * 1000
+
+def get_lighting_heat(spec: OpenBESSpecification) -> float:
+    """Calculate the lighting heat gains based on building specifications.
+    [Inputs cell C147]
+
+    Heat from lighting is modelled using EN 15193 Annex F which gives typical yearly values
+    for school buildings.
+
+    The model accounts for differences in automatic and manual lighting controls.
+
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        float: The lighting heat output in W/m2.
+    """
+    if spec.parameters.lighting_on_off is not None and not spec.parameters.lighting_on_off:
+        return 0.0
+    FC = 1.0  # correction factor for building type (schools)
+    kWh_per_year_m2 = 20.0
+    tD = 1800.0  # daylight usage hours
+    tN = 200.0  # night usage hours
+    FD = 1.0 if spec.lighting_control == LIGHTING_CONTROL.Manual else 0.9  # daylight control factor
+    F0 = 1.0 if spec.lighting_control == LIGHTING_CONTROL.Manual else 0.9  # general control factor
+    return (FC * kWh_per_year_m2 / 1000 * ((tD * FD * F0) + (tN * F0))) * (5 / 8760 * (8760 - (tD + tN))) * 1000 / 8760
+    
