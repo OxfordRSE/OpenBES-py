@@ -9,6 +9,26 @@ class ListableEnum(Enum):
     def get_by_index(cls, index):
         return cls(cls.list_values()[index])
 
+    def __lt__(self, other):
+        if type(other) is not type(self):
+            return NotImplemented
+        return list(type(self)).index(self) < list(type(self)).index(other)
+
+    def __gt__(self, other):
+        if type(other) is not type(self):
+            return NotImplemented
+        return list(type(self)).index(self) > list(type(other)).index(other)
+
+    def __le__(self, other):
+        if type(other) is not type(self):
+            return NotImplemented
+        return list(type(self)).index(self) <= list(type(other)).index(other)
+
+    def __ge__(self, other):
+        if type(other) is not type(self):
+            return NotImplemented
+        return list(type(self)).index(self) >= list(type(other)).index(other)
+
 
 class MONTHS(ListableEnum):
     Jan = "Jan"
