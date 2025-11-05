@@ -118,9 +118,31 @@ def get_kwh_per_month(spec: OpenBESSpecification) -> DataFrame:
     per_month.index = ["kWh/month"]
     return per_month
 
+def get_lights_on(spec: OpenBESSpecification) -> DataFrame:
+    """Determine if lights are on based on building specifications.
+    [Hourly Simulation column KJ]
+
+    Lights are considered to be on during occupied hours between the specified on and off times.
+
+    Args:
+        spec (OpenBESSpecification): The building specifications spec data class.
+    Returns:
+        DataFrame: Hourly lights on status (1 if lights are on, 0 otherwise).
+    """
+    df = get_occupancy_by_hour(spec=spec)
+    df['lights_on'] = False
+    on_time = spec.lighting_on_time
+    off_time = spec.lighting_off_time
+    if on_time is not None and off_time is not None:
+        i = df.index.names.index('hour')
+        df['lights_on'] = df.apply(
+            lambda r: r['is_occupied'] and (on_time < r.name[i] <= off_time), axis=1
+        )
+    return df[['lights_on']]
+
 def get_lighting_ratio(spec: OpenBESSpecification) -> DataFrame:
     """Calculate the lighting ratio based on building specifications.
-    [Hourly Simulation column KG]
+    [Hourly Simulation column KI]
 
     Lighting ratio is the lighting simultaneity factor for occupied hours.
 
@@ -129,13 +151,13 @@ def get_lighting_ratio(spec: OpenBESSpecification) -> DataFrame:
     Returns:
         DataFrame: Hourly lighting ratio.
     """
-    df = get_occupancy_by_hour(spec=spec)
-    df['lighting_ratio'] = df['is_occupied'] * spec.lighting_simultaneity_factor
+    df = get_occupancy_by_hour(spec=spec).join(get_lights_on(spec=spec))
+    df['lighting_ratio'] = df['is_occupied'] * df['lights_on'] * spec.lighting_simultaneity_factor
     return df[['lighting_ratio']]
 
 def get_parasitic_heat(spec: OpenBESSpecification) -> float:
     """Calculate the parasitic heat from lighting based on building specifications.
-    W,pc [Hourly Simulation column KP] 
+    W,pc [Hourly Simulation column KR]
 
     Parasitic heat from lighting is modelled using EN 15193 Annex F which gives typical yearly values
     for school buildings.

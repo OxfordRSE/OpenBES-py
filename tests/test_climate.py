@@ -9,7 +9,7 @@ from src.openbes.simulations.climate import (
     get_wet_bulb_temperature,
     get_internal_surface_temp,
 )
-from src.openbes.simulations.occupancy import HOURS_DF
+from src.openbes.simulations.base import HOURS_DF
 from src.openbes.types import OpenBESParameters
 from tests.test_holywell_house import DECIMAL_PLACES
 from tests.utils import HOLYWELL_HOUSE_SPEC

@@ -8,7 +8,8 @@ from .climate import (
 )
 from .geometry import get_conditioned_floor_area
 from .lighting import get_lighting_ratio, get_lighting_heat, get_parasitic_heat
-from .occupancy import get_occupancy_by_hour, get_metabolic_rate_per_m2, HOURS_DF
+from .occupancy import get_occupancy_by_hour, get_metabolic_rate_per_m2
+from .base import HOURS_DF
 from ..types import OpenBESSpecification
 
 logger = logging.getLogger(__name__)

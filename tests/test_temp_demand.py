@@ -8,9 +8,7 @@ from src.openbes.simulations.temp_demand import (
     get_internal_heat,
     get_air_free_temp_0m,
 )
-from src.openbes.simulations.occupancy import (
-    HOURS_DF,
-)
+from src.openbes.simulations.base import HOURS_DF
 from tests.test_holywell_house import DECIMAL_PLACES
 from tests.utils import HOLYWELL_HOUSE_SPEC
 
@@ -23,25 +21,25 @@ class TemperatureDemand(unittest.TestCase):
         expected = read_csv('fixtures/hh_internal_heat_occupants.csv')
         expected.index = HOURS_DF.index
         calculated = get_internal_heat_from_occupants(self.spec)
-        self.assertTrue(expected.equals(calculated), "EXPECTED FAILURE while Spreadsheet months start with Monday")# expected.compare(calculated))
+        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
     def test_internal_heat_appliances(self):
         expected = read_csv('fixtures/hh_internal_heat_appliances.csv')
         expected.index = HOURS_DF.index
         calculated = get_internal_heat_from_appliances(self.spec)
-        self.assertTrue(expected.equals(calculated), "EXPECTED FAILURE while Spreadsheet months start with Monday")# expected.compare(calculated))
+        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
     def test_internal_heat_lighting(self):
         expected = read_csv('fixtures/hh_internal_heat_lighting.csv')
         expected.index = HOURS_DF.index
         calculated = get_internal_heat_from_lighting(self.spec)
-        self.assertTrue(expected.equals(calculated), "EXPECTED FAILURE while Spreadsheet months start with Monday") # expected.compare(calculated))
+        self.assertTrue(expected.equals(calculated),  expected.compare(calculated))
 
     def test_internal_heat(self):
         expected = read_csv('fixtures/hh_internal_heat.csv')
         expected.index = HOURS_DF.index
         calculated = get_internal_heat(self.spec)
-        self.assertTrue(expected.equals(calculated), "EXPECTED FAILURE while Spreadsheet months start with Monday") # expected.compare(calculated))
+        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
     def test_air_free_temp_0m(self):
         df = get_air_free_temp_0m(self.spec)

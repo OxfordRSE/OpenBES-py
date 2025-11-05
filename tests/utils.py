@@ -1,5 +1,12 @@
 from src.openbes.types import OpenBESSpecification, OpenBESParameters, LIGHTING_CONTROL
 
+def read_csv(relative_path: str):
+    import os
+    import pandas as pd
+    base_path = os.path.dirname(__file__)
+    full_path = os.path.join(base_path, relative_path)
+    return pd.read_csv(full_path)
+
 HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     parameters=OpenBESParameters(),
     appliances_load=None,
@@ -92,8 +99,8 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     leakage_air_flow=None,
     leakage_air_flow_independent=None,
     lighting_control=LIGHTING_CONTROL.Manual,
-    lighting_off_time=None,
-    lighting_on_time=None,
+    lighting_off_time=17,
+    lighting_on_time=9,
     lighting_simultaneity_factor=0.2,
     lighting_system_ballast_z1=None,
     lighting_system_ballast_z2=None,

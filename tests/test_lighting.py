@@ -1,7 +1,7 @@
 import unittest
-from pandas import DataFrame, read_csv
+from pandas import DataFrame
 
-from src.openbes.simulations.occupancy import HOURS_DF
+from src.openbes.simulations.base import HOURS_DF
 from src.openbes.types import MONTHS, OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, OpenBESParameters
 from src.openbes.simulations.lighting import (
     get_w_per_luminaire,
@@ -10,7 +10,7 @@ from src.openbes.simulations.lighting import (
     get_lighting_heat,
 )
 from tests.test_holywell_house import DECIMAL_PLACES
-from tests.utils import HOLYWELL_HOUSE_SPEC
+from tests.utils import HOLYWELL_HOUSE_SPEC, read_csv
 
 
 class LightingWattPerLuminaire(unittest.TestCase):
@@ -245,7 +245,7 @@ class LightingPipeline(unittest.TestCase):
         expected = read_csv('fixtures/hh_lighting_ratio.csv')
         expected.index = HOURS_DF.index
         calculated = get_lighting_ratio(HOLYWELL_HOUSE_SPEC)
-        self.assertTrue(expected.equals(calculated), "EXPECTED FAILURE while Spreadsheet begins months on Monday")# expected.compare(calculated))
+        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
     def test_parasitic_heat(self):
         with self.subTest(lighting='on'):
