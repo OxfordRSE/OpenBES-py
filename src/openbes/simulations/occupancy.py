@@ -55,8 +55,9 @@ class OccupationSimulation(HourlySimulation):
     _occupation_m2_per_person: float
     _metabolic_rate_per_m2: float
 
-    def __init__(self, spec: OpenBESSpecification):
+    def __init__(self, spec: OpenBESSpecification, geometry: BuildingGeometry = None):
         super().__init__(spec)
+        self.geometry = geometry or BuildingGeometry(spec=self.spec)
 
     def is_occupied_month(self, month: int) -> bool:
         """Determine if a given month is an occupied month.
@@ -154,13 +155,12 @@ class OccupationSimulation(HourlySimulation):
             self._occupation_ratio = current_occupation / sum(zonal_occupation_capacity)
         return self._occupation_ratio
 
-
-    def get_occupancy_by_hour(self) -> DataFrame:
+    @property
+    def occupancy(self) -> DataFrame:
         """Generate an occupancy schedule by hour for the entire year.
         [Hourly Simulation column KH]
 
-        Returns:
-            DataFrame: HOURS_DF with occupancy status (occupied = True) and ratio (0.0-1.0) for each hour of the year.
+        DataFrame: with is_occupied and occupancy_ratio (0.0-1.0) for each hour of the year.
         """
         if 'is_occupied' not in self._hours.columns or 'occupancy_ratio' not in self._hours.columns:
             open_times = [self.spec.occupancy_open_office, self.spec.occupancy_open_canteen, self.spec.occupancy_open_teaching]
@@ -247,6 +247,7 @@ class OccupationSimulation(HourlySimulation):
                 for i in range(len(occupation_density_thresholds)):
                     if occupation_density < occupation_density_thresholds[i]['threshold_m2_per_person']:
                         self._metabolic_rate_per_m2 = occupation_density_thresholds[i]['metabolic_rate_W_per_m2']
+                        break
             if self._metabolic_rate_per_m2 is None:
                 logger.warning("Occupation density lower than 0.05 person/m2. Using minimum metabolic rate of 2 W/m2.")
                 self._metabolic_rate_per_m2 = 2.0

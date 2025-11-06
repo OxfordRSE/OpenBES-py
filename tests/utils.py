@@ -1,14 +1,17 @@
+import pandas as pd
+import os
 from src.openbes.types import OpenBESSpecification, OpenBESParameters, LIGHTING_CONTROL
 
-def read_csv(relative_path: str):
-    import os
-    import pandas as pd
+
+def read_single_col_csv_to_series(relative_path: str) -> pd.Series:
     base_path = os.path.dirname(__file__)
     full_path = os.path.join(base_path, relative_path)
-    return pd.read_csv(full_path)
+    return pd.read_csv(full_path).squeeze()
 
 HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
-    parameters=OpenBESParameters(),
+    parameters=OpenBESParameters(
+        temperature_tolerance=0
+    ),
     appliances_load=None,
     biomass_annual=None,
     biomass_pellets_annual=None,
@@ -218,7 +221,7 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     uvalue_facade=None,
     uvalue_floor=None,
     uvalue_roof=None,
-    uvalue_window=None,
+    uvalue_window=2.5,
     ventilation_system1_airflow=None,
     ventilation_system1_energy_source=None,
     ventilation_system1_heat_recovery_efficiency=None,

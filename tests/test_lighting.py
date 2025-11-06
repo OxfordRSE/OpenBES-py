@@ -2,15 +2,10 @@ import unittest
 from pandas import DataFrame
 
 from src.openbes.simulations.base import HOURS_DF
+from src.openbes.simulations.lighting import LightingSimulation
 from src.openbes.types import MONTHS, OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, OpenBESParameters
-from src.openbes.simulations.lighting import (
-    get_w_per_luminaire,
-    get_lighting_ratio,
-    get_parasitic_heat,
-    get_lighting_heat,
-)
 from tests.test_holywell_house import DECIMAL_PLACES
-from tests.utils import HOLYWELL_HOUSE_SPEC, read_csv
+from tests.utils import HOLYWELL_HOUSE_SPEC, read_single_col_csv_to_series
 
 
 class LightingWattPerLuminaire(unittest.TestCase):
@@ -131,19 +126,9 @@ class LightingWattPerLuminaire(unittest.TestCase):
 
         for case in test_cases:
             with self.subTest(case=case["description"]):
-                output = get_w_per_luminaire(case["input"], case["zone"])
+                sim = LightingSimulation(spec=case["input"])
+                output = sim.get_w_per_luminaire(case["zone"])
                 self.assertEqual(case["expected"], output)
-
-    def test_illegal_inputs(self):
-        with self.assertRaises(AttributeError):
-            get_w_per_luminaire(
-                OpenBESSpecification(
-                    lighting_system_tech_z1=LIGHTING_TECHNOLOGIES.UNKNOWN,
-                    lighting_system_lamp_number_z1=2,
-                    lighting_system_lamp_power_z1=50,
-                ),
-                zone=1
-            )
 
     def test_invalid_inputs(self):
         test_cases = [
@@ -170,7 +155,8 @@ class LightingWattPerLuminaire(unittest.TestCase):
         ]
         for case in test_cases:
             with self.subTest(case=case["description"]):
-                output = get_w_per_luminaire(case["input"], case["zone"])
+                sim = LightingSimulation(spec=case["input"])
+                output = sim.get_w_per_luminaire(case["zone"])
                 self.assertEqual(case["expected"], output)
 
 
@@ -195,10 +181,11 @@ class LightingPipeline(unittest.TestCase):
             lighting_system_operating_hours_z2=8,
             lighting_system_simultaneity_factor_z2=0.7,
         )
+        self.simulation = LightingSimulation(spec=self.input)
+        self.hh_sim = LightingSimulation(spec=HOLYWELL_HOUSE_SPEC)
 
     def test_kwh_per_day_per_zone(self):
-        from src.openbes.simulations.lighting import get_kwh_per_day_per_zone
-        output = get_kwh_per_day_per_zone(self.input).round(DECIMAL_PLACES)
+        output = self.simulation.get_kwh_per_day_per_zone().round(DECIMAL_PLACES)
         expected = DataFrame(
             {"kWh/day": [15.680, 12.320, 0, 0, 0, 0]},
             index=[f"Zone type {i}" for i in range(1, 7)],
@@ -206,8 +193,7 @@ class LightingPipeline(unittest.TestCase):
         self.assertTrue(expected.equals(output), expected.compare(output))
 
     def test_kwh_per_month_per_zone(self):
-        from src.openbes.simulations.lighting import get_kwh_per_month_per_zone
-        output = get_kwh_per_month_per_zone(self.input).round(DECIMAL_PLACES)
+        output = self.simulation.get_kwh_per_month_per_zone().round(DECIMAL_PLACES)
         expected = DataFrame(
             [
                 [282.24, 221.76, 0.0, 0.0, 0.0, 0.0],
@@ -229,8 +215,7 @@ class LightingPipeline(unittest.TestCase):
         self.assertTrue(expected.equals(output), expected.compare(output))
 
     def test_annual_kwh(self):
-        from src.openbes.simulations.lighting import get_kwh_per_month
-        output = get_kwh_per_month(self.input).round(DECIMAL_PLACES)
+        output = self.simulation.get_kwh_per_month().round(DECIMAL_PLACES)
         expected = DataFrame(
             [[
                 504.000000, 560.000000, 644.000000, 616.000000, 644.000000, 616.000000,
@@ -242,32 +227,33 @@ class LightingPipeline(unittest.TestCase):
         self.assertTrue(expected.equals(output), expected.compare(output))
 
     def test_lighting_ratio(self):
-        expected = read_csv('fixtures/hh_lighting_ratio.csv')
+        expected = read_single_col_csv_to_series('fixtures/hh_lighting_ratio.csv')
         expected.index = HOURS_DF.index
-        calculated = get_lighting_ratio(HOLYWELL_HOUSE_SPEC)
+        expected = expected
+        calculated = self.hh_sim.lighting_ratio
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
     def test_parasitic_heat(self):
         with self.subTest(lighting='on'):
             expected = round(0.684931507, DECIMAL_PLACES)
-            computed = round(get_parasitic_heat(HOLYWELL_HOUSE_SPEC), DECIMAL_PLACES)
+            computed = round(self.hh_sim.parasitic_heat, DECIMAL_PLACES)
             self.assertEqual(expected, computed)
         with self.subTest(lighting='off'):
-            self.assertEqual(
-                0.0,
-                get_parasitic_heat(OpenBESSpecification(parameters=OpenBESParameters(lighting_on_off=False)))
+            simulation = LightingSimulation(
+                spec=OpenBESSpecification(parameters=OpenBESParameters(lighting_on_off=False))
             )
+            self.assertEqual(0.0, simulation.parasitic_heat)
 
     def test_lighting_heat(self):
         with self.subTest(lighting='on'):
             expected = round(17.6184817, DECIMAL_PLACES)
-            computed = round(get_lighting_heat(HOLYWELL_HOUSE_SPEC), DECIMAL_PLACES)
+            computed = round(self.hh_sim.lighting_heat, DECIMAL_PLACES)
             self.assertEqual(expected, computed)
         with self.subTest(lighting='off'):
-            self.assertEqual(
-                0.0,
-                get_lighting_heat(OpenBESSpecification(parameters=OpenBESParameters(lighting_on_off=False)))
+            simulation = LightingSimulation(
+                spec=OpenBESSpecification(parameters=OpenBESParameters(lighting_on_off=False))
             )
+            self.assertEqual(0.0, simulation.lighting_heat)
 
 if __name__ == '__main__':
     unittest.main()

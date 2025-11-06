@@ -5,20 +5,17 @@ from src.openbes.types.enums import DAYS
 from src.openbes.simulations.occupancy import (
     day_of_the_week,
     is_public_holiday,
-    is_occupied_day,
-    get_occupation_ratio,
-    get_occupancy_by_hour,
-    get_occupation_m2_per_person,
-    get_metabolic_rate_per_m2,
+    OccupationSimulation,
 )
 from src.openbes.simulations.base import HOURS_DF
 from tests.test_holywell_house import DECIMAL_PLACES
-from tests.utils import HOLYWELL_HOUSE_SPEC, read_csv
+from tests.utils import HOLYWELL_HOUSE_SPEC, read_single_col_csv_to_series
 
 
 class Occupancy(unittest.TestCase):
     def setUp(self):
         self.spec = HOLYWELL_HOUSE_SPEC
+        self.sim = OccupationSimulation(self.spec)
 
     def test_day_of_the_week(self):
         days = [DAYS.Mon, DAYS.Tue, DAYS.Wed, DAYS.Thu, DAYS.Fri, DAYS.Sat, DAYS.Sun]
@@ -41,7 +38,7 @@ class Occupancy(unittest.TestCase):
         holiday_count = 11
         weekend_count = 104  # 52 weekends * 2 days
         occupied_count = 365 - holiday_count - weekend_count
-        self.assertEqual(sum([int(is_occupied_day(d, spec=self.spec)) for d in days]), occupied_count)
+        self.assertEqual(sum([int(self.sim.is_occupied_day(d)) for d in days]), occupied_count)
 
     def test_HOURS_DF(self):
         # Check we have 24 * 365 rows
@@ -52,10 +49,11 @@ class Occupancy(unittest.TestCase):
 
     def test_occupation_by_zone(self):
         with self.subTest(method="Occupation/Capacity"):
-            self.assertEqual(get_occupation_ratio(self.spec), 0.50)
+            self.assertEqual(self.sim.occupation_ratio, 0.50)
         with self.subTest(method="Occupation/Area"):
             spec = deepcopy(self.spec)
             spec.max_building_occupation = None
+            sim = OccupationSimulation(spec)
             zonal_capacities = [
                 (190.56 + 494.85) / 5,
                 129.28 / 1.5,
@@ -64,23 +62,23 @@ class Occupancy(unittest.TestCase):
                 0.0,
             ]
             expected = spec.typical_occupation / sum(zonal_capacities)
-            self.assertEqual(get_occupation_ratio(spec), expected)
+            self.assertEqual(sim.occupation_ratio, expected)
 
     def test_occupation_by_hour(self):
-        expected = read_csv('fixtures/hh_occupancy_ratio.csv')
+        expected = read_single_col_csv_to_series('fixtures/hh_occupancy_ratio.csv').to_frame('occupancy_ratio')
         expected.index = HOURS_DF.index
         expected['is_occupied'] = expected['occupancy_ratio'].apply(lambda x: x > 0)
-        calculated = get_occupancy_by_hour(self.spec)[['occupancy_ratio', 'is_occupied']]
+        calculated = self.sim.occupancy[['occupancy_ratio', 'is_occupied']]
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
     def test_occupation_m2_per_person(self):
         expected = round(4.86522963366, DECIMAL_PLACES)
-        calculated = round(get_occupation_m2_per_person(self.spec), DECIMAL_PLACES)
+        calculated = round(self.sim.occupation_m2_per_person, DECIMAL_PLACES)
         self.assertEqual(expected, calculated)
 
     def test_metabolic_rate_per_m2(self):
         expected = round(5.0, DECIMAL_PLACES)
-        calculated = round(get_metabolic_rate_per_m2(spec=self.spec), DECIMAL_PLACES)
+        calculated = round(self.sim.metabolic_rate_per_m2, DECIMAL_PLACES)
         self.assertEqual(expected, calculated)
 
 if __name__ == '__main__':
