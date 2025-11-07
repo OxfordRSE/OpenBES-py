@@ -33,7 +33,7 @@ class OpenBESParameters:
     courtyard_length: Optional[float] = None
     courtyard_number: Optional[int] = 0
     courtyard_width: Optional[float] = None
-    density_of_air: Optional[float] = None
+    density_of_air: Optional[float] = 1.211
     facade_absorption_coefficient: Optional[float] = None
     facade_correction_factor: Optional[float] = 1.0
     facade_emissivity: Optional[float] = None
@@ -55,7 +55,7 @@ class OpenBESParameters:
     heating_system2_simultaneity_factor_other: Optional[float] = None
     heating_system2_simultaneity_factor_teaching: Optional[float] = None
     heating_system2_type: Optional[float] = None
-    infiltration_correction_factor: Optional[float] = None
+    infiltration_correction_factor: Optional[float] = 1.0
     leakage_air_flow_dependent: Optional[float] = None
     lighting_on_off: Optional[bool] = True
     # Fraction of gross building area that is inhabitable (i.e. minus walls, shafts, etc)
@@ -78,7 +78,7 @@ class OpenBESParameters:
     roof_correction_factor: Optional[float] = 1.0
     roof_emissivity: Optional[float] = None
     shading_correction_factor: Optional[float] = None
-    specific_heat_of_air: Optional[float] = None
+    specific_heat_of_air: Optional[float] = 1.015
     temperature_tolerance: Optional[float] = None
     ventilation_system2_airflow: Optional[float] = None
     ventilation_system2_energy_source: Optional[float] = None

@@ -8,6 +8,7 @@ from .base import HourlySimulation
 from .geometry import BuildingGeometry
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
+from .ventilation import VentilationSimulation
 from ..types import OpenBESSpecification
 
 RELATIVE_HUMIDITY = 55.0  # Percentage
@@ -29,6 +30,7 @@ class ClimateSimulation(HourlySimulation):
     geometry: BuildingGeometry
     occupancy: OccupationSimulation
     lighting: LightingSimulation
+    ventilation: VentilationSimulation
     _epw_data: DataFrame
     _heating_and_cooling_degree_days: DataFrame
     _heat_infiltration_window: float
@@ -42,11 +44,15 @@ class ClimateSimulation(HourlySimulation):
             geometry: BuildingGeometry = None,
             occupancy: OccupationSimulation = None,
             lighting: LightingSimulation = None,
+            ventilation: VentilationSimulation = None,
     ):
         super().__init__(spec=spec)
         self.geometry = geometry or BuildingGeometry(spec=spec)
         self.occupancy = occupancy or OccupationSimulation(spec=spec, geometry=self.geometry)
         self.lighting = lighting or LightingSimulation(spec=spec, occupancy=self.occupancy)
+        self.ventilation = ventilation or VentilationSimulation(
+            spec=spec, geometry=self.geometry, occupancy=self.occupancy
+        )
 
     @property
     def set_point_temperature(self) -> DataFrame:
@@ -119,11 +125,11 @@ class ClimateSimulation(HourlySimulation):
         """
         if 'htr_1' not in self._hours.columns:
             self._hours['htr_1'] = (
-                1 /
-                (
-                    1 / self.heat_transmission_by_ventilation +
-                    1 / self.geometry.heat_transfer_is
-                )
+                    1 /
+                    (
+                            1 / self.heat_transmission_by_ventilation +
+                            1 / self.geometry.heat_transfer_is
+                    )
             )
         return self._hours['htr_1']
 
@@ -138,11 +144,11 @@ class ClimateSimulation(HourlySimulation):
             Htr_1 = self.htr_1
             Hc_nd = 0  # [Hardcoded in AR111]
             self._hours['internal_surface_temp'] = (
-                Htr_is * self.building_thermal_mass +
-                self.temp_st +
-                Htr_w * self.dry_bulb_temp +
-                self.htr_1 * (self.supply_air_temp + (self.internal_air_temp + Hc_nd) / self.heat_transmission_by_ventilation)
-            ) / (Htr_is + Htr_w + self.htr_1)
+                                                           Htr_is * self.building_thermal_mass +
+                                                           self.temp_st +
+                                                           Htr_w * self.dry_bulb_temp +
+                                                           self.htr_1 * (self.supply_air_temp + (self.internal_air_temp + Hc_nd) / self.heat_transmission_by_ventilation)
+                                                   ) / (Htr_is + Htr_w + self.htr_1)
         return self._hours['internal_surface_temp']
 
     @property
@@ -211,6 +217,47 @@ class ClimateSimulation(HourlySimulation):
         return self._hours['dry_bulb_temp']
 
     @property
+    def night_ventilation_enabled(self) -> Series:
+        """Whether night ventilation is active for each hour of the year.
+        [Hourly simulation column JL]
+
+        Night ventilation is active between June 1st and September 1st inclusive, between sunset and dawn,
+        if the air free temperature at 0m is above the dry bulb temperature.
+        """
+        if 'night_ventilation_enabled' not in self._hours.columns:
+            self._hours['night_ventilation_enabled'] = list(self.epw_data.apply(
+                lambda row: (
+                        ((6 <= row['month'] < 9) or row['month'] == 9 and row['day'] == 1) and
+                        row['solar'] < 0 and
+                        (self.air_free_temp_0m[(row['month'], row['day'], row['hour'])] > row['temp_air'])
+                ), axis=1
+            ))
+        return self._hours['night_ventilation_enabled']
+
+    @property
+    def air_flow_base(self) -> Series:
+        """Hourly base air flow in m3/h/m2.
+        qv,base [Hourly simulation column JO]
+
+        Base airflow is the infiltration airflow independent of other variables.
+
+        Calculated by Q4Pa + night ventilation (qv,inf + qv,NV)
+        """
+        if 'air_flow_base' not in self._hours.columns:
+            infiltration = self.spec.leakage_air_flow_independent * self.spec.parameters.infiltration_correction_factor
+
+            threshold = 24  # [Hardcoded in Hourly simulation cell JK116
+            on_hours = self.air_free_temp_0m >= threshold
+            night_ventilation = (
+                    on_hours *
+                    self.spec.natural_ventilation_night *
+                    self.night_ventilation_enabled
+            )
+            self._hours['air_flow_base'] = on_hours * night_ventilation + infiltration
+            raise NotImplementedError
+        return self._hours['air_flow_base']
+
+    @property
     def air_flow(self) -> Series:
         """Hourly air flow in m3/h/m2.
         qv,tot [Hourly simulation column JZ]
@@ -223,9 +270,9 @@ class ClimateSimulation(HourlySimulation):
         """
         if 'air_flow' not in self._hours.columns:
             self._hours['air_flow'] = (
-                self.mechanical_air_flow +
-                self.air_flow_adjusted +
-                self.air_flow_base
+                    self.ventilation.air_supply_rate +
+                    self.air_flow_adjusted +
+                    self.air_flow_base
             )
         return self._hours['air_flow']
 
