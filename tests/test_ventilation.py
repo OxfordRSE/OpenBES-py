@@ -4,20 +4,24 @@ from pandas import DataFrame
 from src.openbes.simulations.ventilation import (
     get_ventilation_hours_per_day,
     get_mv_hours_per_month,
-    get_ventilation_per_month
+    get_ventilation_per_month,
+    VentilationSimulation,
 )
 from src.openbes.types import OpenBESSpecification, MONTHS, ENERGY_SOURCES
 from tests.test_holywell_house import DECIMAL_PLACES
+from tests.utils import OpenBESTestCase
 
 
-class Ventilation(unittest.TestCase):
+class Ventilation(OpenBESTestCase):
     def setUp(self):
+        super().setUp()
         self.input = OpenBESSpecification(
             ventilation_system1_energy_source=ENERGY_SOURCES.Electricity,
             ventilation_system1_rated_input_power=0.3,
             ventilation_system1_on_time=10,
             ventilation_system1_off_time=14,
         )
+        self.sim = VentilationSimulation(spec=self.spec)
 
     def test_ventilation_hours_per_day(self):
         for off_time in range(10, 24):
@@ -63,6 +67,17 @@ class Ventilation(unittest.TestCase):
         ).round(DECIMAL_PLACES)
         calculated = get_ventilation_per_month(self.input).round(DECIMAL_PLACES)
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+
+    def test_air_supply_rate(self):
+        max_expected = round(0.068417, self.decimal_places)
+        self.assertEqual(
+            round(self.sim.air_supply_rate.max(), self.decimal_places),
+            max_expected
+        )
+        self.assertEqual(
+            round(self.sim.air_supply_rate.sum(), self.decimal_places - 2),
+            round(85.521583, self.decimal_places - 2)
+        )
 
 if __name__ == '__main__':
     unittest.main()

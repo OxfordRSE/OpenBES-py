@@ -35,9 +35,9 @@ class OpenBESParameters:
     courtyard_width: Optional[float] = None
     density_of_air: Optional[float] = None
     facade_absorption_coefficient: Optional[float] = None
-    facade_correction_factor: Optional[float] = None
+    facade_correction_factor: Optional[float] = 1.0
     facade_emissivity: Optional[float] = None
-    floor_correction_factor: Optional[float] = None
+    floor_correction_factor: Optional[float] = 1.0
     heat_capacity_correction_factor: Optional[float] = None
     heat_capacity_joule: Optional[float] = None
     heating_load_factor: Optional[float] = None
@@ -75,7 +75,7 @@ class OpenBESParameters:
     open_courtyard_number_d1: Optional[int] = 0
     pressure_of_air: Optional[float] = None
     roof_absorption_coefficient: Optional[float] = None
-    roof_correction_factor: Optional[float] = None
+    roof_correction_factor: Optional[float] = 1.0
     roof_emissivity: Optional[float] = None
     shading_correction_factor: Optional[float] = None
     specific_heat_of_air: Optional[float] = None

@@ -9,10 +9,10 @@ from src.openbes.simulations.occupancy import (
 )
 from src.openbes.simulations.base import HOURS_DF
 from tests.test_holywell_house import DECIMAL_PLACES
-from tests.utils import HOLYWELL_HOUSE_SPEC, read_single_col_csv_to_series
+from tests.utils import HOLYWELL_HOUSE_SPEC, OpenBESTestCase
 
 
-class Occupancy(unittest.TestCase):
+class Occupancy(OpenBESTestCase):
     def setUp(self):
         self.spec = HOLYWELL_HOUSE_SPEC
         self.sim = OccupationSimulation(self.spec)
@@ -65,7 +65,7 @@ class Occupancy(unittest.TestCase):
             self.assertEqual(sim.occupation_ratio, expected)
 
     def test_occupation_by_hour(self):
-        expected = read_single_col_csv_to_series('fixtures/hh_occupancy_ratio.csv').to_frame('occupancy_ratio')
+        expected = self.read_single_col_csv_to_series('fixtures/hh_occupancy_ratio.csv').to_frame('occupancy_ratio')
         expected.index = HOURS_DF.index
         expected['is_occupied'] = expected['occupancy_ratio'].apply(lambda x: x > 0)
         calculated = self.sim.occupancy[['occupancy_ratio', 'is_occupied']]

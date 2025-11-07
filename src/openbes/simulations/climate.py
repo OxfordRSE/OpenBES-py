@@ -8,17 +8,9 @@ from .base import HourlySimulation
 from .geometry import BuildingGeometry
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
-from ..types import THERMAL_BREAKS, OpenBESSpecification
+from ..types import OpenBESSpecification
 
 RELATIVE_HUMIDITY = 55.0  # Percentage
-
-THERMAL_BREAK_TRANSMITTANCE = {
-    THERMAL_BREAKS.Facade_ground: 0.54,
-    THERMAL_BREAKS.Facade_intermediate: 0.60,
-    THERMAL_BREAKS.Facade_roof: 0.44,
-    THERMAL_BREAKS.Windows: 0.50,
-    THERMAL_BREAKS.Shading: 0.80,
-}
 
 def get_available_epw_files() -> list[str]:
     """
@@ -39,14 +31,11 @@ class ClimateSimulation(HourlySimulation):
     lighting: LightingSimulation
     _epw_data: DataFrame
     _heating_and_cooling_degree_days: DataFrame
-    _heat_transfer_rate_windows: float
-    _heat_transfer_rate_opaque: float
-    _heat_transfer_ms: float
-    _heat_transmission_by_ventilation: float
     _heat_infiltration_window: float
     _heat_infiltration_opaque: float
     _heat_transmission_by_infiltration: float
-    
+    _temp_change_demand: float
+
     def __init__(
             self,
             spec: OpenBESSpecification,
@@ -115,74 +104,77 @@ class ClimateSimulation(HourlySimulation):
         return days
 
     @property
-    def internal_air_temp(self) -> DataFrame:
-        """Return a DataFrame with estimated internal air temperature for each hour of the year.
-        Ѳair
+    def internal_air_temp(self) -> Series:
+        """Hourly internal air temperature in degrees C.
+        Ѳia [Hourly simulation column AQ]
         """
-        raise NotImplementedError
+        if 'internal_air_temp' not in self._hours.columns:
+            raise NotImplementedError
+        return self._hours['internal_air_temp']
 
     @property
-    def heat_transfer_rate_windows(self) -> float:
-        """The heat transfer rate through windows (W/m²K).
-        Htr_w [Hourly Simulation cell AR97]
+    def htr_1(self) -> Series:
+        """Hourly heat transfer rate 1?????? in kW/K.
+        Htr_1 [Hourly Simulation column AY]
         """
-        if not hasattr(self, '_heat_transfer_rate_windows') or self._heat_transfer_rate_windows is None:
-            conditioned_area = self.geometry.conditioned_floor_area
-            correction_factor = self.spec.parameters.window_correction_factor
-            window_area = self.geometry.window_area
-            u_value = self.spec.uvalue_window
-            if self.spec.thermal_bridge_shading:
-                shading = self.geometry.window_shading * THERMAL_BREAK_TRANSMITTANCE[THERMAL_BREAKS.Shading]
-            else:
-                shading = 0.0
-            self._heat_transfer_rate_windows = (window_area * u_value + shading) * correction_factor / conditioned_area
-        return self._heat_transfer_rate_windows
+        if 'htr_1' not in self._hours.columns:
+            self._hours['htr_1'] = (
+                1 /
+                (
+                    1 / self.heat_transmission_by_ventilation +
+                    1 / self.geometry.heat_transfer_is
+                )
+            )
+        return self._hours['htr_1']
 
     @property
-    def heat_transfer_rate_opaque(self) -> float:
-        """Calculate the heat transfer rate through opaque envelope (W/m²K).
-        Htr_opaque [Hourly Simulation cell AR93]
-        Args:
-            spec (OpenBESSpecification): The building specifications spec data class.
-        Returns:
-            float: Heat transfer rate through opaque envelope (W/m²K).
-        """
-        raise NotImplementedError
-
-    @property
-    def heat_transfer_ms(self) -> float:
-        """Calculate the heat transfer coefficient between internal air and internal surface (W/m²K).
-        Htr_ms [Hourly Simulation cell AR95] EN ISO 13790 12.2.2
-        """
-        if not hasattr(self, '_heat_transfer_ms') or self._heat_transfer_ms is None:
-            factor = 9.1  # Unnamed factor hardcoded in cell AR95 formula
-            self._heat_transfer_ms = (self.heat_transfer_rate_windows + self.heat_transfer_rate_opaque) * factor
-        return self._heat_transfer_ms
-
-    @property
-    def internal_surface_temp(self) -> DataFrame:
-        """Return a DataFrame with estimated internal surface temperature for each hour of the year.
+    def internal_surface_temp(self) -> Series:
+        """Hourly internal surface temperature in degrees C.
         Ѳs [Hourly Simulation column AX]
         """
-        Htr_ms = self.heat_transfer_ms
-        # (
-        #     $AR$95 * AW118 +
-        #     AS118 +
-        #     $AR$97 * $I118 +
-        #     $AM118 * ($AG118 + (AQ118 + $AR$111) / $AL118)
-        # ) / ($AR$95 + $AR$97 + $AM118)
-        raise NotImplementedError
+        if 'internal_surface_temp' not in self._hours.columns:
+            Htr_is = self.geometry.heat_transfer_is
+            Htr_w = self.geometry.heat_transfer_rate_windows / self.geometry.conditioned_floor_area
+            Htr_1 = self.htr_1
+            Hc_nd = 0  # [Hardcoded in AR111]
+            self._hours['internal_surface_temp'] = (
+                Htr_is * self.building_thermal_mass +
+                self.temp_st +
+                Htr_w * self.dry_bulb_temp +
+                self.htr_1 * (self.supply_air_temp + (self.internal_air_temp + Hc_nd) / self.heat_transmission_by_ventilation)
+            ) / (Htr_is + Htr_w + self.htr_1)
+        return self._hours['internal_surface_temp']
 
     @property
-    def supply_air_temp(self) -> DataFrame:
-        """Return a DataFrame with supply air temperature for each hour of the year.
+    def temp_st(self) -> Series:
+        """Hourly temperature for ????? in degrees C.
+        Ѳst [Hourly Simulation column AS]
+        """
+        if 'temp_st' not in self._hours.columns:
+            raise NotImplementedError
+        return self._hours['temp_st']
+
+    @property
+    def building_thermal_mass(self) -> Series:
+        """Hourly building thermal mass in degrees C.
+        Ѳm [Hourly Simulation column AW]
+        """
+        if 'building_thermal_mass' not in self._hours.columns:
+            raise NotImplementedError
+        return self._hours['building_thermal_mass']
+
+    @property
+    def supply_air_temp(self) -> Series:
+        """Hourly supply air temperature in degrees C.
         Ѳsup
         """
-        raise NotImplementedError
+        if 'supply_air_temp' not in self._hours.columns:
+            raise NotImplementedError
+        return self._hours['supply_air_temp']
 
     @property
     def relative_humidity(self) -> Series:
-        """Return a DataFrame with relative humidity for each hour of the year.
+        """Relative humidity for each hour of the year.
         """
         if 'relative_humidity' not in self._hours.columns:
             relative_humidity = self.epw_data['relative_humidity']
@@ -210,7 +202,36 @@ class ClimateSimulation(HourlySimulation):
         return self._hours['wet_bulb_temp']
 
     @property
-    def heat_transmission_by_ventilation(self) -> float:
+    def dry_bulb_temp(self) -> Series:
+        """Dry bulb temperature for each hour of the year.
+        [Hourly simulation column I]
+        """
+        if 'dry_bulb_temp' not in self._hours.columns:
+            self._hours['dry_bulb_temp'] = list(self.epw_data['temp_air'])
+        return self._hours['dry_bulb_temp']
+
+    @property
+    def air_flow(self) -> Series:
+        """Hourly air flow in m3/h/m2.
+        qv,tot [Hourly simulation column JZ]
+
+        Total airflow is
+        air infiltration adjusted for other variables +
+        air infiltration base +
+        mechanical supply 1 +
+        mechanical supply 2
+        """
+        if 'air_flow' not in self._hours.columns:
+            self._hours['air_flow'] = (
+                self.mechanical_air_flow +
+                self.air_flow_adjusted +
+                self.air_flow_base
+            )
+        return self._hours['air_flow']
+
+
+    @property
+    def heat_transmission_by_ventilation(self) -> Series:
         """Calculate the heat transmission by ventilation in kW/K.
         Hve [Hourly Simulation column AL]
 
@@ -218,17 +239,16 @@ class ClimateSimulation(HourlySimulation):
         Eq. (5). It is based on total air flow due to leakage and ventilation
         airflow (qve), and supply air temperature (Ѳsup).
         """
-        if not hasattr(self, '_heat_transmission_by_ventilation') or self._heat_transmission_by_ventilation is None:
-            air_density = 1.2110  # kg/m3
-            specific_heat_capacity_air = 1.0150  # kJ/kgK
-            heat_capacity_air = air_density * specific_heat_capacity_air / 3.6  # W/m3K
+        if 'heat_transmission_by_ventilation' not in self._hours.columns:
+            # heat capacity of air in W/m3K
+            heat_capacity_air = self.spec.parameters.density_of_air * self.spec.parameters.specific_heat_of_air / 3.6
             # qv_total = qv_fresh_inf \
             #            + qv_fresh_total + \
             #            qv_mechanical_1 + \
             #            qv_mechanical_2
             # qv_total is in m3/h
             raise NotImplementedError
-        return self._heat_transmission_by_ventilation
+        return self._hours['heat_transmission_by_ventilation']
 
     @property
     def heat_infiltration_window(self) -> float:
@@ -293,7 +313,7 @@ class ClimateSimulation(HourlySimulation):
         """
         if 'internal_heat_from_lighting' not in self._hours.columns:
             self._hours['internal_heat_from_lighting'] = (
-                    (self.lighting.lighting_ratio['lighting_ratio'] * self.lighting.lighting_heat) +
+                    (self.lighting.lighting_ratio * self.lighting.lighting_heat) +
                     self.lighting.parasitic_heat
             )
         return self._hours['internal_heat_from_lighting']
@@ -308,13 +328,14 @@ class ClimateSimulation(HourlySimulation):
         if 'internal_heat' not in self._hours.columns:
             # calculate prerequisites
             self._hours['internal_heat'] = (
-                self.internal_heat_from_occupants['internal_heat_from_occupants'] +
-                self.internal_heat_from_appliances['internal_heat_from_appliances'] +
-                self.internal_heat_from_lighting['internal_heat_from_lighting']
+                    self.internal_heat_from_occupants +
+                    self.internal_heat_from_appliances +
+                    self.internal_heat_from_lighting
             )
         return self._hours['internal_heat']
 
-    def get_internal_heat_adjusted(self) -> Series:
+    @property
+    def internal_heat_adjusted(self) -> Series:
         """Hourly adjusted internal heat gains in W/m2.""
         ϕia [Hourly Simulation column AQ]
 
@@ -339,101 +360,91 @@ class ClimateSimulation(HourlySimulation):
 
         This produces a weighted sum of these temperature influences to estimate the air free temperature at 0m height.
         """
-    !!!!!!
-        df = HOURS_DF.copy()
-        temp_air = get_epw_data(spec)['temp_air']
-        temp_air.index = df.index
-        df = df.join(temp_air)
-        df = df.join(get_internal_surface_temp(spec=spec))
-        df = df.join(get_heat_transmission_by_ventilation(spec=spec))
-        df = df.join(get_supply_air_temp(spec=spec))
-        df = df.join(get_internal_heat_adjusted(spec=spec))
-        conditioned_area = get_conditioned_floor_area(spec=spec)
-        area_at = 4.5  # Hardcoded in Hourly Simulation cell AM84: EN ISO 13790, 7.2.2
-        total_area = area_at * conditioned_area
-        # Heat transfer rate from air to surfaces in W/K [Hourly simulation cell AR83]
-        Htr_is_W_per_K = 3.45 * total_area
-        # Heat transfer rate from air to surfaces in W/m2K [Hourly Simulation cell AR98]
-        Htr_is = Htr_is_W_per_K / conditioned_area
-        HC_nd = 0  # Hardcoded in Hourly Simulation cell AR111
-        df['air_free_temp_0m'] = (
-                                         Htr_is * df['internal_surface_temp'] +
-                                         df['heat_transmission_by_ventilation'] * df['supply_air_temp'] +
-                                         df['internal_heat_adjusted'] +
-                                         HC_nd
-                                 ) / ( Htr_is + df['heat_transmission_by_ventilation'] )
-        return df[['air_free_temp_0m']]
+        if 'air_free_temp_0m' not in self._hours.columns:
+            assert self.internal_surface_temp is not None
+            assert self.heat_transmission_by_ventilation is not None
+            assert self.supply_air_temp is not None
+            assert self.internal_heat_adjusted is not None
 
-    def get_solar_heat_window(self) -> DataFrame:
-        """Calculate the solar heat gains through windows based on building specifications.
+            conditioned_area = self.geometry.conditioned_floor_area
+            area_at = 4.5  # Hardcoded in Hourly Simulation cell AM84: EN ISO 13790, 7.2.2
+            total_area = area_at * conditioned_area
+            # Heat transfer rate from air to surfaces in W/K [Hourly simulation cell AR83]
+            Htr_is_W_per_K = 3.45 * total_area
+            # Heat transfer rate from air to surfaces in W/m2K [Hourly Simulation cell AR98]
+            Htr_is = Htr_is_W_per_K / conditioned_area
+            HC_nd = 0  # Hardcoded in Hourly Simulation cell AR111
+            self._hours['air_free_temp_0m'] = \
+                (
+                        Htr_is * self._hours['internal_surface_temp'] +
+                        self._hours['heat_transmission_by_ventilation'] * self._hours['supply_air_temp'] +
+                        self._hours['internal_heat_adjusted'] +
+                        HC_nd
+                ) / ( Htr_is + self._hours['heat_transmission_by_ventilation'] )
+        return self._hours[['air_free_temp_0m']]
+
+    @property
+    def solar_heat_windows(self) -> DataFrame:
+        """Hourly solar heat gains through windows in W/m2.
         ϕsol,w [Hourly Simulation column LF]
 
         Wattage is given by the sum of solar radiation on each window multiplied by its
         area and solar heat gain coefficient.
         Solar radiation is a function of climate data and building orientation.
-
-        Args:
-            spec (OpenBESSpecification): The building specifications spec data class.
-        Returns:
-            DataFrame: Hourly solar heat gains through windows in W/m2.
         """
-        kv116 = 22  # Hardcoded in Hourly Simulation cell KV116
-        df = get_air_free_temp_0m(spec=spec)
-        df['solar_heat_window'] = df.apply(
-            lambda row: row
-        )
-        # if $AY117 < kv116:
-        #     rest = (KW$95*(KW$107*($KV118*$KW$100))*M118)-(KW$80*($KS118*KW$104*KW$105*KW$81*$KW$82))
-        # else:
-        #     rest = (KW$95*(KW$108*($KV118*0.9))*M118)-(KW$80*($KS118*KW$104*KW$105*KW$81*$KW$82))
-        # return max(
-        #     0,
-        #     rest
-        # )
+        if 'solar_heat_windows' not in self._hours.columns:
+            kv116 = 22  # Hardcoded in Hourly Simulation cell KV116
+            df = self.air_free_temp_0m
+            df['solar_heat_window'] = df.apply(
+                lambda row: row
+            )
+            # if $AY117 < kv116:
+            #     rest = (KW$95*(KW$107*($KV118*$KW$100))*M118)-(KW$80*($KS118*KW$104*KW$105*KW$81*$KW$82))
+            # else:
+            #     rest = (KW$95*(KW$108*($KV118*0.9))*M118)-(KW$80*($KS118*KW$104*KW$105*KW$81*$KW$82))
+            # return max(
+            #     0,
+            #     rest
+            # )
+        raise NotImplementedError
 
-
-    def get_solar_heat_opaque(self) -> DataFrame:
-        """Calculate the solar heat gains through opaque surfaces based on building specifications.
+    @property
+    def solar_heat_opaque(self) -> DataFrame:
+        """Hourly solar heat gains through opaque surfaces in W/m2.
         ϕsol,op [Hourly Simulation column LR]
 
         Wattage is given by the sum of solar radiation on each opaque surface multiplied by its
         area and solar heat gain coefficient.
         Solar radiation is a function of climate data and building orientation.
         Horizontal solar radiation is also included because of roof surfaces.
-
-        Args:
-            spec (OpenBESSpecification): The building specifications spec data class.
-        Returns:
-            DataFrame: Hourly solar heat gains through opaque surfaces in W/m2.
         """
+        if 'solar_heat_opaque' not in self._hours.columns:
+            pass
         raise NotImplementedError
 
-
-    def get_solar_heat(self) -> DataFrame:
-        """Calculate the solar heat gains based on building specifications.
+    @property
+    def solar_heat(self) -> DataFrame:
+        """Hourly solar heat gains in W/m2.
         ϕsol [Hourly Simulation column AJ, KM]
 
         Wattage per square meter is given by the sum of solar heat gains through windows
         and opaque surfaces, divided by the conditioned floor area.
-
-        Args:
-            spec (OpenBESSpecification): The building specifications spec data class.
-        Returns:
-            DataFrame: Hourly solar heat gains in W/m2.
         """
-        conditioned_floor_area = get_conditioned_floor_area(spec=spec)
-        df = get_solar_heat_window(spec=spec).join(
-            get_solar_heat_opaque(spec=spec)
-        )
-        df['solar_heat'] = (df['solar_heat_window'] + df['solar_heat_opaque']) / conditioned_floor_area
-        return df[['solar_heat']]
+        if 'solar_heat' not in self._hours.columns:
+            conditioned_floor_area = self.geometry.conditioned_floor_area
+            assert self.solar_heat_opaque is not None
+            assert self.solar_heat_windows is not None
+            self._hours['solar_heat'] = (
+                    (self._hours['solar_heat_window'] + self._hours['solar_heat_opaque']) /
+                    conditioned_floor_area
+            )
+        return self._hours[['solar_heat']]
 
-    def get_temp_change_demand(self) -> float:
-        """Calculate the temperature change demand based on building specifications.
+    @property
+    def temp_change_demand(self) -> float:
+        """Temperature change demand based in W/m2.
         ϕHC,nd, W/m2
-        Args:
-            spec (OpenBESSpecification): The building specifications spec data class.
-        Returns:
-            float: The temperature change demand in W/m2.
         """
+        if not hasattr(self, '_temp_change_demand') or self._temp_change_demand is None:
+            pass
         raise NotImplementedError

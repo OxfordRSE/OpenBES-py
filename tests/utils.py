@@ -1,12 +1,50 @@
+import unittest
+
 import pandas as pd
 import os
 from src.openbes.types import OpenBESSpecification, OpenBESParameters, LIGHTING_CONTROL
 
+class OpenBESTestCase(unittest.TestCase):
+    decimal_places: int = 6
 
-def read_single_col_csv_to_series(relative_path: str) -> pd.Series:
-    base_path = os.path.dirname(__file__)
-    full_path = os.path.join(base_path, relative_path)
-    return pd.read_csv(full_path).squeeze()
+    def setUp(self):
+        self.spec = HOLYWELL_HOUSE_SPEC
+
+    @classmethod
+    def read_single_col_csv_to_series(cls, relative_path: str) -> pd.Series:
+        base_path = os.path.dirname(__file__)
+        full_path = os.path.join(base_path, relative_path)
+        return pd.read_csv(full_path).squeeze()
+
+    @classmethod
+    def get_expectation_for_series(cls, series: pd.Series, expected_values: list) -> pd.Series:
+        """
+        Set the values of a pandas Series to the provided list of values.
+        This will preserve the original index of the Series.
+
+        Example:
+            calcualted = Series([0, 0, 0, 0], index=[10, 11, 12, 13])
+            expected = set_series_values(calculated, [1, 2, 3, 4])
+            # expected is now Series([1, 2, 3, 4], index=[10, 11, 12, 13])
+        """
+        series = series.copy()
+        series.iloc[:len(expected_values)] = expected_values
+        return series
+
+    def check_series_versus_values(self, series: pd.Series, expected_values: list, decimal_places: int = None) -> None:
+        if decimal_places is None:
+            decimal_places = self.decimal_places
+        expected = self.get_expectation_for_series(series, expected_values).round(decimal_places)
+        calculated = series.round(decimal_places)
+        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+
+    def check_series_versus_csv(self, series: pd.Series, csv_file_relative_path: str, decimal_places: int = None) -> None:
+        if decimal_places is None:
+            decimal_places = self.decimal_places
+        expected = self.read_single_col_csv_to_series(csv_file_relative_path).round(decimal_places)
+        calculated = series.round(decimal_places)
+        expected.index = calculated.index
+        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
 HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     parameters=OpenBESParameters(
@@ -174,7 +212,7 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     orientation_angle=165.0,
     other_electricity_usage=None,
     other_gas_usage=None,
-    roof_angle=None,
+    roof_angle=35,
     schedule_april=True,
     schedule_august=True,
     schedule_december=True,
@@ -207,29 +245,29 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     solar_external_shading_summer=None,
     solar_external_shading_winter=None,
     terrain_class=None,
-    thermal_bridge_facade_ground=None,
-    thermal_bridge_facade_intermediate=None,
-    thermal_bridge_facade_roof=None,
-    thermal_bridge_shading=None,
-    thermal_bridge_window=None,
+    thermal_bridge_facade_ground=True,
+    thermal_bridge_facade_intermediate=False,
+    thermal_bridge_facade_roof=True,
+    thermal_bridge_shading=False,
+    thermal_bridge_window=False,
     third_floor_area_z1=None,
     third_floor_area_z2=None,
     third_floor_area_z3=None,
     third_floor_area_z4=None,
     third_floor_area_z5=None,
     typical_occupation=75,
-    uvalue_facade=None,
-    uvalue_floor=None,
-    uvalue_roof=None,
+    uvalue_facade=0.97,
+    uvalue_floor=1.368,
+    uvalue_roof=0.84,
     uvalue_window=2.5,
-    ventilation_system1_airflow=None,
+    ventilation_system1_airflow=300.0,
     ventilation_system1_energy_source=None,
-    ventilation_system1_heat_recovery_efficiency=None,
-    ventilation_system1_off_time=None,
-    ventilation_system1_on_time=None,
+    ventilation_system1_heat_recovery_efficiency=0.75,
+    ventilation_system1_off_time=14,
+    ventilation_system1_on_time=10,
     ventilation_system1_rated_input_power=None,
     ventilation_system1_type=None,
-    ventilation_system1_ventilated_area=None,
+    ventilation_system1_ventilated_area=100.0,
     water_demand=None,
     water_reference_temperature=None,
     water_supply_temperature=None,
@@ -239,9 +277,7 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     water_system_type=None,
     window_frame_factor=None,
     window_gvalue=None,
-    # m
     window_height=1.6,
-    # m
     window_length=2.4,
     window_number_first_a1=9,
     window_number_first_b1=3,

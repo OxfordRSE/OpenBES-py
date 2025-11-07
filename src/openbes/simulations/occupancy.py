@@ -125,8 +125,8 @@ class OccupationSimulation(HourlySimulation):
         if not hasattr(self, 'geometry') or self.geometry is None:
             self.geometry = BuildingGeometry(spec=self.spec)
         if floor is None:
-            return self.geometry.gross_floor_areas.groupby(level='zone').sum().loc[zone].values[0]
-        return self.geometry.gross_floor_areas.loc[(zone, floor)].sum().values[0]
+            return self.geometry.gross_floor_areas.groupby(level='zone').sum().loc[zone]
+        return self.geometry.gross_floor_areas.loc[(floor, zone)].sum()
 
     @property
     def occupation_ratio(self) -> float:

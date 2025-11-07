@@ -1,21 +1,18 @@
 import unittest
 from copy import copy
 
-from pandas import DataFrame
+from pandas import DataFrame, Series
 
 from src.openbes.simulations.geometry import (
     Rectangle,
     BuildingGeometry,
-    ZONAL_RECTANGLES,
-    ORIENTATION_FACADE,
-    COMPASS_POINT_FACADE,
 )
 from src.openbes.types import FLOORS, COMPASS_POINTS, ORIENTATIONS
 from tests.test_holywell_house import DECIMAL_PLACES
-from tests.utils import HOLYWELL_HOUSE_SPEC
+from tests.utils import HOLYWELL_HOUSE_SPEC, OpenBESTestCase
 
 
-class Geometry(unittest.TestCase):
+class Geometry(OpenBESTestCase):
     def setUp(self):
         self.geometry = BuildingGeometry(spec=HOLYWELL_HOUSE_SPEC)
 
@@ -25,17 +22,15 @@ class Geometry(unittest.TestCase):
         self.assertTrue(expected == calculated, expected.compare(calculated))
 
     def test_gross_floor_areas(self):
-        with self.subTest('dataframe'):
-            expected = ZONAL_RECTANGLES.copy()
-            expected['gross_floor_area'] = [
+        with self.subTest('series'):
+            calculated = self.geometry.gross_floor_areas
+            self.check_series_versus_values(calculated, [
                 190.56, 129.28, 97.88, 132.76, 0.0,
                 494.85, 0.0, 0.0, 55.65, 0.0,
                 0.0, 0.0, 0.0, 52.93, 0.0,
                 0.0, 0.0, 0.0, 0.0, 0.0,
                 0.0, 0.0, 0.0, 0.0, 0.0,
-            ]
-            calculated = self.geometry.gross_floor_areas
-            self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+            ])
         with self.subTest('by_floor'):
             expected = {
                 FLOORS.Ground: 550.48,
@@ -75,55 +70,47 @@ class Geometry(unittest.TestCase):
         This test uses rounding to decimal_places because Python and Excel round slightly differently.
         """
         decimal_palces = DECIMAL_PLACES - 2  # precise enough, and avoids rounding differences between Excel and Python
-        expected = ORIENTATION_FACADE.copy()
-        expected['external_vertical_envelope_conditioned_area'] = [
+        expected = Series([
             130.268601, 42.402565, 130.268601, 42.402565,
             130.270967, 42.403335, 130.270967, 42.403335,
             40.394285, 13.148382, 40.394285, 13.148382,
             0.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 0.0,
-        ]
+        ])
         expected = expected.round(decimal_palces)
         calculated = self.geometry.external_vertical_envelope_conditioned_areas
+        expected.index = calculated.index
         calculated = calculated.round(decimal_palces)
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
     def test_windows(self):
         with self.subTest('count'):
-            expected = ORIENTATION_FACADE.copy()
-            expected['window_count'] = [
-                9, 3, 9, 0,
-                9, 3, 9, 0,
-                0, 0, 0, 0,
-                0, 0, 0, 0,
-                0, 0, 0, 0,
-            ]
             calculated = self.geometry.window_count
-            self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+            self.check_series_versus_values(calculated, [
+                9, 3, 9, 0,
+                9, 3, 9, 0,
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+                0, 0, 0, 0,
+            ])
         with self.subTest('area'):
-            expected = ORIENTATION_FACADE.copy()
-            expected['window_area_orientation'] = [
+            calculated = self.geometry.window_area_orientation
+            self.check_series_versus_values(calculated, [
                 34.56, 11.52, 34.56, 0.0,
                 34.56, 11.52, 34.56, 0.0,
                 0.0, 0.0, 0.0, 0.0,
                 0.0, 0.0, 0.0, 0.0,
                 0.0, 0.0, 0.0, 0.0,
-            ]
-            calculated = self.geometry.window_area_orientation.round(DECIMAL_PLACES)
-            self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+            ])
         with self.subTest('ratio'):
-            expected = ORIENTATION_FACADE.copy()
-            expected['window_ratio'] = [
+            calculated = self.geometry.window_ratio
+            self.check_series_versus_values(calculated, [
                 0.258581, 0.264803, 0.258581, 0.0,
                 0.258576, 0.264798, 0.258576, 0.0,
                 0.0, 0.0, 0.0, 0.0,
                 0.0, 0.0, 0.0, 0.0,
                 0.0, 0.0, 0.0, 0.0,
-            ]
-            expected = expected.round(DECIMAL_PLACES)
-            calculated = self.geometry.window_ratio
-            calculated = calculated.round(DECIMAL_PLACES)
-            self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+            ])
 
     def test_facing_directions(self):
         expected = DataFrame({
@@ -181,26 +168,54 @@ class Geometry(unittest.TestCase):
                 calculated = geometry.get_compass_point_for_orientation(orientation)
                 self.assertEqual(compass_point, calculated)
 
-    def test_window_area(self):
-        expected = COMPASS_POINT_FACADE.copy()
-        expected['window_area'] = [
+    def test_window_areas(self):
+        expected = Series([
             33.684921, 0.0,	0.0, 0.0, 33.684921, 0.0, 11.228307, 0.0,
             33.684921, 0.0,	0.0, 0.0, 33.684921, 0.0, 11.228307, 0.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        ]
+        ])
         expected = expected.round(DECIMAL_PLACES)
-        calculated = self.geometry.window_area.round(DECIMAL_PLACES)
-        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+        calculated = self.geometry.window_areas.round(DECIMAL_PLACES)
+        expected.index = calculated.index
+        with self.subTest('by_compass_point'):
+            self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+        with self.subTest('total'):
+            expected_total = expected.sum()
+            calculated_total = round(self.geometry.window_area, DECIMAL_PLACES)
+            self.assertEqual(expected_total, calculated_total)
+        with self.subTest('opaque_areas'):
+            summed_areas = self.geometry.opaque_areas + self.geometry.window_areas
+            expected = self.geometry.conditioned_facade_areas
+            self.assertTrue(expected.equals(summed_areas), expected.compare(summed_areas))
 
     def test_window_shading(self):
-        expected = DataFrame()
-        expected['window_area'] = [36.842883, 36.842883, 0.0, 0.0, 0.0]
+        expected = Series([36.842883, 36.842883, 0.0, 0.0, 0.0])
         expected = expected.round(DECIMAL_PLACES)
         calculated = self.geometry.window_shading.round(DECIMAL_PLACES)
         expected.index = calculated.index
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+
+    def test_heat_transfer_rate_windows(self):
+        self.assertEqual(
+            round(self.geometry.heat_transfer_rate_windows, DECIMAL_PLACES),
+            round(0.358498, DECIMAL_PLACES)
+        )
+
+    def test_heat_transfer_rate_opaque(self):
+        # This test uses rounding to DECIMAL_PLACES - 2 because of Excel/Python rounding differences
+        self.assertEqual(
+            round(self.geometry.heat_transfer_rate_opaque, DECIMAL_PLACES - 2),
+            round(1.739035, DECIMAL_PLACES - 2)
+        )
+
+    def test_roof_factor(self):
+        self.assertEqual(
+            round(self.geometry.roof_factor, DECIMAL_PLACES),
+            round(1.059481, DECIMAL_PLACES)
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

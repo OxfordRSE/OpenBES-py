@@ -5,10 +5,13 @@ from src.openbes.simulations.base import HOURS_DF
 from src.openbes.simulations.lighting import LightingSimulation
 from src.openbes.types import MONTHS, OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, OpenBESParameters
 from tests.test_holywell_house import DECIMAL_PLACES
-from tests.utils import HOLYWELL_HOUSE_SPEC, read_single_col_csv_to_series
+from tests.utils import (
+    HOLYWELL_HOUSE_SPEC,
+    OpenBESTestCase,
+)
 
 
-class LightingWattPerLuminaire(unittest.TestCase):
+class LightingWattPerLuminaire(OpenBESTestCase):
     def test_valid_inputs(self):
         test_cases = [
             {
@@ -160,7 +163,7 @@ class LightingWattPerLuminaire(unittest.TestCase):
                 self.assertEqual(case["expected"], output)
 
 
-class LightingPipeline(unittest.TestCase):
+class LightingPipeline(OpenBESTestCase):
     def setUp(self):
         self.input = OpenBESSpecification(
             lighting_system_name_z1="First Floor",
@@ -227,7 +230,7 @@ class LightingPipeline(unittest.TestCase):
         self.assertTrue(expected.equals(output), expected.compare(output))
 
     def test_lighting_ratio(self):
-        expected = read_single_col_csv_to_series('fixtures/hh_lighting_ratio.csv')
+        expected = self.read_single_col_csv_to_series('fixtures/hh_lighting_ratio.csv')
         expected.index = HOURS_DF.index
         expected = expected
         calculated = self.hh_sim.lighting_ratio

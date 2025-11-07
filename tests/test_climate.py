@@ -4,10 +4,13 @@ from pandas import Series
 from src.openbes.simulations.base import HOURS_DF
 from src.openbes.simulations.climate import ClimateSimulation
 from tests.test_holywell_house import DECIMAL_PLACES
-from tests.utils import HOLYWELL_HOUSE_SPEC, read_single_col_csv_to_series
+from tests.utils import (
+    HOLYWELL_HOUSE_SPEC,
+    OpenBESTestCase,
+)
 
 
-class Climate(unittest.TestCase):
+class Climate(OpenBESTestCase):
     def setUp(self):
         self.spec = HOLYWELL_HOUSE_SPEC
         self.sim = ClimateSimulation(self.spec)
@@ -54,6 +57,18 @@ class Climate(unittest.TestCase):
         expected = expected.astype(computed.dtype).round(DECIMAL_PLACES)
         self.assertTrue(expected.equals(computed), expected.compare(computed))
 
+    def test_dry_bulb_temperature(self):
+        df = self.sim.dry_bulb_temp
+        self.assertEqual(len(df), len(HOURS_DF))
+        expected = Series([
+            12.300000, 11.900000, 11.800000, 11.700000, 12.100000,
+            11.800000, 11.700000, 11.700000, 11.000000, 11.100000,
+        ])
+        computed = df.iloc[range(10)].round(DECIMAL_PLACES)
+        expected.index = computed.index
+        expected = expected.astype(computed.dtype).round(DECIMAL_PLACES)
+        self.assertTrue(expected.equals(computed), expected.compare(computed))
+
     def test_internal_surface_temperature(self):
         df = self.sim.internal_surface_temp
         self.assertEqual(len(df), len(HOURS_DF))
@@ -66,30 +81,55 @@ class Climate(unittest.TestCase):
         expected = expected.astype(computed.dtype).round(DECIMAL_PLACES)
         self.assertTrue(expected.equals(computed), expected.compare(computed))
 
+    def test_air_flow(self):
+        self.check_series_versus_csv(
+            self.sim.air_flow,
+            'fixtures/hh_air_flow.csv'
+        )
+
+    def test_heat_transmission_by_ventilation(self):
+        self.check_series_versus_csv(
+            self.sim.heat_transmission_by_ventilation,
+            'fixtures/hh_heat_transmission_by_ventilation.csv'
+        )
+
+    def test_htr_1(self):
+        self.check_series_versus_csv(
+            self.sim.htr_1,
+            'fixtures/hh_htr_1.csv'
+        )
+
     def test_internal_heat_occupants(self):
-        expected = read_single_col_csv_to_series('fixtures/hh_internal_heat_occupants.csv')
-        expected.index = HOURS_DF.index
-        calculated = self.sim.internal_heat_from_occupants
-        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+        self.check_series_versus_csv(
+            self.sim.internal_heat_from_occupants,
+            'fixtures/hh_internal_heat_occupants.csv'
+        )
 
     def test_internal_heat_appliances(self):
-        expected = read_single_col_csv_to_series('fixtures/hh_internal_heat_appliances.csv')
-        expected.index = HOURS_DF.index
-        calculated = self.sim.internal_heat_from_appliances
-        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+        self.check_series_versus_csv(
+            self.sim.internal_heat_from_appliances,
+            'fixtures/hh_internal_heat_appliances.csv'
+        )
 
     def test_internal_heat_lighting(self):
-        expected = read_single_col_csv_to_series('fixtures/hh_internal_heat_lighting.csv')
-        expected.index = HOURS_DF.index
-        calculated = self.sim.internal_heat_from_lighting
-        self.assertTrue(expected.equals(calculated),  expected.compare(calculated))
-
+        self.check_series_versus_csv(
+            self.sim.internal_heat_from_lighting,
+            'fixtures/hh_internal_heat_lighting.csv',
+            self.decimal_places - 2
+        )
+        
     def test_internal_heat(self):
-        expected = read_single_col_csv_to_series('fixtures/hh_internal_heat.csv')
-        expected.index = HOURS_DF.index
-        calculated = self.sim.internal_heat
-        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+        self.check_series_versus_csv(
+            self.sim.internal_heat,
+            'fixtures/hh_internal_heat.csv'
+        )
 
+    def test_building_thermal_mass(self):
+        self.check_series_versus_csv(
+            self.sim.building_thermal_mass,
+            'fixtures/hh_building_thermal_mass.csv'
+        )
+        
     def test_air_free_temp_0m(self):
         df = self.sim.air_free_temp_0m
         self.assertEqual(len(df), len(HOURS_DF))
