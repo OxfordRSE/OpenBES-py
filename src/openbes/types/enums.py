@@ -167,3 +167,18 @@ class THERMAL_BREAKS(ListableEnum):
     Facade_roof = "Façade (roof)"
     Windows = "Windows (lintels, jambs, sills)"
     Shading = "Shading devices (roller blinds)"
+
+
+class HEAT_CAPACTIY_CLASSES(ListableEnum):
+    Very_light = "Very light"
+    Light = "Light"
+    Medium = "Medium"
+    Heavy = "Heavy"
+    Very_heavy = "Very heavy"
+    Custom_value = "Custom value"
+
+
+class TERRAINS(ListableEnum):
+    Open = "Open"
+    Country = "Country"
+    Urban = "Urban"

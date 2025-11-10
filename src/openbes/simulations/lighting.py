@@ -123,7 +123,7 @@ class LightingSimulation(HourlySimulation):
         return per_month
 
     @property
-    def lights_on(self) -> Series:
+    def lights_on(self) -> 'Series[bool]':
         """Hourly lights on status.
         [Hourly Simulation column KJ]
     
@@ -142,7 +142,7 @@ class LightingSimulation(HourlySimulation):
         return self._hours['lights_on']
 
     @property
-    def lighting_ratio(self) -> Series:
+    def lighting_ratio(self) -> 'Series[float]':
         """Calculate the lighting ratio based on building specifications.
         [Hourly Simulation column KI]
         """

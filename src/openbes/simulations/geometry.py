@@ -10,7 +10,7 @@ from src.openbes.types import (
     COMPASS_POINTS,
     FLOORS,
     ORIENTATIONS,
-    THERMAL_BREAKS,
+    THERMAL_BREAKS, HEAT_CAPACTIY_CLASSES,
 )
 
 THERMAL_BREAK_TRANSMITTANCE = {
@@ -37,6 +37,13 @@ COMPASS_POINT_FACADE = DataFrame(
 EXPOSURES_MAP = DataFrame(
     index=MultiIndex.from_product([list(ORIENTATIONS), list(COMPASS_POINTS)], names=['orientation', 'compass_point'])
 )
+
+# Database AC5:AG10
+# Frequently appears as Am/Af e.g. in Hourly simulation AM91
+HEAT_CAPACITY_VALUES = DataFrame({
+    'Am': [2.5, 2.5, 2.5, 3.0, 3.5, 2.0],
+    'Cm': [80_000.0, 110_000.0, 165_000.0, 260_000.0, 370_000.0, 51944.0],
+}, index=[list(HEAT_CAPACTIY_CLASSES)])
 
 class Rectangle:
     def __init__(self, length: float, width: float):
@@ -75,8 +82,9 @@ class BuildingGeometry:
     _compass_point_facade: DataFrame
     _exposures: DataFrame
     _heat_transfer_rate_windows: float
-    _heat_transfer_rate_opaque: float
+    _heat_infiltration_opaque: float
     _heat_transfer_is: float
+    _heat_transfer_ms: float
     _conditioned_floor_perimeters: Series
     _roof_projections: Series
     _roof_factor: float
@@ -140,7 +148,7 @@ class BuildingGeometry:
         return 0.0
 
     @property
-    def gross_floor_areas(self) -> Series:
+    def gross_floor_areas(self) -> 'Series[float]':
         """Floor area of the building in square meters for each zone and floor.
         Af [Inputs cells C39:G45]
         """
@@ -178,7 +186,7 @@ class BuildingGeometry:
         return row['gross_floor_area'] * self.spec.parameters.nia_gba_ratio
 
     @property
-    def conditioned_floor_areas(self) -> Series:
+    def conditioned_floor_areas(self) -> 'Series[float]':
         """Conditioned floor area of the building in square meters for each zone and floor.
         N45 [Inputs cell N45]
         """
@@ -236,7 +244,7 @@ class BuildingGeometry:
             return math.sqrt(floor_area / building_rectangular_ratio) * height  # width
 
     @property
-    def external_vertical_envelope_gross_areas(self) -> Series:
+    def external_vertical_envelope_gross_areas(self) -> 'Series[float]':
         """External vertical envelope gross area of the building in square meters for each orientation and floor.
         [Input cells C64:F69]
         """
@@ -253,7 +261,7 @@ class BuildingGeometry:
         return self._orientation_facade['external_vertical_envelope_gross_area']
 
     @property
-    def external_vertical_envelope_conditioned_areas(self) -> Series:
+    def external_vertical_envelope_conditioned_areas(self) -> 'Series[float]':
         """External vertical envelope conditioned area of the building in square meters for each orientation and floor.
         [Input cells C74:F79]
         """
@@ -297,7 +305,7 @@ class BuildingGeometry:
         return getattr(self.spec, window_count_attr, 0) or 0
 
     @property
-    def window_count(self) -> Series:
+    def window_count(self) -> 'Series[int]':
         """Number of windows for each floor and orientation.
 
         [Inputs cells C90:F94] [Tool cells G72:J76]
@@ -311,7 +319,7 @@ class BuildingGeometry:
         return self._orientation_facade['window_count']
 
     @property
-    def window_area_orientation(self) -> Series:
+    def window_area_orientation(self) -> 'Series[float]':
         """Window area in square meters for each floor and orientation.
         """
         if 'window_area_orientation' not in self._orientation_facade.columns:
@@ -323,7 +331,7 @@ class BuildingGeometry:
         return self._orientation_facade['window_area_orientation']
 
     @property
-    def window_ratio(self) -> Series:
+    def window_ratio(self) -> 'Series[float]':
         """The proportion of each vertical envelope taken up by windows for each floor and orientation.
         [Inputs cells H90:K94]
         """
@@ -416,7 +424,7 @@ class BuildingGeometry:
         return r['window_ratio'] * r['external_vertical_envelope_conditioned_area']
 
     @property
-    def window_areas(self) -> Series:
+    def window_areas(self) -> 'Series[float]':
         """The window area of the building in square meters by floor and compass point.
         [Inputs cells near M120]
         """
@@ -437,7 +445,7 @@ class BuildingGeometry:
 
 
     @property
-    def window_shading(self) -> Series:
+    def window_shading(self) -> 'Series[float]':
         """Shaded window factor for each floor.
     
         [Inputs cells AB120:124]
@@ -448,7 +456,7 @@ class BuildingGeometry:
         ).squeeze()
 
     @property
-    def opaque_areas(self) -> Series:
+    def opaque_areas(self) -> 'Series[float]':
         """Opaque areas of the building in square meters by floor and compass point.
         """
         return self.conditioned_facade_areas - self.window_areas
@@ -464,7 +472,20 @@ class BuildingGeometry:
         """Building heat capacitance in kJ/K.
         Cm
         """
-        raise NotImplementedError
+        return HEAT_CAPACITY_VALUES['Cm'].loc[self.spec.heat_capacity]
+
+    @property
+    def building_mass_area(self) -> float:
+        """Building mass area in m².
+        Am  (sometimes Af????)
+        """
+        return self.building_mass_factor * self.conditioned_floor_area
+
+    @property
+    def building_mass_factor(self) -> float:
+        """Building mass factor (Am / Af). Am is sometimes Af and vice-versa?????
+        """
+        return HEAT_CAPACITY_VALUES['Am'].loc[self.spec.heat_capacity].iat[0]
 
     @property
     def heat_transfer_rate_windows(self) -> float:
@@ -487,7 +508,7 @@ class BuildingGeometry:
         return self._heat_transfer_rate_windows
 
     @property
-    def conditioned_floor_perimeters(self) -> Series:
+    def conditioned_floor_perimeters(self) -> 'Series[float]':
         """Perimeter each floor in m.
         [Inputs cells W120:124]
         """
@@ -504,7 +525,7 @@ class BuildingGeometry:
         return self._conditioned_floor_perimeters
 
     @property
-    def roof_projections(self) -> Series:
+    def roof_projections(self) -> 'Series[float]':
         """Roof area of the building in square meters by floor.
         [Inputs cells K120:124]
         """
@@ -540,7 +561,7 @@ class BuildingGeometry:
         return self._roof_factor
     
     @property
-    def conditioned_floor_projection(self) -> Series:
+    def conditioned_floor_projection(self) -> 'Series[float]':
         """Projection of each floor of the building in square meters by floor.
         For the ground floor, this is the conditioned floor area.
         For floors above the ground floor, this is the additional area compared to the floor below (i.e. the overhang).
@@ -560,9 +581,9 @@ class BuildingGeometry:
         return Series(data, index=list(FLOORS))
 
     @property
-    def heat_transfer_rate_opaque(self) -> float:
+    def heat_infiltration_opaque(self) -> float:
         """Heat transfer rate through opaque envelope (W/m²K).
-        Htr_opaque [Hourly Simulation cell AR93]
+        Htr_opaque [Hourly Simulation cell AR81, Inputs C270]
 
         Calculated for the opaque elements of the building envelope including walls, roof, and ground floor by
         combining surface and linear transfer weighted by their respective areas and lengths.
@@ -571,7 +592,7 @@ class BuildingGeometry:
 
         Linear transmission is perimeter_length * ψ-value
         """
-        if not hasattr(self, '_heat_transfer_rate_opaque') or self._heat_transfer_rate_opaque is None:
+        if not hasattr(self, '_heat_infiltration_opaque') or self._heat_infiltration_opaque is None:
             floor_surface_area = self.conditioned_floor_projection.sum()  # [Inputs cell E259]
             wall_opaque_surface_area = self.conditioned_facade_areas.sum() - self.window_areas.sum()  # [C259]
             roof_surface_area = self.roof_projections.sum() * self.roof_factor  # [Inputs cell D259]
@@ -641,7 +662,7 @@ class BuildingGeometry:
             roof_linear_transmission = roof_perimeter * roof_transmittance
 
             # [Calculated in Inputs C270]
-            corrected_values = (
+            self._heat_infiltration_opaque = (
                     self.spec.parameters.floor_correction_factor *
                     (floor_surface_transmission + floor_linear_transmission) +
                     self.spec.parameters.facade_correction_factor *
@@ -649,15 +670,34 @@ class BuildingGeometry:
                     self.spec.parameters.roof_correction_factor * 
                     (roof_surface_transmission + roof_linear_transmission)
             )
-            self._heat_transfer_rate_opaque = corrected_values / self.conditioned_floor_area
-        return self._heat_transfer_rate_opaque
+        return self._heat_infiltration_opaque
+
+    @property
+    def heat_transfer_rate_opaque(self) -> float:
+        """Heat transfer rate through opaque envelope (W/m²K).
+        Htr_opaque [Hourly Simulation cell AR93]
+        """
+        return self.heat_infiltration_opaque / self.conditioned_floor_area
+
+    @property
+    def heat_transfer_ms(self) -> float:
+        """Heat transfer coefficient between external air and external surface (W/m²K).
+        Htr_ms [Hourly Simulation cell AR95] EN ISO 13790 12.2.2"""
+        if not hasattr(self, '_heat_transfer_ms') or self._heat_transfer_ms is None:
+            factor = 9.1  # Unnamed factor hardcoded in cell AR95 formula
+            # Am or Am/Af is converted and reconverted several times, but ends up being just the lookup value
+            Am = HEAT_CAPACITY_VALUES.loc[self.spec.heat_capacity, 'Am'].iat[0]
+            self._heat_transfer_ms = factor * Am
+        return self._heat_transfer_ms
 
     @property
     def heat_transfer_is(self) -> float:
         """Heat transfer coefficient between internal air and internal surface (W/m²K).
-        Htr_is [Hourly Simulation cell AR95] EN ISO 13790 12.2.2
+        Htr_is [Hourly Simulation cell AR98] EN ISO 13790 12.2.2
         """
         if not hasattr(self, '_heat_transfer_is') or self._heat_transfer_is is None:
-            factor = 9.1  # Unnamed factor hardcoded in cell AR95 formula
-            self._heat_transfer_is = (self.heat_transfer_rate_windows + self.heat_transfer_rate_opaque) * factor
+            Aat = 4.5  # Hardcoded in AM84
+            Atot = Aat * self.conditioned_floor_area  # AM85
+            Htr_is = 3.45 * Atot  # 3.45 hardcoded in AR83
+            self._heat_transfer_is = Htr_is / self.conditioned_floor_area
         return self._heat_transfer_is

@@ -27,6 +27,23 @@ class Climate(OpenBESTestCase):
         df = self.sim.epw_data
         self.assertEqual(len(df), len(HOURS_DF))
 
+    def test_night_ventilation_enabled(self):
+        df = self.sim.night_ventilation_enabled
+        self.assertEqual(len(df), len(HOURS_DF))
+        self.assertEqual(df.sum, 762)
+
+    def test_air_flow_dependent(self):
+        df = self.sim.air_flow_dependent
+        expected = [
+            0.001098, 0.001068, 0.001068, 0.001059, 0.001079, 0.001079, 0.001059, 0.001059, 0.001079,
+            0.001068, 0.001098, 0.001107, 0.001128, 0.001059, 0.001059, 0.001035, 0.001079, 0.001051,
+            0.001035, 0.001059, 0.001059, 0.001059, 0.001043, 0.001043
+        ]
+        self.check_series_versus_values(
+            df.iloc[range(len(expected))],
+            expected
+        )
+
     def test_heating_degree_days(self):
         expected = HOURS_DF.copy()
         expected = expected.drop(columns=['is_daytime'])
@@ -99,6 +116,26 @@ class Climate(OpenBESTestCase):
             'fixtures/hh_htr_1.csv'
         )
 
+    def test_htr_2(self):
+        self.check_series_versus_values(
+            self.sim.htr_2.iloc[range(24)],
+            [
+                0.511005, 0.510995, 0.510995, 0.510993, 0.510999, 0.510999, 0.510993, 0.510993, 0.510999,
+                0.510995, 0.511005, 0.511009, 0.511016, 0.510993, 0.510993, 0.510984, 0.510999, 0.510990,
+                0.510984, 0.510993, 0.510993, 0.510993, 0.510987, 0.510987
+            ]
+        )
+
+    def test_htr_3(self):
+        self.check_series_versus_values(
+            self.sim.htr_3.iloc[range(24)],
+            [
+                0.499780, 0.499770, 0.499770, 0.499767, 0.499773, 0.499773, 0.499767, 0.499767, 0.499773,
+                0.499770, 0.499780, 0.499783, 0.499789, 0.499767, 0.499767, 0.499759, 0.499773, 0.499764,
+                0.499759, 0.499767, 0.499767, 0.499767, 0.499762, 0.499762
+            ]
+        )
+
     def test_internal_heat_occupants(self):
         self.check_series_versus_csv(
             self.sim.internal_heat_from_occupants,
@@ -142,6 +179,35 @@ class Climate(OpenBESTestCase):
         expected = expected.astype(computed.dtype).round(DECIMAL_PLACES)
         self.assertTrue(expected.equals(computed), expected.compare(computed))
 
+    def test_solar_heat_roof(self):
+        expected = [
+            0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 22.404,
+            222.725, 138.379, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000
+        ]
+        self.check_series_versus_values(
+            self.sim.solar_heat_roof.iloc[range(len(expected))],
+            expected,
+        )
+
+    def test_solar_heat_opaque(self):
+        expected = [
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 35.09, 216.95, 555.00, 399.60, 44.73, 0.00,
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00
+        ]
+        self.check_series_versus_values(
+            self.sim.solar_heat_opaque.iloc[range(len(expected))],
+            expected,
+        )
+
+    def test_solar_heat_windows(self):
+        expected = [
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 201.81, 1216.63, 2474.30, 3402.11, 3071.42,
+            1351.77, 99.24, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00
+        ]
+        self.check_series_versus_values(
+            self.sim.solar_heat_windows.iloc[range(len(expected))],
+            expected,
+        )
 
 if __name__ == '__main__':
     unittest.main()

@@ -54,7 +54,7 @@ def pipeline(spec: OpenBESSpecification, parameters: OpenBESParameters) -> Float
     spec.ventilation_system1_on_time = 10
     spec.ventilation_system1_off_time = 14
 
-    lighting_per_month = lighting.get_kwh_per_month(spec)
+    lighting_per_month = lighting.LightingSimulation(spec=spec).get_kwh_per_month()
     lighting_per_month.index = [ENERGY_USE_CATEGORIES.Lighting]
 
     if spec.water_system_energy_source == ENERGY_SOURCES.Electricity:

@@ -1,3 +1,5 @@
+from typing import List
+
 from pandas import Series
 import logging
 from pandas import DataFrame
@@ -10,7 +12,7 @@ from ..types import OpenBESSpecification
 
 logger = logging.getLogger(__name__)
 
-class VentilationSimulation(HourlySimulation):
+class SpecificVentilationSimulation(HourlySimulation):
     system_number: int
     geometry: BuildingGeometry
     _air_supply_rate_adjusted: float
@@ -45,7 +47,7 @@ class VentilationSimulation(HourlySimulation):
         return self._air_supply_rate_adjusted
 
     @property
-    def ventilation_on(self) -> Series:
+    def ventilation_on(self) -> 'Series[bool]':
         """Hourly ventilation status (on/off) throughout the year.
         [Hourly simulation columns IR, IX]
 
@@ -62,7 +64,7 @@ class VentilationSimulation(HourlySimulation):
         return self._hours['ventilation_on']
 
     @property
-    def air_supply_rate(self) -> Series:
+    def air_supply_rate(self) -> 'Series[float]':
         """Hourly air supply rate (m3/h/m2) throughout the year.
         [Hourly simulation columns IV, JB]
         """
@@ -77,6 +79,45 @@ class VentilationSimulation(HourlySimulation):
                         self.ventilation_on.astype(float)
                 )
         return self._hours['air_supply_rate']
+
+
+class VentilationSimulation(HourlySimulation):
+    ventilation_simulations: List[SpecificVentilationSimulation]
+
+    def __init__(
+            self,
+            spec: OpenBESSpecification,
+            occupancy: OccupationSimulation = None,
+            geometry: BuildingGeometry = None
+    ):
+        super().__init__(spec=spec)
+        self.ventilation_simulations = []
+        while True:
+            system_number = len(self.ventilation_simulations) + 1
+            attr_name = f"ventilation_system{system_number}_rated_input_power"
+            if not hasattr(spec, attr_name):
+                break
+            self.ventilation_simulations.append(
+                SpecificVentilationSimulation(
+                    spec=spec,
+                    system_number=system_number,
+                    occupancy=occupancy,
+                    geometry=geometry
+                )
+            )
+
+    @property
+    def air_supply_rate(self) -> 'Series[float]':
+        """Total hourly air supply rate (m3/h/m2) from all ventilation systems.
+        [Hourly simulation column JA]
+        """
+        if 'air_supply_rate' not in self._hours.columns:
+            total_air_supply = Series([0.0] * len(self._hours), index=self._hours.index)
+            for sim in self.ventilation_simulations:
+                total_air_supply += sim.air_supply_rate
+            self._hours['air_supply_rate'] = total_air_supply
+        return self._hours['air_supply_rate']
+
 
 def get_ventilation_hours_per_day(spec: OpenBESSpecification) -> int:
     """Return the daily mechanical ventilation hours based on the specification.

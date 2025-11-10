@@ -2,7 +2,14 @@ import unittest
 
 import pandas as pd
 import os
-from src.openbes.types import OpenBESSpecification, OpenBESParameters, LIGHTING_CONTROL
+from src.openbes.types import (
+    OpenBESSpecification,
+    OpenBESParameters,
+    LIGHTING_CONTROL,
+    HEAT_CAPACTIY_CLASSES,
+    TERRAINS,
+)
+
 
 class OpenBESTestCase(unittest.TestCase):
     decimal_places: int = 6
@@ -11,10 +18,14 @@ class OpenBESTestCase(unittest.TestCase):
         self.spec = HOLYWELL_HOUSE_SPEC
 
     @classmethod
-    def read_single_col_csv_to_series(cls, relative_path: str) -> pd.Series:
+    def read_csv(cls, relative_path: str) -> pd.DataFrame:
         base_path = os.path.dirname(__file__)
         full_path = os.path.join(base_path, relative_path)
-        return pd.read_csv(full_path).squeeze()
+        return pd.read_csv(full_path)
+
+    @classmethod
+    def read_single_col_csv_to_series(cls, relative_path: str) -> pd.Series:
+        return cls.read_single_col_csv_to_series(relative_path).squeeze()
 
     @classmethod
     def get_expectation_for_series(cls, series: pd.Series, expected_values: list) -> pd.Series:
@@ -123,7 +134,7 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     ground_floor_area_z3=97.88,
     ground_floor_area_z4=132.76,
     ground_floor_area_z5=None,
-    heat_capacity=None,
+    heat_capacity=HEAT_CAPACTIY_CLASSES.Medium,
     heating_system1_efficiency_cop=None,
     heating_system1_energy_source=None,
     heating_system1_nominal_capacity=None,
@@ -242,9 +253,9 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     setpoint_winter_day=22,
     setpoint_winter_night=18,
     slab_thickness=0.35,
-    solar_external_shading_summer=None,
-    solar_external_shading_winter=None,
-    terrain_class=None,
+    solar_external_shading_summer=0.9,
+    solar_external_shading_winter=0.6,
+    terrain_class=TERRAINS.Country,
     thermal_bridge_facade_ground=True,
     thermal_bridge_facade_intermediate=False,
     thermal_bridge_facade_roof=True,
@@ -275,8 +286,8 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     water_system_energy_source=None,
     water_system_nominal_capacity=None,
     water_system_type=None,
-    window_frame_factor=None,
-    window_gvalue=None,
+    window_frame_factor=0.15,
+    window_gvalue=0.65,
     window_height=1.6,
     window_length=2.4,
     window_number_first_a1=9,

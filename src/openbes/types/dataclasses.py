@@ -2,7 +2,13 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from . import LIGHTING_CONTROL
-from .enums import LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, ENERGY_SOURCES
+from .enums import (
+    LIGHTING_TECHNOLOGIES,
+    LIGHTING_BALLASTS,
+    ENERGY_SOURCES,
+    HEAT_CAPACTIY_CLASSES,
+    TERRAINS
+)
 
 
 @dataclass
@@ -34,11 +40,11 @@ class OpenBESParameters:
     courtyard_number: Optional[int] = 0
     courtyard_width: Optional[float] = None
     density_of_air: Optional[float] = 1.211
-    facade_absorption_coefficient: Optional[float] = None
+    facade_absorption_coefficient: Optional[float] = 0.6
     facade_correction_factor: Optional[float] = 1.0
-    facade_emissivity: Optional[float] = None
+    facade_emissivity: Optional[float] = 0.9
     floor_correction_factor: Optional[float] = 1.0
-    heat_capacity_correction_factor: Optional[float] = None
+    heat_capacity_correction_factor: Optional[float] = 1.0
     heat_capacity_joule: Optional[float] = None
     heating_load_factor: Optional[float] = None
     heating_system1_min_demand: Optional[float] = None
@@ -56,7 +62,7 @@ class OpenBESParameters:
     heating_system2_simultaneity_factor_teaching: Optional[float] = None
     heating_system2_type: Optional[float] = None
     infiltration_correction_factor: Optional[float] = 1.0
-    leakage_air_flow_dependent: Optional[float] = None
+    leakage_air_flow_dependent: Optional[float] = 0.0001
     lighting_on_off: Optional[bool] = True
     # Fraction of gross building area that is inhabitable (i.e. minus walls, shafts, etc)
     nia_gba_ratio: Optional[float] = 0.95
@@ -74,10 +80,10 @@ class OpenBESParameters:
     open_courtyard_number_c1: Optional[int] = 0
     open_courtyard_number_d1: Optional[int] = 0
     pressure_of_air: Optional[float] = None
-    roof_absorption_coefficient: Optional[float] = None
+    roof_absorption_coefficient: Optional[float] = 0.8
     roof_correction_factor: Optional[float] = 1.0
-    roof_emissivity: Optional[float] = None
-    shading_correction_factor: Optional[float] = None
+    roof_emissivity: Optional[float] = 0.9
+    shading_correction_factor: Optional[float] = 1.0
     specific_heat_of_air: Optional[float] = 1.015
     temperature_tolerance: Optional[float] = None
     ventilation_system2_airflow: Optional[float] = None
@@ -88,8 +94,8 @@ class OpenBESParameters:
     ventilation_system2_rated_input_power: Optional[float] = None
     ventilation_system2_type: Optional[float] = None
     ventilation_system2_ventilated_area: Optional[float] = None
-    view_factor_to_sky_facade: Optional[float] = None
-    view_factor_to_sky_roof: Optional[float] = None
+    view_factor_to_sky_facade: Optional[float] = 0.5
+    view_factor_to_sky_roof: Optional[float] = 1.0
     window_correction_factor: Optional[float] = 1.0
 
 
@@ -177,7 +183,7 @@ class OpenBESSpecification:
     ground_floor_area_z3: Optional[float] = None
     ground_floor_area_z4: Optional[float] = None
     ground_floor_area_z5: Optional[float] = None
-    heat_capacity: Optional[float] = None
+    heat_capacity: Optional[HEAT_CAPACTIY_CLASSES] = None
     heating_system1_efficiency_cop: Optional[float] = None
     heating_system1_energy_source: Optional[float] = None
     heating_system1_nominal_capacity: Optional[float] = None
@@ -302,7 +308,7 @@ class OpenBESSpecification:
     slab_thickness: Optional[float] = None
     solar_external_shading_summer: Optional[float] = None
     solar_external_shading_winter: Optional[float] = None
-    terrain_class: Optional[float] = None
+    terrain_class: Optional[TERRAINS] = None
     thermal_bridge_facade_ground: Optional[bool] = None
     thermal_bridge_facade_intermediate: Optional[bool] = None
     thermal_bridge_facade_roof: Optional[bool] = None
