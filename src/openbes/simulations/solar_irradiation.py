@@ -115,7 +115,10 @@ class SolarIrradiationSimulation:
         """
         if not hasattr(self, '_solarposition') or self._solarposition is None:
             self._solarposition = self.location.get_solarposition(self.epw_data.index)
-            self._solarposition = self._solarposition.shift(-1)  # correct for EPW hour ending convention
+            # correct for EPW hour ending convention
+            row_0 = self._solarposition.iloc[0:1].copy()
+            self._solarposition = self._solarposition.shift(-1)
+            self._solarposition.iloc[-1:] = row_0.values
             self._solarposition.index = self._hours.index
         return self._solarposition
 

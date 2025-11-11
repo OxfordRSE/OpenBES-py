@@ -472,7 +472,7 @@ class BuildingGeometry:
         """Building heat capacitance in kJ/K.
         Cm
         """
-        return HEAT_CAPACITY_VALUES['Cm'].loc[self.spec.heat_capacity]
+        return HEAT_CAPACITY_VALUES['Cm'].loc[self.spec.heat_capacity].iat[0]
 
     @property
     def building_mass_area(self) -> float:
@@ -484,6 +484,7 @@ class BuildingGeometry:
     @property
     def building_mass_factor(self) -> float:
         """Building mass factor (Am / Af). Am is sometimes Af and vice-versa?????
+        Listed as Am/Af in Hourly simulation cell AM91.
         """
         return HEAT_CAPACITY_VALUES['Am'].loc[self.spec.heat_capacity].iat[0]
 

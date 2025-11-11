@@ -82,9 +82,9 @@ def get_cooling_consumption_per_hour(spec: OpenBESSpecification) -> DataFrame:
     data = get_epw_data(spec).rename(columns={'temp_air': 'dry_bulb_temperature'})
     data["reference_consumption_by_temp"] = 0.1117801 + \
       0.028493334 * RELATIVE_HUMIDITY  - \
-      0.000411156 * (RELATIVE_HUMIDITY ^ 2) + \
+      0.000411156 * (RELATIVE_HUMIDITY ** 2) + \
       0.021414276 * data["dry_bulb_temperature"] + \
-      0.000161125 * (data["dry_bulb_temperature"] ^ 2) - \
+      0.000161125 * (data["dry_bulb_temperature"] ** 2) - \
       0.000679104 * data["dry_bulb_temperature"] * RELATIVE_HUMIDITY
 
     data["target_temperature"] = spec.set_target_temperature...
@@ -98,8 +98,8 @@ def get_cooling_consumption_per_hour(spec: OpenBESSpecification) -> DataFrame:
 
     data["reference_consumption_fcp"] = 0.2012307 - \
       0.0312175 * fan_cooling_power + \
-      1.9504979 * (fan_cooling_power^2) - \
-      1.1205104 * (fan_cooling_power^3)
+      1.9504979 * (fan_cooling_power**2) - \
+      1.1205104 * (fan_cooling_power**3)
 
     hours_per_day = 24
     result = OPERATIONAL_DAYS_DF.copy()

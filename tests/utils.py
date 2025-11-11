@@ -1,4 +1,5 @@
 import unittest
+from typing import Union
 
 import pandas as pd
 import os
@@ -25,7 +26,7 @@ class OpenBESTestCase(unittest.TestCase):
 
     @classmethod
     def read_single_col_csv_to_series(cls, relative_path: str) -> pd.Series:
-        return cls.read_single_col_csv_to_series(relative_path).squeeze()
+        return cls.read_csv(relative_path).squeeze()
 
     @classmethod
     def get_expectation_for_series(cls, series: pd.Series, expected_values: list) -> pd.Series:
@@ -44,7 +45,7 @@ class OpenBESTestCase(unittest.TestCase):
 
     def check_series_versus_values(
             self, series: pd.Series,
-            expected_values: list,
+            expected_values: Union[list, pd.Series],
             decimal_places: int = None,
             tolerance: float = None
     ) -> None:
@@ -57,15 +58,26 @@ class OpenBESTestCase(unittest.TestCase):
         else:
             differences = expected.compare(calculated)
             mask = abs(differences['self'] - differences['other']) > tolerance
-            self.assertTrue(differences[mask].empty, differences[mask])
+            self.assertTrue(
+                differences[mask].empty,
+                f"{len(differences[mask])} rows outside of tolerable difference +/- {tolerance}:\n"
+                f"Max difference: {max(abs(differences['self'] - differences['other']))}\n"
+                f"Mean difference: {sum(abs(differences['self'] - differences['other'])) / len(differences)}\n"
+                f"% of values outside tolerance: {len(differences[mask]) / len(series) * 100:.2f}%\n"
+                f"% of values outside 2 x tolerance ({tolerance * 2}): {len(differences[abs(differences['self'] - differences['other']) > (2 * tolerance)]) / len(series) * 100:.2f}%\n"
+                f"% of values outside 10 x tolerance ({tolerance * 10}): {len(differences[abs(differences['self'] - differences['other']) > (10 * tolerance)]) / len(series) * 100:.2f}%\n"
+                f"{differences[mask]}"
+            )
 
-    def check_series_versus_csv(self, series: pd.Series, csv_file_relative_path: str, decimal_places: int = None) -> None:
-        if decimal_places is None:
-            decimal_places = self.decimal_places
-        expected = self.read_single_col_csv_to_series(csv_file_relative_path).round(decimal_places)
-        calculated = series.round(decimal_places)
-        expected.index = calculated.index
-        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+    def check_series_versus_csv(
+            self,
+            series: pd.Series,
+            csv_file_relative_path: str,
+            decimal_places: int = None,
+            tolerance: float = None
+    ) -> None:
+        expected = self.read_single_col_csv_to_series(csv_file_relative_path)
+        self.check_series_versus_values(series, expected, decimal_places, tolerance)
 
 HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     parameters=OpenBESParameters(
@@ -159,7 +171,7 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     heating_system1_type=None,
     holiday=True,
     leakage_air_flow=None,
-    leakage_air_flow_independent=None,
+    leakage_air_flow_independent=0.45,
     lighting_control=LIGHTING_CONTROL.Manual,
     lighting_off_time=17,
     lighting_on_time=9,
@@ -223,7 +235,7 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     max_building_occupation=150,
     meteorological_file="UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw",
     natural_gas_annual=None,
-    natural_ventilation_night=None,
+    natural_ventilation_night=0.0,
     occupancy_close_canteen=14,
     occupancy_close_office=17,
     occupancy_close_teaching=17,

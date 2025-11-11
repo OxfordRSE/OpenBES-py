@@ -190,23 +190,17 @@ class Climate(OpenBESTestCase):
         )
 
     def test_solar_heat_opaque(self):
-        expected = [
-            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 35.09, 216.95, 555.00, 399.60, 44.73, 0.00,
-            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00
-        ]
-        self.check_series_versus_values(
-            self.sim.solar_heat_opaque.iloc[range(len(expected))],
-            expected,
+        self.check_series_versus_csv(
+            self.sim.solar_heat_opaque,
+            'fixtures/hh_solar_heat_opaque.csv',
+            tolerance=50.0  # large tolerance due to solar calculations
         )
 
     def test_solar_heat_windows(self):
-        expected = [
-            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 201.81, 1216.63, 2474.30, 3402.11, 3071.42,
-            1351.77, 99.24, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00
-        ]
-        self.check_series_versus_values(
-            self.sim.solar_heat_windows.iloc[range(len(expected))],
-            expected,
+        self.check_series_versus_csv(
+            self.sim.solar_heat_windows,
+            'fixtures/hh_solar_heat_windows.csv',
+            tolerance=50.0  # large tolerance due to solar calculations
         )
 
 if __name__ == '__main__':

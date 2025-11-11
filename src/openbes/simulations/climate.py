@@ -1,6 +1,6 @@
 from math import atan
 
-from numpy import nan, isnan
+from numpy import nan, isnan, select
 from pvlib.iotools import read_epw
 from pandas import DataFrame, Series
 import os
@@ -35,12 +35,6 @@ def get_available_epw_files() -> list[str]:
     ]
 
 class ClimateSimulation(HourlySimulation):
-    """
-    Unlike other simulations, ClimateSimulation's Hourly data depend on the previous hourly data.
-    This means that the class must calculate all hourly data in sequence, not just on demand.
-
-    Consequently, the entire simulation is run in the __init__ method, which may take some time.
-    """
     geometry: BuildingGeometry
     occupancy: OccupationSimulation
     lighting: LightingSimulation
@@ -53,7 +47,7 @@ class ClimateSimulation(HourlySimulation):
     _heat_infiltration_opaque: float
     _heat_transmission_by_infiltration: float
     _temp_change_demand: float
-    _building_thermal_mass_at_hour: Series
+    _theta_st_partial: float
 
     def __init__(
             self,
@@ -63,6 +57,12 @@ class ClimateSimulation(HourlySimulation):
             lighting: LightingSimulation = None,
             ventilation: VentilationSimulation = None,
     ):
+        """
+        Unlike other simulations, ClimateSimulation's Hourly data depend on the previous hourly data.
+        This means that the class must calculate all hourly data in sequence, not just on demand.
+
+        Consequently, the entire simulation is run in the __init__ method, which may take some time.
+        """
         super().__init__(spec=spec)
         self.geometry = geometry or BuildingGeometry(spec=spec)
         self.occupancy = occupancy or OccupationSimulation(spec=spec, geometry=self.geometry)
@@ -70,20 +70,31 @@ class ClimateSimulation(HourlySimulation):
         self.ventilation = ventilation or VentilationSimulation(
             spec=spec, geometry=self.geometry, occupancy=self.occupancy
         )
+        # Initialize all columns that will be calculated hour by hour
         nan_series = Series([nan] * len(self._hours), index=self._hours.index)
         self._hours['air_free_temp_0m'] = nan_series
         self._hours['internal_surface_temp'] = nan_series
         self._hours['heat_transmission_by_ventilation'] = nan_series
-        self._hours['supply_air_temp'] = nan_series
-        self._hours['internal_heat_adjusted'] = nan_series
         self._hours['building_thermal_mass'] = nan_series
         self._hours['htr_1'] = nan_series
         self._hours['htr_2'] = nan_series
         self._hours['htr_3'] = nan_series
         self._hours['air_flow'] = nan_series
+        self._hours['solar_heat'] = nan_series
         self._hours['solar_heat_windows'] = nan_series
+        self._hours['air_flow_dependent'] = nan_series
+        self._hours['air_set_temp'] = nan_series
+        self._hours['m_tot'] = nan_series
+        self._hours['m'] = nan_series
+        self._hours['temp_st'] = nan_series
         for i in range(len(self._hours)):
             self.calculate_hour(row_index=i)
+            if i > 1:
+                check_df = self._hours.iloc[i].copy()
+                # air_set_temp is only calculated for the previous hour
+                check_df['air_set_temp'] = self._hours['air_set_temp'].iat[i - 1]
+                if check_df.isna().any():
+                    raise ValueError(f"Calculation for hour index {i} resulted in NaN values:\n{check_df}")
 
     def calculate_hour(self, row_index: int):
         """Calculate all hourly data for a specific hour.
@@ -92,7 +103,7 @@ class ClimateSimulation(HourlySimulation):
             row_index (int): The index of the hour to calculate (0-8759).
         """
         # Trigger calculation of the properties of this hour that depend on the previous hour results
-        self.get_solar_heat_windows_at_index(row_index)
+        self._get_air_free_temp_0m_at_index(row_index)
 
     @property
     def set_point_temperature(self) -> DataFrame:
@@ -162,24 +173,15 @@ class ClimateSimulation(HourlySimulation):
         days = days.drop(columns=['temp_air'])
         return days
 
-    @property
-    def internal_air_temp(self) -> 'Series[float]':
-        """Hourly internal air temperature in degrees C.
-        Ѳia [Hourly simulation column AQ]
-        """
-        if 'internal_air_temp' not in self._hours.columns:
-            raise NotImplementedError
-        return self._hours['internal_air_temp']
-
-    def get_htr_1_at_index(self, i: int) -> float:
+    def _get_htr_1_at_index(self, i: int) -> float:
         """Hourly heat transfer rate 1?????? in kW/K.
         Htr_1 [Hourly Simulation column AM]
         """
         if isnan(self.htr_1.iat[i]):
-            self._hours['htr_1'] = (
+            self._hours.at[self._hours.index[i], 'htr_1'] = (
                     1 /
                     (
-                            1 / self.get_heat_transmission_by_ventilation_at_index(i) +
+                            1 / self._get_heat_transmission_by_ventilation_at_index(i) +
                             1 / self.geometry.heat_transfer_is
                     )
             )
@@ -192,13 +194,13 @@ class ClimateSimulation(HourlySimulation):
         """
         return self._hours['htr_1']
 
-    def get_htr_2_at_index(self, i: int) -> float:
+    def _get_htr_2_at_index(self, i: int) -> float:
         """Hourly heat transfer rate 2?????? in kW/K.
         Htr_2 [Hourly Simulation column AN]
         """
         if isnan(self.htr_2.iat[i]):
             self._hours.at[self._hours.index[i], 'htr_2'] = (
-                    self.get_htr_1_at_index(i) + self.geometry.heat_transfer_rate_windows
+                    self._get_htr_1_at_index(i) + self.geometry.heat_transfer_rate_windows
             )
         return self.htr_2.iat[i]
 
@@ -209,13 +211,13 @@ class ClimateSimulation(HourlySimulation):
         """
         return self._hours['htr_2']
 
-    def get_htr_3_at_index(self, i: int) -> float:
+    def _get_htr_3_at_index(self, i: int) -> float:
         """Hourly heat transfer rate 3?????? in kW/K.
         Htr_3 [Hourly Simulation column AO]
         """
         if isnan(self.htr_3.iat[i]):
             self._hours.at[self._hours.index[i], 'htr_3'] = 1 / (
-                    (1 / self.get_htr_2_at_index(i)) + (1/ self.geometry.heat_transfer_ms)
+                    (1 / self._get_htr_2_at_index(i)) + (1/ self.geometry.heat_transfer_ms)
             )
         return self.htr_3.iat[i]
 
@@ -227,7 +229,7 @@ class ClimateSimulation(HourlySimulation):
         return self._hours['htr_3']
 
 
-    def get_internal_surface_temp_at_index(self, i: int) -> float:
+    def _get_internal_surface_temp_at_index(self, i: int) -> float:
         """Hourly internal surface temperature in degrees C.
         Ѳs [Hourly Simulation column AX]
         """
@@ -235,17 +237,19 @@ class ClimateSimulation(HourlySimulation):
             Htr_is = self.geometry.heat_transfer_is
             Htr_w = self.geometry.heat_transfer_rate_windows / self.geometry.conditioned_floor_area
             Hc_nd = 0  # [Hardcoded in AR111]
-            self._hours['internal_surface_temp'] = \
-                (
-                        Htr_is * self.get_building_thermal_mass_at_index(i) +
-                        self.temp_st.iat[i] +
+            value = (
+                        Htr_is * self._get_building_thermal_mass_at_index(i) +
+                        self._get_temp_st_at_index(i) +
                         Htr_w * self.dry_bulb_temp.iat[i] +
-                        self.htr_1.iat[i] *
+                        self._get_htr_1_at_index(i) *
                         (
-                                self.supply_air_temp.iat[i] + (self.internal_air_temp.iat[i] + Hc_nd) /
-                                self.heat_transmission_by_ventilation.iat[i]
+                                self.supply_air_temp.iat[i] + (self.internal_heat_adjusted.iat[i] + Hc_nd) /
+                                self._get_heat_transmission_by_ventilation_at_index(i)
                         )
-                ) / (Htr_is + Htr_w + self.htr_1.iat[i])
+                ) / (Htr_is + Htr_w + self._get_htr_1_at_index(i))
+            if isnan(value):
+                raise RuntimeError(f"Calculation of internal surface temperature resulted in NaN at index {i}.")
+            self._hours.at[self._hours.index[i], 'internal_surface_temp'] = value
         return self.internal_surface_temp.iat[i]
 
     @property
@@ -256,12 +260,39 @@ class ClimateSimulation(HourlySimulation):
         return self._hours['internal_surface_temp']
 
     @property
+    def theta_st_partial(self) -> float:
+        """?????#
+        Ѳst [Hourly simulation cell AR103]
+        
+        Eq. C.3 (partial)
+        """
+        if not hasattr(self, '_theta_st_partial') or self._theta_st_partial is None:
+            A_at = 4.5  # [Hardcoded in Hourly Simulation cell AM84]
+            self._theta_st_partial = (
+                    1 -
+                    (self.geometry.building_mass_factor / A_at) -
+                    (self.geometry.heat_transfer_rate_windows / 9.1 * A_at)
+            )
+        return self._theta_st_partial
+
+    def _get_temp_st_at_index(self, i: int) -> float:
+        """Hourly temperature for ????? in degrees C.
+        Ѳst [Hourly Simulation column AS]
+        """
+        if isnan(self.temp_st.iat[i]):
+            value = (
+                    self.theta_st_partial * (0.5 * self.internal_heat.iat[i] + self.solar_heat.iat[i])
+            )
+            if isnan(value):
+                raise RuntimeError(f"Calculation of temp_st resulted in NaN at index {i}.")
+            self._hours.at[self._hours.index[i], 'temp_st'] = value
+        return self.temp_st.iat[i]
+
+    @property
     def temp_st(self) -> 'Series[float]':
         """Hourly temperature for ????? in degrees C.
         Ѳst [Hourly Simulation column AS]
         """
-        if 'temp_st' not in self._hours.columns:
-            raise NotImplementedError
         return self._hours['temp_st']
 
     @property
@@ -274,43 +305,64 @@ class ClimateSimulation(HourlySimulation):
                 self.geometry.building_heat_capacitance
         )
 
+    def _get_m_at_index(self, i: int) -> float:
+        """Hourly m?????? in W/m2.
+         Φm [Hourly Simulation column AR]
+        """
+        if isnan(self.m.iat[i]):
+            A_at = 4.5  # [Hardcoded in Hourly Simulation cell AM84]
+            self._hours.at[self._hours.index[i], 'm'] = (
+                    (self.geometry.building_mass_factor / A_at) *
+                    (0.5 * self.internal_heat.iat[i] + self._get_solar_heat_at_index(i))
+            )
+        return self.m.iat[i]
+
     @property
     def m(self) -> 'Series[float]':
         """Hourly m?????? in W/m2.
          Φm [Hourly Simulation column AR]
         """
-        if 'm' not in self._hours.columns:
-            A_at = 4.5  # [Hardcoded in Hourly Simulation cell AM84]
-            self._hours['m'] = (
-                    (self.geometry.building_mass_factor / A_at) * (0.5 * self.internal_heat + self.solar_heat)
-            )
         return self._hours['m']
+
+    def _get_m_tot_at_index(self, i: int) -> float:
+        """Hourly m_tot?????? in W/m2.
+        [Hourly Simulation column AT]
+        """
+        if isnan(self.m_tot.iat[i]):
+            Htr_op = self.geometry.heat_transfer_rate_opaque  # AR93
+            Htr_ms = self.geometry.heat_transfer_ms  # AM94
+            Htr_em = 1 / ((1 / Htr_op) - (1 / Htr_ms))  # AR94
+            HC_nd = 0  # Hardcoded in AR111
+            htr_1 = self._get_htr_1_at_index(i)
+            htr_3 = self._get_htr_3_at_index(i)
+            value = (
+                    self._get_m_at_index(i) +
+                    Htr_em * self.dry_bulb_temp.iat[i] +
+                    htr_3 * (
+                            self._get_temp_st_at_index(i) + self.geometry.heat_transfer_rate_windows *
+                            self.dry_bulb_temp.iat[i] + htr_1 *
+                            (
+                                    (
+                                            (self.internal_heat_adjusted.iat[i] + HC_nd) /
+                                            self._get_heat_transmission_by_ventilation_at_index(i)
+                                    ) +
+                                    self.supply_air_temp.iat[i]
+                            )
+                    ) / htr_1
+            )
+            if isnan(value):
+                raise RuntimeError(f"Calculation of m_tot resulted in NaN at index {i}.")
+            self._hours.at[self._hours.index[i], 'm_tot'] = value
+        return self.m_tot.iat[i]
 
     @property
     def m_tot(self) -> 'Series[float]':
         """Hourly m_tot?????? in W/m2.
         [Hourly Simulation column AT]
         """
-        if 'm_tot' not in self._hours.columns:
-            Htr_op = self.geometry.heat_transfer_rate_opaque  # AR93
-            Htr_ms = self.geometry.heat_transfer_ms  # AM94
-            Htr_em = 1 / ((1 / Htr_op) - (1 / Htr_ms))  # AR94
-            HC_nd = 0  # Hardcoded in AR111
-            self._hours['m_tot'] = (
-                    self.m +
-                    Htr_em * self.dry_bulb_temp +
-                    self.htr_3 * (
-                            self.temp_st + self.geometry.heat_transfer_rate_windows *
-                            self.dry_bulb_temp + self.htr_1 *
-                            (
-                                    ((self.internal_air_temp + HC_nd) / self.heat_transmission_by_ventilation) +
-                                    self.supply_air_temp
-                            )
-                    ) / self.htr_2
-            )
         return self._hours['m_tot']
 
-    def get_building_thermal_mass_at_index(self, i: int) -> float:
+    def _get_building_thermal_mass_at_index(self, i: int) -> float:
         """Calculate the building thermal mass for a specific hour.
 
         Args:
@@ -325,18 +377,19 @@ class ClimateSimulation(HourlySimulation):
             Htr_op = self.geometry.heat_transfer_rate_opaque  # AR93
             Htr_ms = self.geometry.heat_transfer_ms  # AR95
             Htr_em = 1 / ((1 / Htr_op) - (1 / Htr_ms))  # AR94
-            htr_3 = self.get_htr_3_at_index(i)
+            htr_3 = self._get_htr_3_at_index(i)
             current_thermal_mass = (
                     (
                             prev_thermal_mass *
                             (internal_heat_capacity_w - 0.5 * (htr_3 + Htr_em)) +
-                            self.m_tot
+                            self._get_m_tot_at_index(i)
                     ) /
                     (internal_heat_capacity_w + 0.5 * (htr_3 + Htr_em))
             )
-            self._hours.at[self._hours.index[i], 'building_thermal_mass'] = (
-                    (prev_thermal_mass + current_thermal_mass) / 2
-            )
+            value = (prev_thermal_mass + current_thermal_mass) / 2
+            if isnan(value):
+                raise RuntimeError(f"Calculation of building thermal mass resulted in NaN at index {i}.")
+            self._hours.at[self._hours.index[i], 'building_thermal_mass'] = value
         return self.building_thermal_mass.iat[i]
 
 
@@ -435,27 +488,32 @@ class ClimateSimulation(HourlySimulation):
                     self.night_ventilation_enabled
             )
             self._hours['air_flow_base'] = on_hours * night_ventilation + infiltration
-            raise NotImplementedError
         return self._hours['air_flow_base']
+
+    def _get_air_set_temp_at_index(self, i: int) -> float:
+        """Hourly air set temperature in degrees C.
+        Ѳair,set [Hourly simulation column CE]
+        """
+        if isnan(self.air_set_temp.iat[i]):
+            assert self.set_point_temperature is not None
+            free_temp = self._get_air_free_temp_0m_at_index(i)
+            min_temp = self.set_point_temperature.at[self._hours.index[i], 'min_temp_set_point']
+            max_temp = self.set_point_temperature.at[self._hours.index[i], 'max_temp_set_point']
+            if free_temp > max_temp:
+                self._hours.at[self._hours.index[i], 'air_set_temp'] = max_temp
+            elif free_temp < min_temp:
+                self._hours.at[self._hours.index[i], 'air_set_temp'] = min_temp
+            else:
+                self._hours.at[self._hours.index[i], 'air_set_temp'] = free_temp
+            if isnan(self.air_set_temp.iat[i]):
+                raise RuntimeError(f"Calculated air_set_temp is NaN at index {i}")
+        return self.air_set_temp.iat[i]
 
     @property
     def air_set_temp(self) -> 'Series[float]':
         """Hourly air set temperature in degrees C.
         Ѳair,set [Hourly simulation column CE]
         """
-        if 'air_set_temp' not in self._hours.columns:
-            assert self.set_point_temperature is not None
-            assert self.air_free_temp_0m is not None
-            self._hours['air_set_temp'] = self._hours.apply(
-                lambda row: self.set_point_temperature.at[row.name, 'max_temp_set_point']
-                if row['air_free_temp_0m'] > self.set_point_temperature.at[row.name, 'max_temp_set_point']
-                else (
-                    self.set_point_temperature.at[row.name, 'min_temp_set_point']
-                    if row['air_free_temp_0m'] < self.set_point_temperature.at[row.name, 'min_temp_set_point']
-                    else row['air_free_temp_0m']
-                ),
-                axis=1
-            )
         return self._hours['air_set_temp']
 
     @property
@@ -467,7 +525,7 @@ class ClimateSimulation(HourlySimulation):
             self._hours['wind_speed'] = list(self.epw_data['wind_speed'])
         return self._hours['wind_speed']
 
-    def get_air_flow_dependent_at_index(self, i: int) -> float:
+    def _get_air_flow_dependent_at_index(self, i: int) -> float:
         """Hourly air flow in m3/h/m2, dependent on other variables.
         qv,inf [Hourly simulation column JH]
         """
@@ -476,15 +534,16 @@ class ClimateSimulation(HourlySimulation):
             # [Hourly simulation column JD]
             q4pa = self.spec.parameters.leakage_air_flow_dependent  # JE97
             Hstack = 10  # [Hardcoded in JE101: ISO 15242:2007. 6.7.1]
-            air_set_temp = 20.0 if i == 0 else self.air_set_temp.iat[i - 1]  # CE117 is used for first hour
+            air_set_temp = self._get_air_set_temp_at_index(i - 1) if i > 0 else 20.0  # CE117 is used for first hour
+            temp_diff = abs(self.dry_bulb_temp.iat[i] - air_set_temp)
             qv_stack = max(
-                0.0146 * q4pa * (((0.7 * Hstack) * (abs(self.dry_bulb_temp.iat[i] - air_set_temp))) ^ 0.667),
+                0.0146 * q4pa * (((0.7 * Hstack) * temp_diff) ** 0.667),
                 0.001
             )
             # [Hourly simulation column JE]
             dcp = 0.75  # [Hardcoded in JE103]
             vsite_by_vmetro = TERRAIN_VSITE_BY_VMETRO[self.spec.terrain_class] # JE104
-            qv_wind = 0.0769 * q4pa * (dcp * (vsite_by_vmetro * self.wind_speed.iat[i]) ^ 2) ^ 0.667
+            qv_wind = 0.0769 * q4pa * (dcp * (vsite_by_vmetro * self.wind_speed.iat[i]) ** 2) ** 0.667
             # [Hourly simulation column JF]
             qv_sw = max(qv_stack, qv_wind) + (0.14 * qv_stack * qv_wind / q4pa)
             # [Hourly simulation column JG]
@@ -492,8 +551,11 @@ class ClimateSimulation(HourlySimulation):
                 qv_sw,
                 (qv_stack * abs(qv_diff / 2) + qv_wind * 2 * abs(qv_diff / 3) / (qv_stack + qv_wind))
             )
-            self._hours.at[self._hours.index[i], 'air_flow_dependent'] = qv_diff + qv_infred
-        return self.air_flow_dependent.iat[i]
+            value = qv_diff + qv_infred
+            if isnan(value):
+                raise RuntimeError(f"Calculated air_flow_dependent is NaN at index {i}")
+            self._hours.at[self._hours.index[i], 'air_flow_dependent'] = value
+        return self._hours['air_flow_dependent'].iat[i]
 
     @property
     def air_flow_dependent(self) -> 'Series[float]':
@@ -502,14 +564,14 @@ class ClimateSimulation(HourlySimulation):
         """
         return self._hours['air_flow_dependent']
 
-    def get_air_flow_at_index(self, i: int) -> float:
+    def _get_air_flow_at_index(self, i: int) -> float:
         """Hourly air flow in m3/h/m2.
         qv,tot [Hourly simulation column JZ]
         """
         if isnan(self.air_flow.iat[i]):
             self._hours.at[self._hours.index[i], 'air_flow'] = (
                     self.ventilation.air_supply_rate.iat[i] +
-                    self.air_flow_dependent.iat[i] +
+                    self._get_air_flow_dependent_at_index(i) +
                     self.air_flow_base.iat[i]
             )
         return self.air_flow.iat[i]
@@ -527,7 +589,7 @@ class ClimateSimulation(HourlySimulation):
         """
         return self._hours['air_flow']
 
-    def get_heat_transmission_by_ventilation_at_index(self, i: int) -> float:
+    def _get_heat_transmission_by_ventilation_at_index(self, i: int) -> float:
         """Calculate the heat transmission by ventilation for a specific hour index in kW/K.
         Hve [Hourly Simulation column AL]
         """
@@ -535,7 +597,7 @@ class ClimateSimulation(HourlySimulation):
             # heat capacity of air in W/m3K [Hourly Simulation cell AM105]
             heat_capacity_air = self.spec.parameters.density_of_air * self.spec.parameters.specific_heat_of_air / 3.6
             self._hours.at[self._hours.index[i], 'heat_transmission_by_ventilation'] = \
-                heat_capacity_air * self.air_flow.iat[i]
+                heat_capacity_air * self._get_air_flow_at_index(i)
         return self.heat_transmission_by_ventilation.iat[i]
 
     @property
@@ -636,7 +698,7 @@ class ClimateSimulation(HourlySimulation):
             self._hours['internal_heat_adjusted'] = self.internal_heat * adjustment_factor
         return self._hours['internal_heat_adjusted']
 
-    def get_air_free_temp_0m_at_index(self, i: int) -> float:
+    def _get_air_free_temp_0m_at_index(self, i: int) -> float:
         """Get the air free temperature at 0m for a specific hour index.
         Ѳair,0 [Hourly Simulation column AY]
 
@@ -654,13 +716,13 @@ class ClimateSimulation(HourlySimulation):
             # Heat transfer rate from air to surfaces in W/m2K [Hourly Simulation cell AR98]
             Htr_is = Htr_is_W_per_K / conditioned_area
             HC_nd = 0  # Hardcoded in Hourly Simulation cell AR111
-            self._hours['air_free_temp_0m'] = \
+            self._hours.at[self._hours.index[i], 'air_free_temp_0m'] = \
                 (
-                        Htr_is * self.get_internal_surface_temp_at_index(i) +
-                        self.get_heat_transmission_by_ventilation_at_index(i) * self.supply_air_temp.iat[i] +
+                        Htr_is * self._get_internal_surface_temp_at_index(i) +
+                        self._get_heat_transmission_by_ventilation_at_index(i) * self.supply_air_temp.iat[i] +
                         self.internal_heat_adjusted.iat[i] +
                         HC_nd
-                ) / ( Htr_is + self.heat_transmission_by_ventilation.iat[i] )
+                ) / ( Htr_is + self._get_heat_transmission_by_ventilation_at_index(i) )
 
         return self.air_free_temp_0m.iat[i]
 
@@ -680,29 +742,34 @@ class ClimateSimulation(HourlySimulation):
         """
         return self._hours['air_free_temp_0m']
 
-    def rse_for_wind_speed(self, wind_speed: float) -> float:
-        if wind_speed <= 1.5:
-            return 0.08
-        if wind_speed <= 2.5:
-            return 0.06
-        if wind_speed <= 3.5:
-            return 0.05
-        if wind_speed <= 4.5:
-            return 0.04
-        if wind_speed <= 6.0:
-            return 0.04
-        if wind_speed <= 8.0:
-            return 0.03
-        return 0.02
-
     @property
     def rse(self) -> 'Series[float]':
         """Hourly??????#
         [Hourly simulation column KU]
         """
-        return self.wind_speed.apply(self.rse_for_wind_speed)
+        if 'rse' not in self._hours.columns:
+            conditions = [
+                self.wind_speed <= 1.5,
+                (self.wind_speed > 1.5) & (self.wind_speed <= 2.5),
+                (self.wind_speed > 2.5) & (self.wind_speed <= 3.5),
+                (self.wind_speed > 3.5) & (self.wind_speed <= 4.5),
+                (self.wind_speed > 4.5) & (self.wind_speed <= 6.0),
+                (self.wind_speed > 6.0) & (self.wind_speed <= 8.0),
+                self.wind_speed > 8.0,
+            ]
+            choices = [
+                0.08,
+                0.06,
+                0.05,
+                0.04,
+                0.04,
+                0.03,
+                0.02,
+            ]
+            self._hours['rse'] = select(conditions, choices, default=0.02)
+        return self._hours['rse']
 
-    def get_solar_heat_windows_for_orientation_at_index(self, row: Series, i: int) -> float:
+    def _get_solar_heat_windows_for_orientation_at_index(self, row: Series, i: int) -> float:
         """Calculate solar heat gains through windows for a specific orientation.
         [Hourly Simulation columns KY:LF]
         """
@@ -712,15 +779,15 @@ class ClimateSimulation(HourlySimulation):
         view_factor = self.spec.parameters.view_factor_to_sky_facade  # KY80:LF80
         hr = 5 * 0.9  # [Hardcoded in KY81:LF81 via Inputs G230]
         delta_theta_er = 11  # [Hardcoded in KY82: ISO 13790, 11.4.6]
-        Fsh_ob_overhand = 0.0  # LF87 [Hardcoded in Inputs N108:U108]
-        Fsh_ob_fin = 0.0  # LF90 [Hardcoded in Inputs N110:U110]
-        Fsh_ob_horizon = 0.0  # LF93 [Hardcoded in Inputs N112:U112]
+        Fsh_ob_overhand = 1.0  # LF87 [Hardcoded via 0 in Inputs N108:U108]
+        Fsh_ob_fin = 1.0  # LF90 [Hardcoded via 0 in Inputs N110:U110]
+        Fsh_ob_horizon = 1.0  # LF93 [Hardcoded via 0 in Inputs N112:U112]
         solar_lost_through_windows = 0.0  # [Hardcoded in KY84]
         # LF95: ISO 13790, 11.4.4
         Fsh_ob_horizon = Fsh_ob_overhand * Fsh_ob_fin * Fsh_ob_horizon - solar_lost_through_windows
-        window_area = row['window_area']  # KY105:LF105
+        window_area = row['window_area'].squeeze()  # KY105:LF105
         solar_radiation = self.solar_irradiation.get_solar_irradiation(compass_point).iat[i]
-        air_temp = self.get_air_free_temp_0m_at_index(i - 1) if i > 1 else 0.0
+        air_temp = self._get_air_free_temp_0m_at_index(i - 1) if i > 1 else 0.0
         Rse = self.rse.iat[i]  # KU: ISO 6946
         if air_temp < kx116:
             # KY107:LF107 (winter)
@@ -742,7 +809,7 @@ class ClimateSimulation(HourlySimulation):
         # KX
         if 0 < solar_altitude < 90:
             g_gl = (
-                    (-0.000003 * solar_altitude ^ 3 + 0.0002 * solar_altitude ^ 2 - 0.0053 * solar_altitude + 0.9986) *
+                    (-0.000003 * solar_altitude ** 3 + 0.0002 * solar_altitude ** 2 - 0.0053 * solar_altitude + 0.9986) *
                     self.spec.window_gvalue
             )
         else:
@@ -753,7 +820,7 @@ class ClimateSimulation(HourlySimulation):
         )
         return max(0, x)
 
-    def get_solar_heat_windows_at_index(self, i: int) -> float:
+    def _get_solar_heat_windows_at_index(self, i: int) -> float:
         """Calculate solar heat gains through windows for a specific hour index.
         [Hourly Simulation columns KY:LF]
         """
@@ -765,9 +832,9 @@ class ClimateSimulation(HourlySimulation):
                 .sum()
             )
             wattage = windows_by_orientation.apply(
-                lambda row: self.get_solar_heat_windows_for_orientation_at_index(row, i), axis=1
+                lambda row: self._get_solar_heat_windows_for_orientation_at_index(row, i), axis=1
             )
-            self._hours.at[self._hours.index[i], 'solar_heat_windows'] = wattage.sum(axis=1)
+            self._hours.at[self._hours.index[i], 'solar_heat_windows'] = wattage.sum()
         return self.solar_heat_windows.iat[i]
 
     @property
@@ -825,9 +892,9 @@ class ClimateSimulation(HourlySimulation):
         rse = self.rse  # KU
         irradiation = self.solar_irradiation.ghi  # Hourly simulation column U
         return (
-                    Fsh_ob * (absorption * rse * area * u_value) * irradiation -
-                    (view_factor * (rse * u_value * area * hr * delta_theta_er))
-            ).apply(lambda x: max(0, x))
+                Fsh_ob * (absorption * rse * area * u_value) * irradiation -
+                (view_factor * (rse * u_value * area * hr * delta_theta_er))
+        ).apply(lambda x: max(0, x))
 
     @property
     def solar_heat_opaque(self) -> 'Series[float]':
@@ -853,6 +920,23 @@ class ClimateSimulation(HourlySimulation):
             self._hours['solar_heat_opaque'] = opaque_facade_by_orientation.sum() + self.solar_heat_roof
         return self._hours['solar_heat_opaque']
 
+    def _get_solar_heat_at_index(self, i: int) -> float:
+        """Hourly solar heat gains in W/m2.
+        ϕsol [Hourly Simulation column AJ, KO]
+
+        Wattage per square meter is given by the sum of solar heat gains through windows
+        and opaque surfaces, divided by the conditioned floor area.
+        """
+        if isnan(self.solar_heat.iat[i]):
+            conditioned_floor_area = self.geometry.conditioned_floor_area
+            assert self.solar_heat_opaque is not None
+            assert self.solar_heat_windows is not None
+            self._hours.at[self._hours.index[i], 'solar_heat'] = (
+                    (self._get_solar_heat_windows_at_index(i) + self.solar_heat_opaque.iat[i]) /
+                    conditioned_floor_area
+            )
+        return self.solar_heat.iat[i]
+
     @property
     def solar_heat(self) -> 'Series[float]':
         """Hourly solar heat gains in W/m2.
@@ -861,14 +945,6 @@ class ClimateSimulation(HourlySimulation):
         Wattage per square meter is given by the sum of solar heat gains through windows
         and opaque surfaces, divided by the conditioned floor area.
         """
-        if 'solar_heat' not in self._hours.columns:
-            conditioned_floor_area = self.geometry.conditioned_floor_area
-            assert self.solar_heat_opaque is not None
-            assert self.solar_heat_windows is not None
-            self._hours['solar_heat'] = (
-                    (self.solar_heat_windows + self.solar_heat_opaque) /
-                    conditioned_floor_area
-            )
         return self._hours['solar_heat']
 
     @property
