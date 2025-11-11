@@ -6,5 +6,6 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "pandas",
-    "pvlib"
+    "pvlib",
+    "line_profiler"
 ]
