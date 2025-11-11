@@ -42,12 +42,22 @@ class OpenBESTestCase(unittest.TestCase):
         series.iloc[:len(expected_values)] = expected_values
         return series
 
-    def check_series_versus_values(self, series: pd.Series, expected_values: list, decimal_places: int = None) -> None:
+    def check_series_versus_values(
+            self, series: pd.Series,
+            expected_values: list,
+            decimal_places: int = None,
+            tolerance: float = None
+    ) -> None:
         if decimal_places is None:
             decimal_places = self.decimal_places
         expected = self.get_expectation_for_series(series, expected_values).round(decimal_places)
         calculated = series.round(decimal_places)
-        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+        if tolerance is None:
+            self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+        else:
+            differences = expected.compare(calculated)
+            mask = abs(differences['self'] - differences['other']) > tolerance
+            self.assertTrue(differences[mask].empty, differences[mask])
 
     def check_series_versus_csv(self, series: pd.Series, csv_file_relative_path: str, decimal_places: int = None) -> None:
         if decimal_places is None:

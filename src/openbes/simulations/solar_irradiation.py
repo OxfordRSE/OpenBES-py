@@ -1,6 +1,7 @@
 import math
 
 import pvlib
+from numpy import radians, cos, maximum
 from pandas import DataFrame, Series, DatetimeIndex
 
 from .base import HOURS_DF
@@ -26,6 +27,7 @@ class SolarIrradiationSimulation:
     location: pvlib.location.Location
     times: DatetimeIndex
     _solarposition: DataFrame
+    _solar_irradiation: DataFrame
 
     def __init__(self, epw_data: DataFrame, epw_metadata: dict):
         self._hours = HOURS_DF.copy()
@@ -38,6 +40,8 @@ class SolarIrradiationSimulation:
             tz=tz,
             altitude=epw_metadata['altitude']
         )
+        self._solar_irradiation = DataFrame()
+        self._solar_irradiation.index = self._hours.index
 
     @property
     def lat(self) -> float:
@@ -115,33 +119,66 @@ class SolarIrradiationSimulation:
             self._solarposition.index = self._hours.index
         return self._solarposition
 
-    def get_solar_irradiation(self, compass_point: COMPASS_POINTS):
+    def get_solar_irradiation(self, compass_point: COMPASS_POINTS) -> 'Series[float]':
         """Get the hourly solar irradiation on a vertical surface facing the given compass point in Wh/m2.
         [Hourly simulation columns M:T, Solar radiation BT:CA]
         """
-        # These values should perhaps come from Hourly simulation M114:T114?
-        surface_azimuth = {
-            COMPASS_POINTS.North: 0.0,
-            COMPASS_POINTS.NorthEast: (22.5 + 60.0) / 2,
-            COMPASS_POINTS.East: (60.0 + 111.0) / 2,
-            COMPASS_POINTS.SouthEast: (111.0 + 162.0) / 2,
-            COMPASS_POINTS.South: (162.0 + 198.0) / 2,
-            COMPASS_POINTS.SouthWest: (198.0 + 249.0) / 2,
-            COMPASS_POINTS.West: (249.0 + 300.0) / 2,
-            COMPASS_POINTS.NorthWest: (300.0 + 337.5) / 2,
-        }[compass_point]
-        surface_tilt = 90.0
-        solar_zenith = 90.0 - self.solarposition['zenith']
-        solar_azimuth = self.solarposition['azimuth']
-        poa_irradiance = pvlib.irradiance.get_total_irradiance(
-            surface_tilt=surface_tilt,
-            surface_azimuth=surface_azimuth,
-            solar_zenith=solar_zenith,
-            solar_azimuth=solar_azimuth,
-            dni=self.dni,
-            ghi=self.ghi,
-            dhi=self.dhi,
-            dni_extra=pvlib.irradiance.get_extra_radiation(self.epw_data.index),
-            model='isotropic'
-        )
-        return poa_irradiance['poa_global']
+        if compass_point not in self._solar_irradiation.columns:
+            # These values in Hourly simulation M114:T114 are used in the map, then adjusted to PVLib convention
+            surface_azimuth = {
+                COMPASS_POINTS.North: 180,
+                COMPASS_POINTS.NorthEast: 360 - 135,
+                COMPASS_POINTS.East: 360 - 90,
+                COMPASS_POINTS.SouthEast: 360 - 45,
+                COMPASS_POINTS.South: 0,
+                COMPASS_POINTS.SouthWest: 45,
+                COMPASS_POINTS.West: 90,
+                COMPASS_POINTS.NorthWest: 135,
+            }[compass_point]
+            surface_azimuth = surface_azimuth + 180 % 360  # convert to pvlib convention
+            surface_tilt = 90.0  # horizontal surface
+            solar_zenith = self.solarposition['zenith']
+            solar_azimuth = self.solarposition['azimuth']
+            poa_irradiance = pvlib.irradiance.get_total_irradiance(
+                surface_tilt=surface_tilt,
+                surface_azimuth=surface_azimuth,
+                solar_zenith=solar_zenith,
+                solar_azimuth=solar_azimuth,
+                dni=self.dni,
+                ghi=self.ghi,
+                dhi=self.dhi,
+                dni_extra=pvlib.irradiance.get_extra_radiation(self.epw_data.index),
+                model='isotropic',
+                albedo=0.14  # [Hardcoded in Solar radiation column BS]
+            )
+            # Excel corrects diffuse sky irradiance for angle of incidence
+            aoi = pvlib.irradiance.aoi(
+                surface_tilt=surface_tilt,
+                surface_azimuth=surface_azimuth,
+                solar_zenith=solar_zenith,
+                solar_azimuth=solar_azimuth
+            )
+            cos_aoi = cos(radians(aoi))
+            Y = maximum(0.45, 0.55 + 0.437 * cos_aoi + 0.313 * cos_aoi**2)
+            poa_irradiance['poa_sky_diffuse_excel'] = self.dhi * Y
+
+            # Excel also uses slightly different calculations for ground reflected irradiance
+            poa_irradiance['poa_ground_diffuse_excel'] = (
+                (self.dni * self.solarposition['apparent_elevation'].apply(math.radians).apply(math.sin) + self.dhi) *
+                0.14 / 2
+            )
+
+            poa_irradiance['irradiance'] = (
+                    poa_irradiance['poa_direct'] +
+                    poa_irradiance['poa_sky_diffuse_excel'] +
+                    poa_irradiance['poa_ground_diffuse_excel']
+            )
+            self._solar_irradiation[compass_point] = poa_irradiance['irradiance']
+        return self._solar_irradiation[compass_point]
+
+    @property
+    def solar_irradiation(self) -> DataFrame:
+        """Hourly solar irradiation on a horizontal surface in Wh/m2, columns are COMPASS_POINTS.
+        [Hourly simulation columns M:T, Solar radiation BT:CA]
+        """
+        return self._solar_irradiation
