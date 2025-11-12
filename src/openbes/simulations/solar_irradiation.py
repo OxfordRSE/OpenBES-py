@@ -184,4 +184,7 @@ class SolarIrradiationSimulation:
         """Hourly solar irradiation on a horizontal surface in Wh/m2, columns are COMPASS_POINTS.
         [Hourly simulation columns M:T, Solar radiation BT:CA]
         """
+        if self._solar_irradiation.empty:
+            for compass_point in list(COMPASS_POINTS):
+                self.get_solar_irradiation(compass_point)
         return self._solar_irradiation

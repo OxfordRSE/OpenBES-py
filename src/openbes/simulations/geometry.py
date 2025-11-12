@@ -697,8 +697,8 @@ class BuildingGeometry:
         Htr_is [Hourly Simulation cell AR98] EN ISO 13790 12.2.2
         """
         if not hasattr(self, '_heat_transfer_is') or self._heat_transfer_is is None:
-            Aat = 4.5  # Hardcoded in AM84
-            Atot = Aat * self.conditioned_floor_area  # AM85
-            Htr_is = 3.45 * Atot  # 3.45 hardcoded in AR83
+            Aat = 4.5  # [Hardcoded in Hourly Simulation cell AM84: EN ISO 13790, 7.2.2]
+            Atot = Aat * self.conditioned_floor_area  # [AM85]
+            Htr_is = 3.45 * Atot  # 3.45 hardcoded in [AR83]
             self._heat_transfer_is = Htr_is / self.conditioned_floor_area
         return self._heat_transfer_is
