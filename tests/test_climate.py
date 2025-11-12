@@ -35,7 +35,7 @@ class Climate(OpenBESTestCase):
     def test_night_ventilation_enabled(self):
         df = self.sim.night_ventilation_enabled
         self.assertEqual(len(df), len(HOURS_DF))
-        self.assertEqual(df.sum, 762)
+        self.assertEqual(df.sum(), 762)
 
     def test_air_flow_dependent(self):
         df = self.sim.air_flow_dependent
