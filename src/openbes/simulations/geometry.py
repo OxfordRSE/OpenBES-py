@@ -88,6 +88,7 @@ class BuildingGeometry:
     _conditioned_floor_perimeters: Series
     _roof_projections: Series
     _roof_factor: float
+    _conditioned_floor_area: float
 
     def __init__(self, spec: OpenBESSpecification):
         self.spec = spec
@@ -213,7 +214,9 @@ class BuildingGeometry:
         Af (in some places Af means gross, others conditioned)
         [Hourly simulation cell AM80]
         """
-        return self.conditioned_floor_areas.sum()
+        if not hasattr(self, '_conditioned_floor_area') or self._conditioned_floor_area is None:
+            self._conditioned_floor_area = self.conditioned_floor_areas.sum()
+        return self._conditioned_floor_area
 
     def _get_external_vertical_envelope_area(self,
                                              spec: OpenBESSpecification,

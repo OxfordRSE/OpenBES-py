@@ -84,6 +84,8 @@ class ClimateSimulation(HourlySimulation):
                 raise ValueError(f"NaN values:\n{DataFrame([row])}")
         results_df = DataFrame(results, index=self._hours.index)
         self._hours = self._hours.join(results_df)
+        # clear cache
+        del self._cache
 
     def _populate_cache(self) -> dict:
         """
@@ -133,6 +135,7 @@ class ClimateSimulation(HourlySimulation):
             index=solar_heat_windows_reduction.index,
             columns=solar_a_sol_w_winter.index
         ) * 1.0  # [Hardcoded in KY100]
+        solar_radiation = self.solar_irradiation.solar_irradiation[compass_points]
 
         static = {
             "infiltration": (
@@ -143,10 +146,10 @@ class ClimateSimulation(HourlySimulation):
                 * self.spec.parameters.specific_heat_of_air
                 / 3.6
             ),
-            "compass_points": compass_points,
             "solar_heat_windows_reduction": array(solar_heat_windows_reduction),
             "solar_area_summer": array(solar_area_summer),
             "solar_area_winter": array(solar_area_winter),
+            "solar_radiation": array(solar_radiation),
             "Htr_w": self.geometry.heat_transfer_rate_windows / self.geometry.conditioned_floor_area,
             # [Hourly simulation AR94]
             "Htr_em": 1 / (
@@ -157,7 +160,20 @@ class ClimateSimulation(HourlySimulation):
             "mass_factor_scaled": (
                     self.geometry.building_mass_factor /
                     4.5  # [A_at hardcoded as 4.5 in Hourly Simulation cell AM84]
-            )
+            ),
+            # Arrayify some Series for performance
+            "min_temp": array(self.set_point_temperature['min_temp_set_point'].values),
+            "max_temp": array(self.set_point_temperature['max_temp_set_point'].values),
+            "month": array(self.epw_data['month'].values),
+            "day": array(self.epw_data['day'].values),
+            "apparent_elevation": array(self.solar_irradiation.solarposition['apparent_elevation'].values),
+            "dry_bulb_temp": array(self.dry_bulb_temp.values),
+            "wind_speed": array(self.wind_speed.values),
+            "ventilation_air_supply_rate": array(self.ventilation.air_supply_rate.values),
+            "solar_heat_opaque": array(self.solar_heat_opaque.values),
+            "internal_heat": array(self.internal_heat.values),
+            "internal_heat_adjusted": array(self.internal_heat_adjusted.values),
+            "supply_air_temp": array(self.supply_air_temp.values),
         }
         return static
 
@@ -172,23 +188,29 @@ class ClimateSimulation(HourlySimulation):
             return prev_row[key] if prev_row else default
 
         # --- Calculate all hour-dependent values ---
-        # 1. Air set temp (depends on air_free_temp_0m)
-        min_temp = self._hours['min_temp_set_point'].iloc[i]
-        max_temp = self._hours['max_temp_set_point'].iloc[i]
-        # Will be set after air_free_temp_0m is calculated
+        min_temp = self._cache['min_temp'][i]
+        max_temp = self._cache['max_temp'][i]
 
-        # Night ventilation enabled
+        """
+        1. Night ventilation enabled [Hourly simulation column JL]
+
+        Night ventilation is active between June 1st and September 1st inclusive, between sunset and dawn,
+        if the air free temperature at 0m is above the dry bulb temperature.
+        """
         prev_air_free_temp_0m = get_prev("air_free_temp_0m", 0.0)
-        month = self.epw_data["month"].iloc[i]
-        day = self.epw_data["day"].iloc[i]
-        apparent_elevation = self.solar_irradiation.solarposition["apparent_elevation"].iloc[i]
+        month = self._cache["month"][i]
+        day = self._cache["day"][i]
+        apparent_elevation = self._cache["apparent_elevation"][i]
+        dry_bulb_temp = self._cache["dry_bulb_temp"][i]
         night_ventilation_enabled = (
             ((6 <= month < 9) or (month == 9 and day == 1))
             and (apparent_elevation < 0)
-            and (prev_air_free_temp_0m > self.dry_bulb_temp.iat[i])
+            and (prev_air_free_temp_0m > dry_bulb_temp)
         )
 
-        # Air flow base
+        """
+        2. Air flow base [Hourly simulation column JO]
+        """
         threshold = 24
         on_hours = prev_air_free_temp_0m >= threshold
         night_ventilation = (
@@ -196,12 +218,14 @@ class ClimateSimulation(HourlySimulation):
         )
         air_flow_base = on_hours * night_ventilation + self._cache['infiltration']
 
-        # 2. Air flow dependent
+        """
+        3. Air flow dependent [Hourly simulation column JH]
+        """
         qv_diff = 0.0  # [Hardcoded as blank in Hourly simulation column IU]
         q4pa = self.spec.parameters.leakage_air_flow_dependent  # JE97
         Hstack = 10  # [Hardcoded in JE101: ISO 15242:2007. 6.7.1]
         air_set_temp_prev = get_prev("air_set_temp", 20.0)
-        temp_diff = abs(self.dry_bulb_temp.iat[i] - air_set_temp_prev)
+        temp_diff = abs(dry_bulb_temp - air_set_temp_prev)
         qv_stack = max(0.0146 * q4pa * (((0.7 * Hstack) * temp_diff) ** 0.667), 0.001)
         dcp = 0.75  # [Hardcoded in JE103]
         vsite_by_vmetro = TERRAIN_VSITE_BY_VMETRO[self.spec.terrain_class]  # JE104
@@ -220,30 +244,39 @@ class ClimateSimulation(HourlySimulation):
         )
         air_flow_dependent = qv_diff + qv_infred
 
-        # 3. Air flow
+        """
+        4. Air flow [Hourly simulation column JZ]
+        """
         air_flow = (
-            self.ventilation.air_supply_rate.iat[i]
+            self._cache["ventilation_air_supply_rate"][i]
             + air_flow_dependent
             + air_flow_base
         )
 
-        # 4. Heat transmission by ventilation
+        """
+        5. Heat transmission by ventilation [Hourly Simulation column AL]
+        """
         heat_transmission_by_ventilation = self._cache['heat_capacity_air'] * air_flow
 
-        # 5. Htr_1
+        """
+        6. Htr_1 [Hourly Simulation column AM]
+        """
         htr_1 = 1 / (
             1 / heat_transmission_by_ventilation + 1 / self.geometry.heat_transfer_is
         )
 
-        # 6. Htr_2
+        """
+        7. Htr_2 [Hourly Simulation column AN]
+        """
         htr_2 = htr_1 + self.geometry.heat_transfer_rate_windows
 
-        # 7. Htr_3
+        """
+        8. Htr_3 [Hourly Simulation column AO]
+        """
         htr_3 = 1 / ((1 / htr_2) + (1 / self.geometry.heat_transfer_ms))
 
-        # 14. Solar heat windows
-        """Calculate solar heat gains through windows for a specific orientation.
-        [Hourly Simulation columns KY:LF]
+        """
+        9. Solar heat windows [Hourly Simulation columns KY:LF]
         """
         kx116 = 22  # Hardcoded in Hourly Simulation cell KX116
         Fsh_ob_overhand = 1.0  # LF87 [Hardcoded via 0 in Inputs N108:U108]
@@ -252,16 +285,13 @@ class ClimateSimulation(HourlySimulation):
         solar_lost_through_windows = 0.0  # [Hardcoded in KY84]
         # LF95: ISO 13790, 11.4.4
         Fsh_ob_horizon = Fsh_ob_overhand * Fsh_ob_fin * Fsh_ob_horizon - solar_lost_through_windows
-        solar_radiation = self.solar_irradiation.solar_irradiation.loc[
-            self.solar_irradiation.solar_irradiation.index[i],
-            self._cache["compass_points"]
-        ]
+        solar_radiation = self._cache["solar_radiation"][i]
         if prev_air_free_temp_0m < kx116:
             solar_area = self._cache["solar_area_winter"][i]
         else:
             solar_area = self._cache["solar_area_summer"][i]
 
-        solar_heat_base = solar_area * array(solar_radiation.values)
+        solar_heat_base = solar_area * solar_radiation
         solar_heat_windows = (
                 (Fsh_ob_horizon * solar_heat_base) -
                 self._cache['solar_heat_windows_reduction'][i]
@@ -269,48 +299,61 @@ class ClimateSimulation(HourlySimulation):
         solar_heat_windows = solar_heat_windows * (solar_heat_windows > 0.0)
         solar_heat_windows = solar_heat_windows.sum()
 
-        # 15. Solar heat opaque
-        solar_heat_opaque = self.solar_heat_opaque.iat[i]
-
-        # 16. Solar heat
+        """
+        10. Solar heat [Hourly Simulation column AJ, KO]
+        """
+        solar_heat_opaque = self._cache['solar_heat_opaque'][i]
         conditioned_floor_area = self.geometry.conditioned_floor_area
         solar_heat = (solar_heat_windows + solar_heat_opaque) / conditioned_floor_area
 
-        # 11. m
+        """
+        11. m [Hourly Simulation column AR]
+        """
+        internal_heat = self._cache['internal_heat'][i]
+        internal_heat_adjusted = self._cache['internal_heat_adjusted'][i]
         m = self._cache['mass_factor_scaled'] * (
-            0.5 * self.internal_heat.iat[i] +
+            0.5 * internal_heat +
             (
                     (solar_heat_windows + solar_heat_opaque) /
                     conditioned_floor_area
             )
         )
 
-        # 12. m_tot
+        """
+        12. temp_st [Hourly Simulation column AS]
+        """
+        temp_st = self.theta_st_partial * (
+            0.5 * internal_heat + solar_heat
+        )
+
+        """
+        13. m_tot [Hourly Simulation column AT]
+        """
+        supply_air_temp = self._cache['supply_air_temp'][i]
         Htr_is = self.geometry.heat_transfer_is
         Htr_w = self._cache["Htr_w"]
         Hc_nd = 0  # [Hardcoded in AR111]
-        temp_st = self.theta_st_partial * (
-            0.5 * self.internal_heat.iat[i] + solar_heat
-        )
         Htr_em = self._cache["Htr_em"]
         m_tot = (
             m
-            + Htr_em * self.dry_bulb_temp.iat[i]
+            + Htr_em * dry_bulb_temp
             + htr_3
             * (
                 temp_st
-                + self.geometry.heat_transfer_rate_windows * self.dry_bulb_temp.iat[i]
+                + self.geometry.heat_transfer_rate_windows * dry_bulb_temp
                 + htr_1
                 * (
-                    (self.internal_heat_adjusted.iat[i] + Hc_nd)
+                    (internal_heat_adjusted + Hc_nd)
                     / heat_transmission_by_ventilation
-                    + self.supply_air_temp.iat[i]
+                    + supply_air_temp
                 )
             )
             / htr_1
         )
 
-        # 13. Building thermal mass
+        """
+        14. Building thermal mass [Hourly Simulation column AW]
+        """
         starting_thermal_mass = 17.4  # Hardcoded in Hourly Simulation cell AV117
         prev_thermal_mass = get_prev("building_thermal_mass", starting_thermal_mass)
         internal_heat_capacity_w = self._cache["internal_heat_capacity_w"]
@@ -320,28 +363,34 @@ class ClimateSimulation(HourlySimulation):
         ) / (internal_heat_capacity_w + 0.5 * (htr_3 + Htr_em))
         building_thermal_mass = (prev_thermal_mass + current_thermal_mass) / 2
 
-        # 8. Internal surface temp
+        """
+        14. Internal surface temp [Hourly Simulation column AX]
+        """
         internal_surface_temp = (
             Htr_is * building_thermal_mass
             + temp_st
-            + Htr_w * self.dry_bulb_temp.iat[i]
+            + Htr_w * dry_bulb_temp
             + htr_1
             * (
-                self.supply_air_temp.iat[i]
-                + (self.internal_heat_adjusted.iat[i] + Hc_nd)
+                supply_air_temp
+                + (internal_heat_adjusted + Hc_nd)
                 / heat_transmission_by_ventilation
             )
         ) / (Htr_is + Htr_w + htr_1)
 
-        # 9. Air free temp 0m
+        """
+        15. Air free temp 0m [Hourly Simulation column AY]
+        """
         air_free_temp_0m = (
             Htr_is * internal_surface_temp
-            + heat_transmission_by_ventilation * self.supply_air_temp.iat[i]
-            + self.internal_heat_adjusted.iat[i]
+            + heat_transmission_by_ventilation * supply_air_temp
+            + internal_heat_adjusted
             + Hc_nd
         ) / (Htr_is + heat_transmission_by_ventilation)
 
-        # 10. Air set temp (now that air_free_temp_0m is known)
+        """
+        16. Air set temp [Hourly Simulation column CE]
+        """
         if air_free_temp_0m > max_temp:
             air_set_temp = max_temp
         elif air_free_temp_0m < min_temp:
@@ -351,21 +400,22 @@ class ClimateSimulation(HourlySimulation):
 
         # --- Return all calculated values as a dict ---
         values = {
-            "air_set_temp": air_set_temp,
+            "night_ventilation_enabled": night_ventilation_enabled,
             "air_flow_dependent": air_flow_dependent,
             "air_flow": air_flow,
             "heat_transmission_by_ventilation": heat_transmission_by_ventilation,
             "htr_1": htr_1,
             "htr_2": htr_2,
             "htr_3": htr_3,
-            "internal_surface_temp": internal_surface_temp,
-            "air_free_temp_0m": air_free_temp_0m,
-            "m": m,
-            "m_tot": m_tot,
-            "building_thermal_mass": building_thermal_mass,
             "solar_heat_windows": solar_heat_windows,
             "solar_heat": solar_heat,
+            "m": m,
             "temp_st": temp_st,
+            "m_tot": m_tot,
+            "building_thermal_mass": building_thermal_mass,
+            "internal_surface_temp": internal_surface_temp,
+            "air_free_temp_0m": air_free_temp_0m,
+            "air_set_temp": air_set_temp,
         }
         return values
 
@@ -719,17 +769,6 @@ class ClimateSimulation(HourlySimulation):
         Night ventilation is active between June 1st and September 1st inclusive, between sunset and dawn,
         if the air free temperature at 0m is above the dry bulb temperature.
         """
-        if 'night_ventilation_enabled' not in self._hours.columns:
-            self._hours['night_ventilation_enabled'] = Series(range(len(self._hours))).apply(
-                lambda i: (
-                        (
-                                (6 <= self.epw_data['month'].iloc[i] < 9) or
-                                self.epw_data['month'].iloc[i] == 9 and self.epw_data['day'].iloc[i] == 1
-                        ) and
-                        self.solar_irradiation.solarposition['apparent_elevation'].iloc[i] < 0 and  # JK
-                        (self.air_free_temp_0m.iloc[i] > self.epw_data['temp_air'].iloc[i])
-                )
-            ).values
         return self._hours['night_ventilation_enabled']
 
     @property
