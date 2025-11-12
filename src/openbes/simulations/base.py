@@ -64,3 +64,22 @@ class HourlySimulation:
     def __init__(self, spec: OpenBESSpecification):
         self.spec = spec
         self._hours = HOURS_DF.copy()
+
+
+class EnergyUseSimulation(HourlySimulation):
+    """
+    Base class for hourly energy use simulations.
+
+    Child classes should override the energy_use property to return a DataFrame representing
+    the energy use in kW for each hour of the year, with a column for each of the ENERGY_SOURCES.
+    """
+
+    @property
+    def energy_use(self) -> DataFrame:
+        """DataFrame of energy use in kW for each hour of the year, with a column for each ENERGY_SOURCES.
+        """
+        raise NotImplementedError("Child classes must implement the energy_use property.")
+
+    @property
+    def annual_energy_use(self) -> DataFrame:
+        return self.energy_use.sum().sum()

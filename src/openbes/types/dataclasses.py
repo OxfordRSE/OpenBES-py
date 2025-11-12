@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from . import LIGHTING_CONTROL
+from . import LIGHTING_CONTROL, COOLING_SYSTEM_TYPES
 from .enums import (
     LIGHTING_TECHNOLOGIES,
     LIGHTING_BALLASTS,
@@ -23,19 +23,19 @@ class OpenBESParameters:
     cooling_load_factor: Optional[float] = None
     cooling_system1_min_demand: Optional[float] = None
     cooling_system2_energy_efficifiency_ratio: Optional[float] = None
-    cooling_system2_energy_source: Optional[float] = None
+    cooling_system2_energy_source: Optional[ENERGY_SOURCES] = None
     cooling_system2_min_demand: Optional[float] = None
     cooling_system2_nominal_capacity: Optional[float] = None
-    cooling_system2_number: Optional[float] = None
-    cooling_system2_off_time: Optional[float] = None
-    cooling_system2_on_time: Optional[float] = None
+    cooling_system2_number: Optional[int] = None
+    cooling_system2_off_time: Optional[int] = None
+    cooling_system2_on_time: Optional[int] = None
     cooling_system2_sensible_nominal_capacity: Optional[float] = None
     cooling_system2_simultaneity_factor_canteen: Optional[float] = None
     cooling_system2_simultaneity_factor_common: Optional[float] = None
     cooling_system2_simultaneity_factor_office: Optional[float] = None
     cooling_system2_simultaneity_factor_other: Optional[float] = None
     cooling_system2_simultaneity_factor_teaching: Optional[float] = None
-    cooling_system2_type: Optional[float] = None
+    cooling_system2_type: Optional[COOLING_SYSTEM_TYPES] = None
     courtyard_length: Optional[float] = None
     courtyard_number: Optional[int] = 0
     courtyard_width: Optional[float] = None
@@ -126,7 +126,7 @@ class OpenBESSpecification:
     # Conditioned=True, Unconditioned=False
     condition_z5: Optional[bool] = None
     cooling_system1_energy_efficifiency_ratio: Optional[float] = None
-    cooling_system1_energy_source: Optional[float] = None
+    cooling_system1_energy_source: Optional[ENERGY_SOURCES] = None
     cooling_system1_nominal_capacity: Optional[float] = None
     cooling_system1_number: Optional[int] = None
     cooling_system1_off_time: Optional[int] = None
@@ -137,7 +137,7 @@ class OpenBESSpecification:
     cooling_system1_simultaneity_factor_office: Optional[float] = None
     cooling_system1_simultaneity_factor_other: Optional[float] = None
     cooling_system1_simultaneity_factor_teaching: Optional[float] = None
-    cooling_system1_type: Optional[float] = None
+    cooling_system1_type: Optional[COOLING_SYSTEM_TYPES] = None
     country: Optional[float] = None
     diesel_annual: Optional[float] = None
     electricity_annual: Optional[float] = None

@@ -12,7 +12,7 @@ from ..types import OpenBESSpecification
 
 logger = logging.getLogger(__name__)
 
-class SpecificVentilationSimulation(HourlySimulation):
+class VentilationSystemSimulation(HourlySimulation):
     system_number: int
     geometry: BuildingGeometry
     _air_supply_rate_adjusted: float
@@ -82,7 +82,7 @@ class SpecificVentilationSimulation(HourlySimulation):
 
 
 class VentilationSimulation(HourlySimulation):
-    ventilation_simulations: List[SpecificVentilationSimulation]
+    ventilation_simulations: List[VentilationSystemSimulation]
 
     def __init__(
             self,
@@ -98,7 +98,7 @@ class VentilationSimulation(HourlySimulation):
             if not hasattr(spec, attr_name):
                 break
             self.ventilation_simulations.append(
-                SpecificVentilationSimulation(
+                VentilationSystemSimulation(
                     spec=spec,
                     system_number=system_number,
                     occupancy=occupancy,

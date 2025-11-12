@@ -1,3 +1,5 @@
+import os
+
 from pvlib.iotools import read_epw
 import unittest
 
@@ -11,7 +13,8 @@ from tests.utils import (
 
 class SolarIrradiation(OpenBESTestCase):
     def setUp(self):
-        data, metadata = read_epw(f"../src/openbes/simulations/climate_data/{HOLYWELL_HOUSE_SPEC.meteorological_file}")
+        climate_dir_path = os.path.join(os.path.dirname(__file__), '../src/openbes/simulations/climate_data')
+        data, metadata = read_epw(os.path.join(climate_dir_path, HOLYWELL_HOUSE_SPEC.meteorological_file))
         self.sim = SolarIrradiationSimulation(epw_data=data, epw_metadata=metadata)
 
     def test_lon(self):

@@ -9,6 +9,8 @@ from src.openbes.types import (
     LIGHTING_CONTROL,
     HEAT_CAPACTIY_CLASSES,
     TERRAINS,
+    COOLING_SYSTEM_TYPES,
+    ENERGY_SOURCES,
 )
 
 
@@ -43,6 +45,19 @@ class OpenBESTestCase(unittest.TestCase):
         series.iloc[:len(expected_values)] = expected_values
         return series
 
+    def _describe_differences(self, differences: pd.DataFrame, tolerance: float) -> str:
+        if differences.empty:
+            return "No differences found."
+        return (
+            f"{len(differences)} rows outside of tolerable difference +/- {tolerance}:\n"
+            f"Max difference: {max(abs(differences['self'] - differences['other']))}\n"
+            f"Mean difference: {sum(abs(differences['self'] - differences['other'])) / len(differences)}\n"
+            f"% of values outside tolerance: {len(differences) / len(differences) * 100:.2f}%\n"
+            f"% of values outside 2 x tolerance ({tolerance * 2}): {len(differences[abs(differences['self'] - differences['other']) > (2 * tolerance)]) / len(differences) * 100:.2f}%\n"
+            f"% of values outside 10 x tolerance ({tolerance * 10}): {len(differences[abs(differences['self'] - differences['other']) > (10 * tolerance)]) / len(differences) * 100:.2f}%\n"
+            f"{differences}"
+        )
+
     def check_series_versus_values(
             self, series: pd.Series,
             expected_values: Union[list, pd.Series],
@@ -60,13 +75,7 @@ class OpenBESTestCase(unittest.TestCase):
             mask = abs(differences['self'] - differences['other']) > tolerance
             self.assertTrue(
                 differences[mask].empty,
-                f"{len(differences[mask])} rows outside of tolerable difference +/- {tolerance}:\n"
-                f"Max difference: {max(abs(differences['self'] - differences['other']))}\n"
-                f"Mean difference: {sum(abs(differences['self'] - differences['other'])) / len(differences)}\n"
-                f"% of values outside tolerance: {len(differences[mask]) / len(series) * 100:.2f}%\n"
-                f"% of values outside 2 x tolerance ({tolerance * 2}): {len(differences[abs(differences['self'] - differences['other']) > (2 * tolerance)]) / len(series) * 100:.2f}%\n"
-                f"% of values outside 10 x tolerance ({tolerance * 10}): {len(differences[abs(differences['self'] - differences['other']) > (10 * tolerance)]) / len(series) * 100:.2f}%\n"
-                f"{differences[mask]}"
+                self._describe_differences(differences[mask], tolerance)
             )
 
     def check_series_versus_csv(
@@ -98,19 +107,19 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     condition_z3=True,
     condition_z4=True,
     condition_z5=False,
-    cooling_system1_energy_efficifiency_ratio=None,
-    cooling_system1_energy_source=None,
-    cooling_system1_nominal_capacity=None,
-    cooling_system1_number=None,
-    cooling_system1_off_time=None,
-    cooling_system1_on_time=None,
-    cooling_system1_sensible_nominal_capacity=None,
-    cooling_system1_simultaneity_factor_canteen=None,
-    cooling_system1_simultaneity_factor_common=None,
-    cooling_system1_simultaneity_factor_office=None,
-    cooling_system1_simultaneity_factor_other=None,
-    cooling_system1_simultaneity_factor_teaching=None,
-    cooling_system1_type=None,
+    cooling_system1_energy_efficifiency_ratio=2.8,
+    cooling_system1_energy_source=ENERGY_SOURCES.Electricity,
+    cooling_system1_nominal_capacity=96.0,
+    cooling_system1_number=1,
+    cooling_system1_off_time=17,
+    cooling_system1_on_time=8,
+    cooling_system1_sensible_nominal_capacity=75.0,
+    cooling_system1_simultaneity_factor_canteen=1.0,
+    cooling_system1_simultaneity_factor_common=0.0,
+    cooling_system1_simultaneity_factor_office=1.0,
+    cooling_system1_simultaneity_factor_other=0.0,
+    cooling_system1_simultaneity_factor_teaching=1.0,
+    cooling_system1_type=COOLING_SYSTEM_TYPES.Heat_pump,
     country=None,
     diesel_annual=None,
     electricity_annual=None,

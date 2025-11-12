@@ -182,3 +182,17 @@ class TERRAINS(ListableEnum):
     Open = "Open"
     Country = "Country"
     Urban = "Urban"
+
+
+class HEATING_SYSTEM_TYPES(ListableEnum):
+    Electric_heating_radiators = "Electric heating (radiators)"
+    Electric_boiler = "Electric boiler"
+    Conventional_boiler = "Conventional boiler"
+    Low_temperature_boiler = "Low temperature boiler"
+    Condensing_boiler = "Condensing boiler"
+    Biomass_boiler = "Biomass boiler"
+    Heat_pump = "Heat pump"
+
+
+class COOLING_SYSTEM_TYPES(ListableEnum):
+    Heat_pump = "Heat pump"
