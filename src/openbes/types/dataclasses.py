@@ -20,8 +20,8 @@ class OpenBESParameters:
     air_heat_capacity: Optional[float] = None
     altitude: Optional[float] = None
     appliance_on_off: Optional[bool] = True
-    cooling_load_factor: Optional[float] = None
-    cooling_system1_min_demand: Optional[float] = None
+    cooling_load_factor: Optional[float] = 1.0
+    cooling_system1_min_demand: Optional[float] = 15.0
     cooling_system2_energy_efficifiency_ratio: Optional[float] = None
     cooling_system2_energy_source: Optional[ENERGY_SOURCES] = None
     cooling_system2_min_demand: Optional[float] = None

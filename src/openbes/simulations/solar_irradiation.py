@@ -1,20 +1,10 @@
-import math
 
 import pvlib
-from numpy import radians, cos, maximum
+import numpy as np
 from pandas import DataFrame, Series, DatetimeIndex
 
 from .base import HOURS_DF
 from ..types import COMPASS_POINTS
-
-
-def rad_to_deg(rad: Series) -> 'Series[float]':
-    """Convert radians to degrees."""
-    return rad.apply(lambda r: r * (180.0 / math.pi))
-
-def deg_to_rad(deg: Series) -> 'Series[float]':
-    """Convert degrees to radians."""
-    return deg.apply(lambda d: d * (math.pi / 180.0))
 
 
 class SolarIrradiationSimulation:
@@ -28,6 +18,8 @@ class SolarIrradiationSimulation:
     times: DatetimeIndex
     _solarposition: DataFrame
     _solar_irradiation: DataFrame
+    _solar_declination_: np.array = None
+    _hour_angle_: np.array = None
 
     def __init__(self, epw_data: DataFrame, epw_metadata: dict):
         self._hours = HOURS_DF.copy()
@@ -85,42 +77,89 @@ class SolarIrradiationSimulation:
         return self._hours['diffuse_horizontal_irradiance']
 
     @property
-    def solar_altitude_sin(self) -> 'Series[float]':
-        """Solar altitude angle (beta) in radians for each hour.
-        [Solar radiation column O]
-        """
-        if 'solar_altitude_sin' not in self._hours.columns:
-            self._hours['solar_altitude_sin'] = (
-                math.cos(Series([self.lat] * len(self._hours))) *
-                self._hours['solar_declination'].apply(math.cos) *
-                self._hours['solar_hour_angle'].apply(math.cos) +
-                math.sin(Series([self.lat] * len(self._hours))) *
-                self._hours['solar_declination'].apply(math.sin)
+    def _hour_angle(self):
+        """Hour angle (h) in radians for each hour."""
+        if self._hour_angle_ is None:
+            local_standard_time = np.array(
+                self._hours.index.get_level_values(self._hours.index.names.index('hour'))
             )
-        return self._hours['solar_altitude_sin']
+            day_of_year = np.array(self._hours.index.get_level_values(self._hours.index.names.index('day')))
+            orbital_position = (
+                    2 * np.pi *
+                    (day_of_year - 1) /
+                    365
+            )
+            equation_of_time = 2.2918 * (
+                    0.0075 +
+                    0.1868 * np.cos(orbital_position) -
+                    3.2077 * np.sin(orbital_position) -
+                    1.4615 * np.cos(2 * orbital_position) -
+                    4.089 * np.sin(2 * orbital_position)
+            )
+            longitude_of_local_meridian = 15 * self.timezone
+            apparent_solar_time = (
+                    local_standard_time +
+                    equation_of_time / 60 +
+                    (self.lon - longitude_of_local_meridian) / 15
+            )
+            self._hour_angle_ = np.radians(15 * (apparent_solar_time - 12))
+        return self._hour_angle_
 
     @property
-    def solar_altitude_radians(self) -> 'Series[float]':
-        """Solar altitude angle (beta) in radians for each hour.
+    def _solar_declination(self):
+        """Solar declination (delta) in radians for each hour."""
+        if self._solar_declination_ is None:
+            day_of_year = np.array(self._hours.index.get_level_values(self._hours.index.names.index('day')))
+            self._solar_declination_ = np.radians(23.45 * np.sin(2 * np.pi * (284 + day_of_year) / 365))
+        return self._solar_declination_
+
+    @property
+    def solar_altitude(self) -> 'Series[float]':
+        """Solar altitude angle (beta) in degrees for each hour.
         [Solar radiation column P]
         """
         if 'solar_altitude_radians' not in self._hours.columns:
-            self._hours['solar_altitude_radians'] = math.asin(self.solar_altitude_sin)
+            latitude = np.radians(self.lat)
+            sin_solar_altitude = (
+                np.cos(latitude) * np.cos(self._solar_declination) * np.cos(self._hour_angle) +
+                np.sin(latitude) * np.sin(self._solar_declination)
+            )
+            self._hours['solar_altitude_radians'] = np.degrees(np.asin(sin_solar_altitude))
         return self._hours['solar_altitude_radians']
 
     @property
-    def solarposition(self) -> DataFrame:
-        """Solar position for each hour.
-        Solar apparent elevation [Solar radiation column Q, Hourly simulation column H]
+    def solar_zenith(self) -> 'Series[float]':
+        """Solar zenith angle (theta) in degrees for each hour.
         """
-        if not hasattr(self, '_solarposition') or self._solarposition is None:
-            self._solarposition = self.location.get_solarposition(self.epw_data.index)
-            # correct for EPW hour ending convention
-            row_0 = self._solarposition.iloc[0:1].copy()
-            self._solarposition = self._solarposition.shift(-1)
-            self._solarposition.iloc[-1:] = row_0.values
-            self._solarposition.index = self._hours.index
-        return self._solarposition
+        return 90.0 - self.solar_altitude
+
+    @property
+    def solar_azimuth(self) -> 'Series[float]':
+        """Solar azimuth angle (phi) in degrees for each hour.
+        [Solar radiation column V]
+        """
+        if 'solar_azimuth_degrees' not in self._hours.columns:
+            altitude_rad = np.radians(self.solar_altitude)
+            lat_rad = np.radians(self.lat)
+            sin_phi = (
+                    np.sin(self._hour_angle) *
+                    np.cos(self._solar_declination)
+            ) / np.cos(altitude_rad)
+            cos_phi = (
+                np.cos(self._hour_angle) * np.cos(self._solar_declination) * np.sin(lat_rad) -
+                np.sin(self._solar_declination) * np.cos(lat_rad)
+            ) / np.cos(altitude_rad)
+            phi_from_sin = np.degrees(np.asin(sin_phi))
+            phi_from_cos = np.degrees(np.acos(cos_phi))
+            from_cos = sin_phi > 0
+            from_sin = cos_phi > 0
+            others = ~(from_cos | from_sin)
+            self._hours['solar_azimuth_degrees'] = (
+                phi_from_cos * from_cos +
+                phi_from_sin * from_sin +
+                (-180 - phi_from_sin) * others
+            )
+        return self._hours['solar_azimuth_degrees']
 
     def get_solar_irradiation(self, compass_point: COMPASS_POINTS) -> 'Series[float]':
         """Get the hourly solar irradiation on a vertical surface facing the given compass point in Wh/m2.
@@ -138,10 +177,10 @@ class SolarIrradiationSimulation:
                 COMPASS_POINTS.West: 90,
                 COMPASS_POINTS.NorthWest: 135,
             }[compass_point]
-            surface_azimuth = surface_azimuth + 180 % 360  # convert to pvlib convention
             surface_tilt = 90.0  # horizontal surface
-            solar_zenith = self.solarposition['zenith']
-            solar_azimuth = self.solarposition['azimuth']
+            solar_zenith = self.solar_zenith
+            solar_azimuth = self.solar_azimuth
+            raise NotImplementedError("We need to use the Excel logic now.")
             poa_irradiance = pvlib.irradiance.get_total_irradiance(
                 surface_tilt=surface_tilt,
                 surface_azimuth=surface_azimuth,
@@ -161,14 +200,14 @@ class SolarIrradiationSimulation:
                 solar_zenith=solar_zenith,
                 solar_azimuth=solar_azimuth
             )
-            cos_aoi = cos(radians(aoi))
-            Y = maximum(0.45, 0.55 + 0.437 * cos_aoi + 0.313 * cos_aoi**2)
+            cos_aoi = np.cos(np.radians(aoi))
+            Y = np.maximum(0.45, 0.55 + 0.437 * cos_aoi + 0.313 * cos_aoi**2)
             poa_irradiance['poa_sky_diffuse_excel'] = self.dhi * Y
 
             # Excel also uses slightly different calculations for ground reflected irradiance
             poa_irradiance['poa_ground_diffuse_excel'] = (
-                (self.dni * self.solarposition['apparent_elevation'].apply(math.radians).apply(math.sin) + self.dhi) *
-                0.14 / 2
+                    (self.dni * self.solar_altitude.apply(np.radians).apply(np.sin) + self.dhi) *
+                    0.14 / 2
             )
 
             poa_irradiance['irradiance'] = (
@@ -176,7 +215,7 @@ class SolarIrradiationSimulation:
                     poa_irradiance['poa_sky_diffuse_excel'] +
                     poa_irradiance['poa_ground_diffuse_excel']
             )
-            self._solar_irradiation[compass_point] = poa_irradiance['irradiance']
+            # self._solar_irradiation[compass_point] = poa_irradiance['irradiance']
         return self._solar_irradiation[compass_point]
 
     @property

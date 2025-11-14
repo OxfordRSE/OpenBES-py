@@ -559,7 +559,7 @@ class BuildingGeometry:
             roof_slope = self.spec.roof_angle  # [Inputs cell M32]
             horizontal = self.equivalent_rectangle.width / 2  # [Inputs cell M33]
             height = roof_slope * horizontal / 100  # [Inputs cell M34]
-            slope = math.sqrt(horizontal ** 2 + height ** 2)  # [Inputs cell M35]
+            slope = math.sqrt(horizontal**2 + height**2)  # [Inputs cell M35]
             roof_area = slope * 2 * self.equivalent_rectangle.length  # [Inputs cell M36]
             self._roof_factor = roof_area / self.equivalent_rectangle.area  # [Inputs cell M37]
         return self._roof_factor

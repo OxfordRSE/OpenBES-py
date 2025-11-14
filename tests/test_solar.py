@@ -31,16 +31,14 @@ class SolarIrradiation(OpenBESTestCase):
 
         To compensate, we just check if the degrees are within tolerance.
         """
-        tolerance = 1.0
         first_day = [
             -59.640770, -54.115912, -46.319728, -37.430886, -28.155482, -18.944647, -10.148630, -2.098972, 4.850895,
             10.317646, 13.919479, 15.351120, 14.476575, 11.379997, 6.333511, -0.291371, -8.107076, -16.752306,
             -25.892695, -35.188169, -44.222961, -52.372301, -58.588631, -61.356930
         ]
-        calculated = self.sim.solarposition['apparent_elevation'][:24]
-        for i in range(24):
-            with self.subTest(hour=i + 1):
-                self.assertTrue((first_day[i] - tolerance) < calculated.iat[i] < (first_day[i] + tolerance))
+        calculated = self.sim.solar_altitude
+        dp = 1  # Some Excel/Python differences at about 5 decimal places leading to rounding differences
+        self.check_series_versus_values(calculated, first_day, decimal_places=dp)
 
     def test_solar_irradiation(self):
         def col_to_point(col: str) -> COMPASS_POINTS:
@@ -62,7 +60,7 @@ class SolarIrradiation(OpenBESTestCase):
                 return COMPASS_POINTS.SouthWest
             raise ValueError(f'Unknown column {col}')
 
-        tolerance = 10.0  # Quite a large tolerance due to differences in solar position calculation
+        tolerance = 1.0
         csv = self.read_csv('fixtures/hh_solar_radiation.csv')
         for col in csv.columns:
             with self.subTest(col):

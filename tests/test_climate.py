@@ -172,13 +172,19 @@ class Climate(OpenBESTestCase):
             'fixtures/hh_building_thermal_mass.csv'
         )
         
-    def test_air_free_temp_0m(self):
+    def test_air_free_temp(self):
         self.check_series_versus_values(
-            self.sim.air_free_temp_0m,
+            self.sim.air_free_temp,
             [
                 17.163339, 16.910388, 16.666814, 16.430517, 16.229176,
                 16.019031, 15.815558, 15.622937, 15.406070, 15.235680
             ]
+        )
+
+    def test_air_free_temp_hc_actual(self):
+        self.check_series_versus_csv(
+            self.sim.air_free_temp_hc_actual,
+            'fixtures/hh_air_free_temp_hc_actual.csv'
         )
 
     def test_solar_heat_roof(self):
@@ -195,7 +201,7 @@ class Climate(OpenBESTestCase):
         self.check_series_versus_csv(
             self.sim.solar_heat_opaque,
             'fixtures/hh_solar_heat_opaque.csv',
-            tolerance=50.0  # large tolerance due to solar calculations
+            tolerance=0.0  # large tolerance due to solar calculations
         )
 
     def test_solar_heat_windows(self):

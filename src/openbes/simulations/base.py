@@ -1,6 +1,6 @@
 from pandas import DataFrame
 
-from src.openbes.types import OpenBESSpecification
+from ..types import OpenBESSpecification, ENERGY_SOURCES
 
 
 def month_for_day(day_number_in_year: int) -> int:
@@ -72,7 +72,13 @@ class EnergyUseSimulation(HourlySimulation):
 
     Child classes should override the energy_use property to return a DataFrame representing
     the energy use in kW for each hour of the year, with a column for each of the ENERGY_SOURCES.
+
+    The _energy_use property is initialized as a DataFrame of NaNs with the same index as _hours
+    and columns for each ENERGY_SOURCES. self.energy_use should populate this DataFrame appropriately.
     """
+    def __init__(self, spec: OpenBESSpecification):
+        super().__init__(spec)
+        self._energy_use = DataFrame(index=self._hours.index, columns=list(ENERGY_SOURCES)).astype(float)
 
     @property
     def energy_use(self) -> DataFrame:

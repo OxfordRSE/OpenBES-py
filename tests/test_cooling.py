@@ -1,14 +1,29 @@
 import unittest
 
+from src.openbes.simulations.climate import ClimateSimulation
 from src.openbes.simulations.cooling import CoolingSimulation
+from src.openbes.simulations.geometry import BuildingGeometry
+from src.openbes.simulations.lighting import LightingSimulation
+from src.openbes.simulations.occupancy import OccupationSimulation
 from src.openbes.types import ENERGY_SOURCES
-from tests.utils import OpenBESTestCase
+from tests.utils import OpenBESTestCase, HOLYWELL_HOUSE_SPEC
 
 
 class Cooling(OpenBESTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.spec = HOLYWELL_HOUSE_SPEC
+        cls._geometry = BuildingGeometry(cls.spec)
+        cls._occupancy = OccupationSimulation(cls.spec, geometry=cls._geometry)
+        cls._lighting = LightingSimulation(cls.spec, occupancy=cls._occupancy)
+        cls._climate = ClimateSimulation(spec=cls.spec)
+
     def setUp(self):
         super().setUp()
-        self.sim = CoolingSimulation(spec=self.spec)
+        self.sim = CoolingSimulation(
+            spec=self.spec,
+            climate=self._climate,
+        )
         self.system = self.sim.cooling_simulations[0]
 
     def test_nominal_consumption(self):

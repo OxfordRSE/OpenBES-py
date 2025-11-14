@@ -42,40 +42,65 @@ class OpenBESTestCase(unittest.TestCase):
             # expected is now Series([1, 2, 3, 4], index=[10, 11, 12, 13])
         """
         series = series.copy()
-        series.iloc[:len(expected_values)] = expected_values
+        series = series.iloc[:len(expected_values)]
         return series
 
-    def _describe_differences(self, differences: pd.DataFrame, tolerance: float) -> str:
+    def _describe_differences(
+            self,
+            expected: pd.Series,
+            calculated: pd.Series,
+            tolerance: float = 0.0
+    ) -> str:
+        differences = expected.compare(calculated)
         if differences.empty:
             return "No differences found."
+        percent = len(differences) / len(expected) * 100
+        max_diff = max(abs(differences['self'] - differences['other']))
+        max_loc = calculated.index[abs(calculated - expected) == max_diff].tolist()
+        mean_diff = sum(abs(differences['self'] - differences['other'])) / len(differences)
+        if tolerance == 0.0:
+            return (
+                f"{len(differences)} rows differ ({percent:.2f}% of all rows):\n"
+                f"Max difference: {max_diff} {max_loc}\n"
+                f"Mean difference: {mean_diff}\n"
+                f"{differences}"
+            )
+        def big_diffs(t):
+            mask = abs(differences['self'] - differences['other']) > t
+            return differences[mask]
         return (
-            f"{len(differences)} rows outside of tolerable difference +/- {tolerance}:\n"
-            f"Max difference: {max(abs(differences['self'] - differences['other']))}\n"
-            f"Mean difference: {sum(abs(differences['self'] - differences['other'])) / len(differences)}\n"
-            f"% of values outside tolerance: {len(differences) / len(differences) * 100:.2f}%\n"
-            f"% of values outside 2 x tolerance ({tolerance * 2}): {len(differences[abs(differences['self'] - differences['other']) > (2 * tolerance)]) / len(differences) * 100:.2f}%\n"
-            f"% of values outside 10 x tolerance ({tolerance * 10}): {len(differences[abs(differences['self'] - differences['other']) > (10 * tolerance)]) / len(differences) * 100:.2f}%\n"
+                f"{len(differences)} rows differ ({percent:.2f}% of all rows):\n"
+                f"Max difference: {max_diff} {max_loc}\n"
+                f"Mean difference: {mean_diff}\n"
+            f"{len(big_diffs(tolerance))} rows outside of tolerable difference +/- {tolerance}:\n"
+            f"% of differences outside tolerance: {len(big_diffs(tolerance)) / len(expected) * 100:.2f}%\n"
+            f"% of differences outside 2 x tolerance ({tolerance * 2}): {len(big_diffs(2 * tolerance)) / len(expected) * 100:.2f}%\n"
+            f"% of differences outside 10 x tolerance ({tolerance * 10}): {len(big_diffs(10 * tolerance)) / len(expected) * 100:.2f}%\n"
             f"{differences}"
         )
 
     def check_series_versus_values(
-            self, series: pd.Series,
+            self,
+            series: pd.Series,
             expected_values: Union[list, pd.Series],
             decimal_places: int = None,
             tolerance: float = None
     ) -> None:
         if decimal_places is None:
             decimal_places = self.decimal_places
-        expected = self.get_expectation_for_series(series, expected_values).round(decimal_places)
-        calculated = series.round(decimal_places)
+        calculated = self.get_expectation_for_series(series, expected_values).round(decimal_places)
+        if not isinstance(expected_values, pd.Series):
+            expected_values = pd.Series(expected_values)
+        expected = expected_values.round(decimal_places)
+        expected.index = calculated.index
         if tolerance is None:
-            self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+            self.assertTrue(expected.equals(calculated), self._describe_differences(expected, calculated, 0.0))
         else:
             differences = expected.compare(calculated)
             mask = abs(differences['self'] - differences['other']) > tolerance
             self.assertTrue(
                 differences[mask].empty,
-                self._describe_differences(differences[mask], tolerance)
+                self._describe_differences(expected, calculated, tolerance)
             )
 
     def check_series_versus_csv(

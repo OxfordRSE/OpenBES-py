@@ -1,15 +1,16 @@
 import logging
+from math import atan
 from typing import List
 
 from pandas import Series
 
 from .base import EnergyUseSimulation
-from .climate import ClimateSimulation
+from .climate import ClimateSimulation, RELATIVE_HUMIDITY
 from .geometry import BuildingGeometry
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
 from .ventilation import VentilationSimulation
-from ..types import OpenBESSpecification, COOLING_SYSTEM_TYPES
+from ..types import OpenBESSpecification, COOLING_SYSTEM_TYPES, ENERGY_SOURCES
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class CoolingSystemSimulation(EnergyUseSimulation):
     system_number: int
     _nominal_consumption: float = None
     _nominal_capacity: float = None
+    _sensible_nominal_capacity: float = None
     _efficiency: float = None
     _area: float = None
     _Ts_int: float = None
@@ -34,18 +36,20 @@ class CoolingSystemSimulation(EnergyUseSimulation):
             self,
             spec: OpenBESSpecification,
             system_number: int = 1,
-            climate: ClimateSimulation = None
+            climate: ClimateSimulation = None,
     ):
         super().__init__(spec)
         self.system_number = system_number
         self.climate = climate or ClimateSimulation(spec)
         self.geometry = climate.geometry
+        self.occupancy = climate.occupancy
 
     def _attr(self, attr_name: str):
         return getattr(self.spec, f"cooling_system{self.system_number}_{attr_name}")
 
     @property
     def area(self) -> float:
+        """Total area affected by cooling system in m2."""
         if self._area is None:
             areas = self.geometry.conditioned_floor_areas.groupby('zone').sum()
             simultaneity = [self._attr(f"simultaneity_factor_{z.value.split('_')[0]}") for z in areas.index]
@@ -53,16 +57,78 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         return self._area
 
     @property
+    def ratio(self) -> 'Series[float]':
+        """Hourly proportion of total cooling capacity that is enabled.
+
+        The system will typically be 100% enabled during occupied hours.
+        """
+        return self.occupancy.occupancy['is_occupied'].astype(float)
+
+    @property
+    def phi_hc_nd_actual(self) -> 'Series[float]':
+        """Cooling load per unit area in W/m2.
+        [Hourly simulation column GW]
+
+        The system is on when
+        - the system is enabled (ratio > 0.0)
+        - temperature > target temperature
+
+        When on, the system operates at the capacity required to bring the temperature within tolerance.
+        """
+        if 'phi_hc_nd_actual' not in self._hours.columns:
+            # =IF(AND(GT118=0,GU118=0),0,10*(GV118-$BK118)/($BY118-$BK118))
+            self._hours['phi_hc_nd_actual'] = (
+                10 *
+                (self.climate.air_set_temp - self.climate.air_free_temp_hc_0) /
+                (self.climate.air_free_temp_hc_10 - self.climate.air_free_temp_hc_0)
+            ) * self.ratio * (self.climate.air_set_temp < self.climate.air_free_temp)
+        return self._hours['phi_hc_nd_actual']
+
+    @property
+    def phi_c_nd_ac(self) -> float:
+        """Cooling load per unit area in W/m2.
+        [Hourly simulation column GY]
+        """
+        if 'phi_c_nd_ac' not in self._hours.columns:
+            self._hours['phi_c_nd_ac'] = self.phi_hc_nd_actual.apply(
+                lambda r: min(r, 0.0) if r < self.spec.parameters.cooling_system1_min_demand else 0.0
+            ) * self.spec.parameters.cooling_load_factor
+        return self._hours['phi_c_nd_ac']
+
+    @property
     def demand(self) -> 'Series[float]':
         """Hourly cooling demand in kW.
         [Hourly simulation column HA]
         """
         if 'demand' not in self._hours.columns:
-            phi_c_nd_ac = 0.0  # [GY] W/m2
             self._hours['demand'] = - (
-                phi_c_nd_ac * self.geometry.conditioned_floor_area
+                self.phi_c_nd_ac * self.geometry.conditioned_floor_area
             ) / 1000  # W -> kW
         return self._hours['demand']
+
+    @property
+    def Ts_int(self) -> float:
+        """Internal set point temperature. ???????
+        [HD102]
+        """
+        if self._Ts_int is None:
+            self._Ts_int = self.spec.setpoint_summer_day - self.spec.parameters.temperature_tolerance
+        return self._Ts_int
+
+    @property
+    def Th_int(self) -> float:
+        """Internal heat temperature. ???????
+        [HD101]
+        """
+        if self._Th_int is None:
+            self._Th_int = (
+                    self.Ts_int * atan(0.151977 * (RELATIVE_HUMIDITY + 8.313659)**0.5) +
+                    atan(self.Ts_int + RELATIVE_HUMIDITY) -
+                    atan(RELATIVE_HUMIDITY - 1.676331) +
+                    0.00391838 * RELATIVE_HUMIDITY**1.5 * atan(0.023101 * RELATIVE_HUMIDITY) -
+                    4.686035
+            )
+        return self._Th_int
 
     @property
     def fan_cooling_power(self) -> 'Series[float]':
@@ -79,26 +145,8 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         [Hourly simulation column HH]
         """
         if 'cap_sen_ref' not in self._hours.columns:
-            raise NotImplementedError
+            return self.sensible_nominal_capacity * self.cap_ref_t
         return self._hours['cap_sen_ref']
-
-    @property
-    def Ts_int(self) -> float:
-        """Internal supply temperature. ???????
-        [HD102]
-        """
-        if self._Ts_int is None:
-            raise NotImplementedError
-        return self._Ts_int
-
-    @property
-    def Th_int(self) -> float:
-        """Internal heat temperature. ???????
-        [HD101]
-        """
-        if self._Th_int is None:
-            raise NotImplementedError
-        return self._Th_int
 
     @property
     def cap_ref_t(self) -> 'Series[float]':
@@ -123,7 +171,13 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         [Hourly simulation column HL]
         """
         if 'con_ref_t' not in self._hours.columns:
-            raise NotImplementedError
+            self._hours['con_ref_t'] = (
+               0.1117801 +
+               0.028493334 * self.Th_int -
+               0.000411156 * (self.Th_int**2) +
+               0.021414276 * self.climate.dry_bulb_temp + 0.000161125 * (self.climate.dry_bulb_temp**2) -
+               0.000679104 * self.climate.dry_bulb_temp * self.Th_int
+            )
         return self._hours['con_ref_t']
 
     @property
@@ -135,8 +189,8 @@ class CoolingSystemSimulation(EnergyUseSimulation):
             self._hours["con_ref_fcp"] = (
                 0.2012307 -
                 0.0312175 * self.fan_cooling_power +
-                1.9504979 * (self.fan_cooling_power ** 2) -
-                1.1205104 * (self.fan_cooling_power ** 3)
+                1.9504979 * (self.fan_cooling_power**2) -
+                1.1205104 * (self.fan_cooling_power**3)
             )
         return self._hours['con_ref_fcp']
 
@@ -153,6 +207,18 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         if self._nominal_capacity is None:
             self._nominal_capacity = max(self._attr('nominal_capacity'), MIN_COOLING_CAPACITY) * self.number
         return self._nominal_capacity
+
+    @property
+    def sensible_nominal_capacity(self) -> float:
+        """Cooling system nominal sensible refrigeration capacity in kW.
+        [Hourly simulation cell HD91]
+        """
+        if self._sensible_nominal_capacity is None:
+            self._sensible_nominal_capacity = max(
+                self._attr('sensible_nominal_capacity'),
+                MIN_COOLING_CAPACITY
+            ) * self.number
+        return self._sensible_nominal_capacity
 
     @property
     def efficiency(self) -> float:
@@ -178,12 +244,13 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         """Cooling system energy use in kWh for each hour of the year for each ENERGY_SOURCES.
         [Hourly outputs column P, disaggregated; Hourly simulation column HK]
         """
-        if 'energy_use' not in self._hours.columns:
-            if self._attr('type') != COOLING_SYSTEM_TYPES.Heat_pump:
-                self._hours['energy_use'] = 0.0
-            else:
-                self._hours['energy_use'] = self.con_ref_t * self.con_ref_fcp * self.nominal_consumption
-        return self._hours['energy_use']
+        if self._energy_use[ENERGY_SOURCES.Electricity].hasnans:
+            self._energy_use = self._energy_use.fillna(0.0).infer_objects(copy=False)
+            if self._attr('type') == COOLING_SYSTEM_TYPES.Heat_pump:
+                self._energy_use[ENERGY_SOURCES.Electricity] = (
+                        self.demand * self.con_ref_t * self.con_ref_fcp * self.nominal_consumption
+                )
+        return self._energy_use
 
 
 class CoolingSimulation(EnergyUseSimulation):
@@ -197,13 +264,14 @@ class CoolingSimulation(EnergyUseSimulation):
             occupancy: OccupationSimulation = None,
             lighting: LightingSimulation = None,
             ventilation: VentilationSimulation = None,
+            climate: ClimateSimulation = None,
     ):
         super().__init__(spec)
         geometry = geometry or BuildingGeometry(self.spec)
         occupancy = occupancy or OccupationSimulation(self.spec, geometry=geometry)
         lighting = lighting or LightingSimulation(self.spec, occupancy=occupancy)
         ventilation = ventilation or VentilationSimulation(self.spec, occupancy=occupancy, geometry=geometry)
-        self.climate_simulation = ClimateSimulation(
+        self.climate_simulation = climate or ClimateSimulation(
             spec,
             geometry=geometry or BuildingGeometry(self.spec),
             occupancy=occupancy,
