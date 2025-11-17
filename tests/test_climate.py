@@ -22,8 +22,8 @@ class Climate(OpenBESTestCase):
 
     def test_hourly_set_point(self):
         expected = HOURS_DF.copy()
-        expected['min_temp_set_point'] = expected['is_daytime'].apply(lambda x: 22.0 if x else 18.0)
-        expected['max_temp_set_point'] = expected['is_daytime'].apply(lambda x: 21.0 if x else 29.0)
+        expected['max_temp_set_point'] = expected['is_daytime'].apply(lambda x: 22.0 if x else 18.0)
+        expected['min_temp_set_point'] = expected['is_daytime'].apply(lambda x: 21.0 if x else 29.0)
         expected = expected[['min_temp_set_point', 'max_temp_set_point']]
         calculated = self.sim.set_point_temperature
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
@@ -92,16 +92,13 @@ class Climate(OpenBESTestCase):
         self.assertTrue(expected.equals(computed), expected.compare(computed))
 
     def test_internal_surface_temperature(self):
-        df = self.sim.internal_surface_temp
-        self.assertEqual(len(df), len(HOURS_DF))
         expected = Series([
-            17.189529, 16.938033, 16.693035, 16.455385, 16.248080,
-            16.038826, 15.834325, 15.639793, 15.427721, 15.254648
+            17.189528678, 16.938032927, 16.693034870, 16.455384605, 16.248080277, 16.038826484, 15.834325329,
+            15.639793006, 15.427721369, 15.254647828, 15.126157266, 15.056091784, 14.965677923, 14.818700616,
+            14.649119178, 14.451617832, 14.242575314, 14.028535619, 13.810140346, 13.606306014, 13.380471087,
+            13.139959488, 12.862928167, 12.530564961
         ])
-        computed = df.iloc[range(10)].round(DECIMAL_PLACES)
-        expected.index = computed.index
-        expected = expected.astype(computed.dtype).round(DECIMAL_PLACES)
-        self.assertTrue(expected.equals(computed), expected.compare(computed))
+        self.check_series_versus_values(self.sim.internal_surface_temp, expected)
 
     def test_air_flow(self):
         self.check_series_versus_csv(
@@ -176,9 +173,17 @@ class Climate(OpenBESTestCase):
         self.check_series_versus_values(
             self.sim.air_free_temp,
             [
-                17.163339, 16.910388, 16.666814, 16.430517, 16.229176,
-                16.019031, 15.815558, 15.622937, 15.406070, 15.235680
+                17.16333945, 16.91038814, 16.66681436, 16.43051709, 16.22917626, 16.01903107, 15.81555818,
+                15.62293665, 15.40607045, 15.23568027, 15.10943157, 15.04594767, 14.95543820, 14.80794495,
+                14.63806472, 14.43366520, 14.22274308, 14.00786162, 13.78866631, 13.58781408, 13.35732166,
+                13.11426123, 12.83013053, 12.48728083
             ]
+        )
+
+    def test_building_thermal_mass_hc_actual(self):
+        self.check_series_versus_csv(
+            self.sim.building_thermal_mass_hc_actual,
+            'fixtures/hh_building_thermal_mass_hc_actual.csv'
         )
 
     def test_air_free_temp_hc_actual(self):
@@ -189,26 +194,24 @@ class Climate(OpenBESTestCase):
 
     def test_solar_heat_roof(self):
         expected = [
-            0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 22.404,
-            222.725, 138.379, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000
+            0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 22.404249000,
+            222.724593000, 138.379185000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000
         ]
         self.check_series_versus_values(
             self.sim.solar_heat_roof.iloc[range(len(expected))],
-            expected,
+            expected
         )
 
     def test_solar_heat_opaque(self):
         self.check_series_versus_csv(
             self.sim.solar_heat_opaque,
-            'fixtures/hh_solar_heat_opaque.csv',
-            tolerance=0.0  # large tolerance due to solar calculations
+            'fixtures/hh_solar_heat_opaque.csv'
         )
 
     def test_solar_heat_windows(self):
         self.check_series_versus_csv(
             self.sim.solar_heat_windows,
-            'fixtures/hh_solar_heat_windows.csv',
-            tolerance=50.0  # large tolerance due to solar calculations
+            'fixtures/hh_solar_heat_windows.csv'
         )
 
 if __name__ == '__main__':

@@ -37,30 +37,28 @@ class SolarIrradiation(OpenBESTestCase):
             -25.892695, -35.188169, -44.222961, -52.372301, -58.588631, -61.356930
         ]
         calculated = self.sim.solar_altitude
-        dp = 1  # Some Excel/Python differences at about 5 decimal places leading to rounding differences
-        self.check_series_versus_values(calculated, first_day, decimal_places=dp)
+        self.check_series_versus_values(calculated, first_day)
 
     def test_solar_irradiation(self):
-        def col_to_point(col: str) -> COMPASS_POINTS:
-            if col == 's':
+        def col_to_point(column: str) -> COMPASS_POINTS:
+            if column == 's':
                 return COMPASS_POINTS.South
-            if col == 'se':
+            if column == 'se':
                 return COMPASS_POINTS.SouthEast
-            if col == 'e':
+            if column == 'e':
                 return COMPASS_POINTS.East
-            if col == 'ne':
+            if column == 'ne':
                 return COMPASS_POINTS.NorthEast
-            if col == 'n':
+            if column == 'n':
                 return COMPASS_POINTS.North
-            if col == 'nw':
+            if column == 'nw':
                 return COMPASS_POINTS.NorthWest
-            if col == 'w':
+            if column == 'w':
                 return COMPASS_POINTS.West
-            if col == 'sw':
+            if column == 'sw':
                 return COMPASS_POINTS.SouthWest
-            raise ValueError(f'Unknown column {col}')
+            raise ValueError(f'Unknown column {column}')
 
-        tolerance = 1.0
         csv = self.read_csv('fixtures/hh_solar_radiation.csv')
         for col in csv.columns:
             with self.subTest(col):
@@ -69,7 +67,7 @@ class SolarIrradiation(OpenBESTestCase):
                     calculated = self.sim.ghi
                 else:
                     calculated = self.sim.get_solar_irradiation(col_to_point(col))
-                self.check_series_versus_values(calculated, expected, tolerance=tolerance)
+                self.check_series_versus_values(calculated, expected)
 
 if __name__ == '__main__':
     unittest.main()

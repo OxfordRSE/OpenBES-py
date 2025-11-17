@@ -38,12 +38,12 @@ class SolarIrradiationSimulation:
     @property
     def lat(self) -> float:
         """Latitude of the location from EPW metadata."""
-        return self.epw_metadata.get('latitude')
+        return round(self.epw_metadata.get('latitude'), 2)
 
     @property
     def lon(self) -> float:
         """Longitude of the location from EPW metadata."""
-        return self.epw_metadata.get('longitude')
+        return round(self.epw_metadata.get('longitude'), 1)
 
     @property
     def timezone(self) -> float:
@@ -118,14 +118,14 @@ class SolarIrradiationSimulation:
         """Solar altitude angle (beta) in degrees for each hour.
         [Solar radiation column P]
         """
-        if 'solar_altitude_radians' not in self._hours.columns:
+        if 'solar_altitude' not in self._hours.columns:
             latitude = np.radians(self.lat)
             sin_solar_altitude = (
                 np.cos(latitude) * np.cos(self._solar_declination) * np.cos(self._hour_angle) +
                 np.sin(latitude) * np.sin(self._solar_declination)
             )
-            self._hours['solar_altitude_radians'] = np.degrees(np.asin(sin_solar_altitude))
-        return self._hours['solar_altitude_radians']
+            self._hours['solar_altitude'] = np.degrees(np.asin(sin_solar_altitude))
+        return self._hours['solar_altitude']
 
     @property
     def solar_zenith(self) -> 'Series[float]':
@@ -156,7 +156,7 @@ class SolarIrradiationSimulation:
             others = ~(from_cos | from_sin)
             self._hours['solar_azimuth_degrees'] = (
                 phi_from_cos * from_cos +
-                phi_from_sin * from_sin +
+                phi_from_sin * (from_sin & ~from_cos) +
                 (-180 - phi_from_sin) * others
             )
         return self._hours['solar_azimuth_degrees']
@@ -177,45 +177,24 @@ class SolarIrradiationSimulation:
                 COMPASS_POINTS.West: 90,
                 COMPASS_POINTS.NorthWest: 135,
             }[compass_point]
-            surface_tilt = 90.0  # horizontal surface
-            solar_zenith = self.solar_zenith
             solar_azimuth = self.solar_azimuth
-            raise NotImplementedError("We need to use the Excel logic now.")
-            poa_irradiance = pvlib.irradiance.get_total_irradiance(
-                surface_tilt=surface_tilt,
-                surface_azimuth=surface_azimuth,
-                solar_zenith=solar_zenith,
-                solar_azimuth=solar_azimuth,
-                dni=self.dni,
-                ghi=self.ghi,
-                dhi=self.dhi,
-                dni_extra=pvlib.irradiance.get_extra_radiation(self.epw_data.index),
-                model='isotropic',
-                albedo=0.14  # [Hardcoded in Solar radiation column BS]
+            gamma = abs(solar_azimuth - surface_azimuth)  # [Solar radiation columns W:AD]
+            solar_altitude_rad = np.radians(self.solar_altitude)
+            aoi = np.cos(solar_altitude_rad) * np.cos(np.radians(gamma))  # [Solar radiation columns AE:AL]
+            aoi = np.degrees(np.arccos(aoi))  # [Solar radiation columns AM:AT]
+            # [Solar radiation columns AU:BB]
+            beam_component = np.logical_not((90 < gamma) & (gamma < 270)) * (aoi >= 0) * (self.dni * np.cos(np.radians(aoi)))
+            # [Solar radiation columns BC:BJ]
+            diffuse_component_ratio = (
+                0.55 +
+                0.437 * np.cos(np.radians(aoi)) +
+                0.313 * (np.cos(np.radians(aoi)) ** 2)
             )
-            # Excel corrects diffuse sky irradiance for angle of incidence
-            aoi = pvlib.irradiance.aoi(
-                surface_tilt=surface_tilt,
-                surface_azimuth=surface_azimuth,
-                solar_zenith=solar_zenith,
-                solar_azimuth=solar_azimuth
-            )
-            cos_aoi = np.cos(np.radians(aoi))
-            Y = np.maximum(0.45, 0.55 + 0.437 * cos_aoi + 0.313 * cos_aoi**2)
-            poa_irradiance['poa_sky_diffuse_excel'] = self.dhi * Y
-
-            # Excel also uses slightly different calculations for ground reflected irradiance
-            poa_irradiance['poa_ground_diffuse_excel'] = (
-                    (self.dni * self.solar_altitude.apply(np.radians).apply(np.sin) + self.dhi) *
-                    0.14 / 2
-            )
-
-            poa_irradiance['irradiance'] = (
-                    poa_irradiance['poa_direct'] +
-                    poa_irradiance['poa_sky_diffuse_excel'] +
-                    poa_irradiance['poa_ground_diffuse_excel']
-            )
-            # self._solar_irradiation[compass_point] = poa_irradiance['irradiance']
+            # [Solar radiation columns BK:BR; capping is actually done in the previous column set]
+            diffuse_component = np.maximum(0.45, diffuse_component_ratio) * self.dhi
+            # [Solar radiation column BS]
+            ground_component = (self.dni * np.sin(solar_altitude_rad) + self.dhi) * 0.14 / 2
+            self._solar_irradiation[compass_point] = beam_component + diffuse_component + ground_component
         return self._solar_irradiation[compass_point]
 
     @property

@@ -53,8 +53,7 @@ class Cooling(OpenBESTestCase):
     def test_energy_use(self):
         self.check_series_versus_csv(
             self.system.energy_use[ENERGY_SOURCES.Electricity],
-            'fixtures/hh_cooling_energy_use.csv',
-            tolerance=1.0
+            'fixtures/hh_cooling_energy_use.csv'
         )
 
 if __name__ == '__main__':

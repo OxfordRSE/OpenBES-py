@@ -57,6 +57,7 @@ class OpenBESTestCase(unittest.TestCase):
         percent = len(differences) / len(expected) * 100
         max_diff = max(abs(differences['self'] - differences['other']))
         max_loc = calculated.index[abs(calculated - expected) == max_diff].tolist()
+        max_loc = [{'index': x, 'rownum': calculated.index.get_loc(x)} for x in max_loc]
         mean_diff = sum(abs(differences['self'] - differences['other'])) / len(differences)
         if tolerance == 0.0:
             return (
@@ -76,7 +77,7 @@ class OpenBESTestCase(unittest.TestCase):
             f"% of differences outside tolerance: {len(big_diffs(tolerance)) / len(expected) * 100:.2f}%\n"
             f"% of differences outside 2 x tolerance ({tolerance * 2}): {len(big_diffs(2 * tolerance)) / len(expected) * 100:.2f}%\n"
             f"% of differences outside 10 x tolerance ({tolerance * 10}): {len(big_diffs(10 * tolerance)) / len(expected) * 100:.2f}%\n"
-            f"{differences}"
+            f"{big_diffs(tolerance)}"
         )
 
     def check_series_versus_values(

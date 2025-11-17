@@ -2,6 +2,7 @@ import logging
 from math import atan
 from typing import List
 
+import numpy as np
 from pandas import Series
 
 from .base import EnergyUseSimulation
@@ -64,6 +65,20 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         """
         return self.occupancy.occupancy['is_occupied'].astype(float)
 
+    def _get_target_temp(self) -> 'np.array[float]':
+        """Get the target temperature for cooling based on thresholds and air temperature."""
+        summer_temp = np.array(self.climate.set_point_temperature['min_temp_set_point'])
+        winter_temp = np.array(self.climate.set_point_temperature['max_temp_set_point'])
+        return np.where(
+            self.climate.air_free_temp < winter_temp,
+            winter_temp,
+            np.where(
+                self.climate.air_free_temp > summer_temp,
+                summer_temp,
+                self.climate.air_free_temp
+            )
+        )
+
     @property
     def phi_hc_nd_actual(self) -> 'Series[float]':
         """Cooling load per unit area in W/m2.
@@ -76,12 +91,12 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         When on, the system operates at the capacity required to bring the temperature within tolerance.
         """
         if 'phi_hc_nd_actual' not in self._hours.columns:
-            # =IF(AND(GT118=0,GU118=0),0,10*(GV118-$BK118)/($BY118-$BK118))
+            target_temp = self._get_target_temp()
             self._hours['phi_hc_nd_actual'] = (
                 10 *
-                (self.climate.air_set_temp - self.climate.air_free_temp_hc_0) /
+                (target_temp - self.climate.air_free_temp_hc_0) /
                 (self.climate.air_free_temp_hc_10 - self.climate.air_free_temp_hc_0)
-            ) * self.ratio * (self.climate.air_set_temp < self.climate.air_free_temp)
+            ) * self.ratio * (target_temp < self.climate.air_free_temp)
         return self._hours['phi_hc_nd_actual']
 
     @property
@@ -91,7 +106,7 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         """
         if 'phi_c_nd_ac' not in self._hours.columns:
             self._hours['phi_c_nd_ac'] = self.phi_hc_nd_actual.apply(
-                lambda r: min(r, 0.0) if r < self.spec.parameters.cooling_system1_min_demand else 0.0
+                lambda r: min(r, 0.0) if r < (self.spec.parameters.cooling_system1_min_demand * -1) else 0.0
             ) * self.spec.parameters.cooling_load_factor
         return self._hours['phi_c_nd_ac']
 
@@ -102,7 +117,7 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         """
         if 'demand' not in self._hours.columns:
             self._hours['demand'] = - (
-                self.phi_c_nd_ac * self.geometry.conditioned_floor_area
+                self.phi_c_nd_ac * self.area
             ) / 1000  # W -> kW
         return self._hours['demand']
 
@@ -248,7 +263,7 @@ class CoolingSystemSimulation(EnergyUseSimulation):
             self._energy_use = self._energy_use.fillna(0.0).infer_objects(copy=False)
             if self._attr('type') == COOLING_SYSTEM_TYPES.Heat_pump:
                 self._energy_use[ENERGY_SOURCES.Electricity] = (
-                        self.demand * self.con_ref_t * self.con_ref_fcp * self.nominal_consumption
+                        (self.demand != 0.0) * self.con_ref_t * self.con_ref_fcp * self.nominal_consumption
                 )
         return self._energy_use
 
