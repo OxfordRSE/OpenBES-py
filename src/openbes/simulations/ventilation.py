@@ -4,15 +4,14 @@ from pandas import Series
 import logging
 from pandas import DataFrame
 
-from .base import HourlySimulation
+from .base import EnergyUseSimulation
 from .geometry import BuildingGeometry
 from .occupancy import OccupationSimulation
-from .utils import OPERATIONAL_DAYS_DF
 from ..types import OpenBESSpecification
 
 logger = logging.getLogger(__name__)
 
-class VentilationSystemSimulation(HourlySimulation):
+class VentilationSystemSimulation(EnergyUseSimulation):
     system_number: int
     geometry: BuildingGeometry
     _air_supply_rate_adjusted: float
@@ -80,8 +79,18 @@ class VentilationSystemSimulation(HourlySimulation):
                 )
         return self._hours['air_supply_rate']
 
+    @property
+    def energy_use(self) -> DataFrame:
+        """Ventilation energy use in kWh for each hour of the year for each ENERGY_SOURCE.
+        """
+        if self._energy_use[self._attr('energy_source')].hasnans:
+            self._energy_use[self._attr('energy_source')] = (
+                self.ventilation_on.astype(float) * self._attr('rated_input_power')
+            )
+        return self._energy_use
 
-class VentilationSimulation(HourlySimulation):
+
+class VentilationSimulation(EnergyUseSimulation):
     ventilation_simulations: List[VentilationSystemSimulation]
 
     def __init__(
@@ -91,6 +100,8 @@ class VentilationSimulation(HourlySimulation):
             geometry: BuildingGeometry = None
     ):
         super().__init__(spec=spec)
+        self.geometry = geometry or BuildingGeometry(spec=self.spec)
+        self.occupancy = occupancy or OccupationSimulation(spec=self.spec, geometry=self.geometry)
         self.ventilation_simulations = []
         while True:
             system_number = len(self.ventilation_simulations) + 1
@@ -101,8 +112,8 @@ class VentilationSimulation(HourlySimulation):
                 VentilationSystemSimulation(
                     spec=spec,
                     system_number=system_number,
-                    occupancy=occupancy,
-                    geometry=geometry
+                    occupancy=self.occupancy,
+                    geometry=self.geometry
                 )
             )
 
@@ -118,53 +129,8 @@ class VentilationSimulation(HourlySimulation):
             self._hours['air_supply_rate'] = total_air_supply
         return self._hours['air_supply_rate']
 
-
-def get_ventilation_hours_per_day(spec: OpenBESSpecification) -> int:
-    """Return the daily mechanical ventilation hours based on the specification.
-    Args:
-        spec (OpenBESSpecification): The building specifications spec data class.
-    Returns:
-        int: Mechanical ventilation hours per day.
-    """
-    if spec.ventilation_system1_on_time is None or spec.ventilation_system1_off_time is None:
-        logger.warning("Insufficient information to calculate ventilation hours.")
-        return 0
-
-    if spec.ventilation_system1_off_time < spec.ventilation_system1_on_time:
-        logger.warning("Ventilation off time is earlier than on time; assuming zero hours.")
-        return 0
-
-    # Inclusive of both on and off hours, so add 1
-    return spec.ventilation_system1_off_time - spec.ventilation_system1_on_time + 1
-
-def get_mv_hours_per_month(spec: OpenBESSpecification) -> DataFrame:
-    """Return the monthly mechanical ventilation hours based on the specification.
-    Args:
-        spec (OpenBESSpecification): The building specifications spec data class.
-    Returns:
-        DataFrame: A DataFrame with mechanical ventilation hours for each month.
-    """
-    mv_hours = get_ventilation_hours_per_day(spec)
-
-    mv_hours_df = OPERATIONAL_DAYS_DF.copy()
-    mv_hours_df = mv_hours_df * mv_hours
-    mv_hours_df.index = ["mv_hours"]
-    return mv_hours_df
-
-def get_ventilation_per_month(spec: OpenBESSpecification) -> DataFrame:
-    """Return the amount of energy used ventilation for each month of the year.
-    Args:
-        spec (OpenBESSpecification): The building specifications spec data class.
-    Returns:
-        DataFrame: Ventilation energy consumption in kWh for each month.
-    """
-    if spec.ventilation_system1_rated_input_power is None:
-        logger.warning("No ventilation system power specified; assuming zero ventilation energy use.")
-        power = 0.0
-    else:
-        power = spec.ventilation_system1_rated_input_power
-
-    hours = get_mv_hours_per_month(spec)
-    result = hours * power
-    result.index = ["kWh"]
-    return result
+    @property
+    def energy_use(self) -> 'Series[float]':
+        """Ventilation energy use in kWh for each hour of the year for each ENERGY_SOURCES.
+        """
+        return sum([x.energy_use for x in self.ventilation_simulations])

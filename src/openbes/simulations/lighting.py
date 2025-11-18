@@ -2,15 +2,14 @@ from pandas import DataFrame, read_csv, Series
 from os import path
 import logging
 
-from .base import HourlySimulation
+from .base import EnergyUseSimulation
 from .occupancy import OccupationSimulation
-from .utils import OPERATIONAL_DAYS_DF
-from ..types import OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, LIGHTING_CONTROL
+from ..types import OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, LIGHTING_CONTROL, ENERGY_SOURCES
 
 logger = logging.getLogger(__name__)
 
 
-class LightingSimulation(HourlySimulation):
+class LightingSimulation(EnergyUseSimulation):
     occupancy: OccupationSimulation
     _lighting_heat: float
     
@@ -104,13 +103,11 @@ class LightingSimulation(HourlySimulation):
             DataFrame: kWh used by each zone in each requested month
         """
         df = self.get_kwh_per_day_per_zone()
-        operational_days_df = OPERATIONAL_DAYS_DF.copy()
-        operational_days_df["Jul"] = 21  # hardcoded in the Excel spreadsheet
-        operational_days_df["Aug"] = 22  # hardcoded in the Excel spreadsheet
+        operational_days_df = self.occupancy.occupied_days_per_month.copy()
         cross = df["kWh/day"].values[:, None] * operational_days_df.values
-        return DataFrame(cross, columns=operational_days_df.columns, index=df.index)
+        return DataFrame(cross, columns=operational_days_df.index, index=df.index)
     
-    def get_kwh_per_month(self) -> DataFrame:
+    def get_kwh_per_month(self) -> Series:
         """
         Calculate the kWh used by lighting in each month.
         Args:
@@ -118,8 +115,8 @@ class LightingSimulation(HourlySimulation):
         Returns:
             DataFrame: The energy used on lighting in the building in kWh.
         """
-        per_month = self.get_kwh_per_month_per_zone().sum().to_frame().transpose()
-        per_month.index = ["kWh/month"]
+        per_month = self.get_kwh_per_month_per_zone().sum()
+        per_month.name = "kWh/month"
         return per_month
 
     @property
@@ -189,4 +186,16 @@ class LightingSimulation(HourlySimulation):
                     8760
             )
         return self._lighting_heat
+
+    @property
+    def energy_use(self) -> DataFrame:
+        """Lighting energy use in kWh for each hour of the year.
+
+        NOTE: This currently averages annual energy use by lighting over each hour of the year.
+         A more sensible implementation will spread the usage over occupied hours only,
+         taking into account lighting on/off times and lighting ratio.
+        """
+        if self._energy_use[ENERGY_SOURCES.Electricity].hasnans:
+            self._energy_use[ENERGY_SOURCES.Electricity] = self.get_kwh_per_month().sum().sum() / len(self._energy_use)
+        return self._energy_use
         

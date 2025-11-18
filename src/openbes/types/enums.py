@@ -74,22 +74,6 @@ class ENERGY_USE_CATEGORIES(ListableEnum):
     Heating = "Heating"
 
 
-OPERATIONAL_DAYS_PER_MONTH = {
-    MONTHS.Jan: 18,
-    MONTHS.Feb:	20,
-    MONTHS.Mar:	23,
-    MONTHS.Apr:	22,
-    MONTHS.May:	23,
-    MONTHS.Jun:	22,
-    MONTHS.Jul:	23,
-    MONTHS.Aug:	23,
-    MONTHS.Sep:	22,
-    MONTHS.Oct:	23,
-    MONTHS.Nov:	22,
-    MONTHS.Dec:	17,
-}
-
-
 class FLOORS(ListableEnum):
     Ground = "ground"
     First = "first"

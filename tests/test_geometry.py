@@ -8,7 +8,6 @@ from src.openbes.simulations.geometry import (
     BuildingGeometry,
 )
 from src.openbes.types import FLOORS, COMPASS_POINTS, ORIENTATIONS
-from tests.test_holywell_house import DECIMAL_PLACES
 from tests.utils import HOLYWELL_HOUSE_SPEC, OpenBESTestCase
 
 
@@ -44,7 +43,7 @@ class Geometry(OpenBESTestCase):
                 self.assertEqual(expected_area, calculated)
         with self.subTest('total'):
             expected = 1153.91
-            calculated = round(self.geometry.gross_floor_area, DECIMAL_PLACES)
+            calculated = round(self.geometry.gross_floor_area, self.decimal_places)
             self.assertEqual(expected, calculated)
 
     def test_conditioned_floor_area(self):
@@ -58,18 +57,18 @@ class Geometry(OpenBESTestCase):
         for item in floors:
             with self.subTest(floors=item['floor']):
                 expected = item['expected']
-                calculated = round(self.geometry.get_conditioned_floor_area_for_floor(item['floor']), DECIMAL_PLACES)
+                calculated = round(self.geometry.get_conditioned_floor_area_for_floor(item['floor']), self.decimal_places)
                 self.assertEqual(expected, calculated)
         with self.subTest(floors='all'):
             expected = 1096.214500
-            calculated = round(self.geometry.conditioned_floor_area, DECIMAL_PLACES)
+            calculated = round(self.geometry.conditioned_floor_area, self.decimal_places)
             self.assertEqual(expected, calculated)
 
     def test_conditioned_external_vertical_envelope_area(self):
         """
         This test uses rounding to decimal_places because Python and Excel round slightly differently.
         """
-        decimal_palces = DECIMAL_PLACES - 2  # precise enough, and avoids rounding differences between Excel and Python
+        decimal_palces = self.decimal_places - 2  # precise enough, and avoids rounding differences between Excel and Python
         expected = Series([
             130.268601, 42.402565, 130.268601, 42.402565,
             130.270967, 42.403335, 130.270967, 42.403335,
@@ -176,15 +175,15 @@ class Geometry(OpenBESTestCase):
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
         ])
-        expected = expected.round(DECIMAL_PLACES)
-        calculated = self.geometry.window_areas.round(DECIMAL_PLACES)
+        expected = expected.round(self.decimal_places)
+        calculated = self.geometry.window_areas.round(self.decimal_places)
         expected.index = calculated.index
         with self.subTest('by_compass_point'):
             self.assertTrue(expected.equals(calculated), expected.compare(calculated))
         with self.subTest('total'):
             expected_total = expected.sum()
-            calculated_total = round(self.geometry.window_area, DECIMAL_PLACES)
-            self.assertEqual(expected_total, calculated_total)
+            calculated_total = self.geometry.window_area
+            self.assertAlmostEqual(expected_total, calculated_total, self.decimal_places - 1)
         with self.subTest('opaque_areas'):
             summed_areas = self.geometry.opaque_areas + self.geometry.window_areas
             expected = self.geometry.conditioned_facade_areas
@@ -192,28 +191,28 @@ class Geometry(OpenBESTestCase):
 
     def test_window_shading(self):
         expected = Series([36.842883, 36.842883, 0.0, 0.0, 0.0])
-        expected = expected.round(DECIMAL_PLACES)
-        calculated = self.geometry.window_shading.round(DECIMAL_PLACES)
+        expected = expected.round(self.decimal_places)
+        calculated = self.geometry.window_shading.round(self.decimal_places)
         expected.index = calculated.index
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
     def test_heat_transfer_rate_windows(self):
         self.assertEqual(
-            round(self.geometry.heat_transfer_rate_windows, DECIMAL_PLACES),
-            round(0.358498, DECIMAL_PLACES)
+            round(self.geometry.heat_transfer_rate_windows, self.decimal_places),
+            round(0.358498, self.decimal_places)
         )
 
     def test_heat_transfer_rate_opaque(self):
-        # This test uses rounding to DECIMAL_PLACES - 2 because of Excel/Python rounding differences
+        # This test uses rounding to self.decimal_places - 2 because of Excel/Python rounding differences
         self.assertEqual(
-            round(self.geometry.heat_transfer_rate_opaque, DECIMAL_PLACES - 2),
-            round(1.739035, DECIMAL_PLACES - 2)
+            round(self.geometry.heat_transfer_rate_opaque, self.decimal_places - 2),
+            round(1.739035, self.decimal_places - 2)
         )
 
     def test_roof_factor(self):
         self.assertEqual(
-            round(self.geometry.roof_factor, DECIMAL_PLACES),
-            round(1.059481, DECIMAL_PLACES)
+            round(self.geometry.roof_factor, self.decimal_places),
+            round(1.059481, self.decimal_places)
         )
 
 

@@ -8,7 +8,6 @@ from src.openbes.simulations.occupancy import (
     OccupationSimulation,
 )
 from src.openbes.simulations.base import HOURS_DF
-from tests.test_holywell_house import DECIMAL_PLACES
 from tests.utils import HOLYWELL_HOUSE_SPEC, OpenBESTestCase
 
 
@@ -72,13 +71,13 @@ class Occupancy(OpenBESTestCase):
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
     def test_occupation_m2_per_person(self):
-        expected = round(4.86522963366, DECIMAL_PLACES)
-        calculated = round(self.sim.occupation_m2_per_person, DECIMAL_PLACES)
+        expected = round(4.86522963366, self.decimal_places)
+        calculated = round(self.sim.occupation_m2_per_person, self.decimal_places)
         self.assertEqual(expected, calculated)
 
     def test_metabolic_rate_per_m2(self):
-        expected = round(5.0, DECIMAL_PLACES)
-        calculated = round(self.sim.metabolic_rate_per_m2, DECIMAL_PLACES)
+        expected = round(5.0, self.decimal_places)
+        calculated = round(self.sim.metabolic_rate_per_m2, self.decimal_places)
         self.assertEqual(expected, calculated)
 
 if __name__ == '__main__':

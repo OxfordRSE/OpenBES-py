@@ -12,7 +12,6 @@ from .occupancy import OccupationSimulation
 from .ventilation import VentilationSimulation
 from ..types import (
     OpenBESSpecification,
-    ENERGY_SOURCES,
     HEATING_SYSTEM_TYPES,
 )
 
@@ -147,29 +146,6 @@ class HeatingSystemSimulation(EnergyUseSimulation):
         return self._nominal_capacity
 
     @property
-    def energy_use(self) -> 'Series[float]':
-        """Heating system energy use in kWh for each hour of the year for each ENERGY_SOURCES.
-        [Hourly outputs column P, disaggregated]
-        """
-        if self._energy_use[ENERGY_SOURCES.Electricity].hasnans:
-            self._energy_use = self._energy_use.fillna(0.0).infer_objects(copy=False)
-            # Radiators [Hourly simulation column EU]
-            if self._attr('type') == HEATING_SYSTEM_TYPES.Electric_heating_radiators:
-                # Excel divides demand by nominal capacity in Hourly simulation column EV
-                #  Then multiplies again in column EU. These cancel out.
-                energy_use = self.demand
-            elif self._attr('type') == HEATING_SYSTEM_TYPES.Heat_pump:
-                # Heat pump [Hourly simulation column FI]
-                energy_use = (self.demand > 0.0) * (
-                        self.cons_nom_calef * self.con_cal_t * self.con_cal_fcp
-                )
-            else:
-                # Boilers [Hourly simulation column FB]
-                energy_use = (self.Rend != 0.0) * (self.demand / self.Rend)
-            self._energy_use[self._attr('energy_source')] = energy_use
-        return self._energy_use
-
-    @property
     def ren_fcp_potential(self) -> 'Series[float]':
         """Part-load efficiency factor for heating system. ??????
         [Hourly simulation column EY]
@@ -251,6 +227,29 @@ class HeatingSystemSimulation(EnergyUseSimulation):
             self._hours['fcp_cal'] = self.demand / self.nominal_capacity
         return self._hours['fcp_cal']
 
+    @property
+    def energy_use(self) -> 'Series[float]':
+        """Heating system energy use in kWh for each hour of the year for each ENERGY_SOURCES.
+        [Hourly outputs column P, disaggregated]
+        """
+        if self._energy_use[self._attr('energy_source')].hasnans:
+            self._energy_use = self._energy_use.fillna(0.0).infer_objects(copy=False)
+            # Radiators [Hourly simulation column EU]
+            if self._attr('type') == HEATING_SYSTEM_TYPES.Electric_heating_radiators:
+                # Excel divides demand by nominal capacity in Hourly simulation column EV
+                #  Then multiplies again in column EU. These cancel out.
+                energy_use = self.demand
+            elif self._attr('type') == HEATING_SYSTEM_TYPES.Heat_pump:
+                # Heat pump [Hourly simulation column FI]
+                energy_use = (self.demand > 0.0) * (
+                        self.cons_nom_calef * self.con_cal_t * self.con_cal_fcp
+                )
+            else:
+                # Boilers [Hourly simulation column FB]
+                energy_use = (self.Rend != 0.0) * (self.demand / self.Rend)
+            self._energy_use[self._attr('energy_source')] = energy_use
+        return self._energy_use
+
 class HeatingSimulation(EnergyUseSimulation):
     """A class to simulate heating energy consumption based on building specifications."""
     heating_simulations: List[HeatingSystemSimulation]
@@ -271,7 +270,7 @@ class HeatingSimulation(EnergyUseSimulation):
         ventilation = ventilation or VentilationSimulation(self.spec, occupancy=occupancy, geometry=geometry)
         self.climate_simulation = climate or ClimateSimulation(
             spec,
-            geometry=geometry or BuildingGeometry(self.spec),
+            geometry=geometry,
             occupancy=occupancy,
             lighting=lighting,
             ventilation=ventilation,

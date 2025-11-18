@@ -3,7 +3,6 @@ from pandas import Series
 
 from src.openbes.simulations.base import HOURS_DF
 from src.openbes.simulations.climate import ClimateSimulation
-from tests.test_holywell_house import DECIMAL_PLACES
 from tests.utils import (
     HOLYWELL_HOUSE_SPEC,
     OpenBESTestCase,
@@ -80,9 +79,9 @@ class Climate(OpenBESTestCase):
             10.9738923, 11.1071821, 11.0079916, 10.5942447, 10.6729677,
             10.4837591, 10.2818267, 9.8684777, 9.1909558, 9.5929055
         ])
-        computed = df.iloc[range(10)].round(DECIMAL_PLACES)
+        computed = df.iloc[range(10)].round(self.decimal_places)
         expected.index = computed.index
-        expected = expected.astype(computed.dtype).round(DECIMAL_PLACES)
+        expected = expected.astype(computed.dtype).round(self.decimal_places)
         self.assertTrue(expected.equals(computed), expected.compare(computed))
 
     def test_dry_bulb_temperature(self):
@@ -92,9 +91,9 @@ class Climate(OpenBESTestCase):
             12.300000, 11.900000, 11.800000, 11.700000, 12.100000,
             11.800000, 11.700000, 11.700000, 11.000000, 11.100000,
         ])
-        computed = df.iloc[range(10)].round(DECIMAL_PLACES)
+        computed = df.iloc[range(10)].round(self.decimal_places)
         expected.index = computed.index
-        expected = expected.astype(computed.dtype).round(DECIMAL_PLACES)
+        expected = expected.astype(computed.dtype).round(self.decimal_places)
         self.assertTrue(expected.equals(computed), expected.compare(computed))
 
     def test_internal_surface_temperature(self):

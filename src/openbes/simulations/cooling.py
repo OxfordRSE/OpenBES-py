@@ -11,7 +11,7 @@ from .geometry import BuildingGeometry
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
 from .ventilation import VentilationSimulation
-from ..types import OpenBESSpecification, COOLING_SYSTEM_TYPES, ENERGY_SOURCES
+from ..types import OpenBESSpecification, COOLING_SYSTEM_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -261,10 +261,10 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         """Cooling system energy use in kWh for each hour of the year for each ENERGY_SOURCES.
         [Hourly outputs column Q, disaggregated; Hourly simulation column HK]
         """
-        if self._energy_use[ENERGY_SOURCES.Electricity].hasnans:
+        if self._energy_use[self._attr('energy_source')].hasnans:
             self._energy_use = self._energy_use.fillna(0.0).infer_objects(copy=False)
             if self._attr('type') == COOLING_SYSTEM_TYPES.Heat_pump:
-                self._energy_use[ENERGY_SOURCES.Electricity] = (
+                self._energy_use[self._attr('energy_source')] = (
                         (self.demand != 0.0) * self.con_ref_t * self.con_ref_fcp * self.nominal_consumption
                 )
         return self._energy_use
@@ -290,7 +290,7 @@ class CoolingSimulation(EnergyUseSimulation):
         ventilation = ventilation or VentilationSimulation(self.spec, occupancy=occupancy, geometry=geometry)
         self.climate_simulation = climate or ClimateSimulation(
             spec,
-            geometry=geometry or BuildingGeometry(self.spec),
+            geometry=geometry,
             occupancy=occupancy,
             lighting=lighting,
             ventilation=ventilation,

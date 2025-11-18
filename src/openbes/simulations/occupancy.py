@@ -3,7 +3,7 @@ Helper functions to simulate occupancy patterns in buildings.
 """
 import logging
 
-from pandas import DataFrame
+from pandas import DataFrame, Series
 
 from .base import HourlySimulation
 from .geometry import BuildingGeometry
@@ -12,6 +12,7 @@ from ..types import (
     OpenBESSpecification,
     OCCUPATION_ZONES,
     FLOORS,
+    MONTHS,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ class OccupationSimulation(HourlySimulation):
     _occupation_ratio: float
     _occupation_m2_per_person: float
     _metabolic_rate_per_m2: float
+    _occupied_days_per_month: Series
 
     def __init__(self, spec: OpenBESSpecification, geometry: BuildingGeometry = None):
         super().__init__(spec)
@@ -182,6 +184,19 @@ class OccupationSimulation(HourlySimulation):
             self._hours.loc[mask, 'occupancy_ratio'] = self.occupation_ratio
 
         return self._hours[['is_occupied', 'occupancy_ratio']]
+
+    @property
+    def occupied_days_per_month(self) -> Series:
+        """Calculate the number of occupied days per month based on the building schedule.
+        Returns:
+            Series: A Series with the number of occupied days for each month.
+        """
+        if not hasattr(self, '_occupied_days_per_month') or self._occupied_days_per_month is None:
+            self._occupied_days_per_month = (
+                self.occupancy['is_occupied'].groupby(level=['day', 'month']).any().groupby(level='month').sum()
+            )
+            self._occupied_days_per_month.index = list(MONTHS)
+        return self._occupied_days_per_month
 
     @property
     def occupation_m2_per_person(self) -> float:

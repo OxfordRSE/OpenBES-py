@@ -1,86 +1,87 @@
 import copy
 import unittest
-from pandas import DataFrame
+from pandas import Series
 
-from src.openbes.simulations.hot_water import (
-    get_daily_hot_water_nominal,
-    get_daily_hot_water,
-    get_hot_water_per_month,
-)
-from src.openbes.types import ENERGY_SOURCES, OpenBESSpecification, MONTHS
-from tests.test_holywell_house import DECIMAL_PLACES
+from src.openbes.simulations.hot_water import HotWaterSimulation
+from src.openbes.types import MONTHS
+from tests.utils import OpenBESTestCase
 
 
-class HotWaterPipeline(unittest.TestCase):
+class HotWaterPipeline(OpenBESTestCase):
     def setUp(self):
-        self.input = OpenBESSpecification(
-            water_system_energy_source=ENERGY_SOURCES.Electricity,
-            water_system_efficiency_cop=1.0,
-            water_demand=300.0,
-            water_reference_temperature=60.0,
-            water_supply_temperature=16.0,
-        )
+        super(HotWaterPipeline, self).setUp()
+        self.sim = HotWaterSimulation(spec=self.spec)
+        self.decimal_places = 3
 
     def test_nominal_consumption(self):
         self.assertAlmostEqual(
-            get_daily_hot_water_nominal(self.input),
+            self.sim.get_daily_hot_water_nominal(),
             15.32667,
-            DECIMAL_PLACES
+            self.decimal_places
         )
 
     def test_nominal_consumption_error(self):
         with self.subTest(missing="water_demand"):
-            input = copy.deepcopy(self.input)
+            input = copy.deepcopy(self.spec)
             input.water_demand = None
-            self.assertEqual(get_daily_hot_water_nominal(input), 0.0)
+            sim = HotWaterSimulation(input)
+            self.assertEqual(sim.get_daily_hot_water_nominal(), 0.0)
         with self.subTest(missing="water_reference_temperature"):
-            input = copy.deepcopy(self.input)
+            input = copy.deepcopy(self.spec)
             input.water_reference_temperature = None
-            self.assertEqual(get_daily_hot_water_nominal(input), 0.0)
+            sim = HotWaterSimulation(input)
+            self.assertEqual(sim.get_daily_hot_water_nominal(), 0.0)
         with self.subTest(missing="water_supply_temperature"):
-            input = copy.deepcopy(self.input)
+            input = copy.deepcopy(self.spec)
             input.water_supply_temperature = None
-            self.assertEqual(get_daily_hot_water_nominal(input), 0.0)
+            sim = HotWaterSimulation(input)
+            self.assertEqual(sim.get_daily_hot_water_nominal(), 0.0)
 
     def test_consumption(self):
         self.assertAlmostEqual(
-            get_daily_hot_water(self.input),
+            self.sim.get_daily_hot_water(),
             15.32667,
-            DECIMAL_PLACES
+            self.decimal_places
         )
 
     def test_consumption_error(self):
         with self.subTest(missing="water_demand", inherited_error=True):
-            input = copy.deepcopy(self.input)
+            input = copy.deepcopy(self.spec)
             input.water_demand = None
-            self.assertEqual(get_daily_hot_water_nominal(input), 0.0)
+            sim = HotWaterSimulation(input)
+            self.assertEqual(sim.get_daily_hot_water_nominal(), 0.0)
         with self.subTest(missing="water_reference_temperature", inherited_error=True):
-            input = copy.deepcopy(self.input)
+            input = copy.deepcopy(self.spec)
             input.water_reference_temperature = None
-            self.assertEqual(get_daily_hot_water_nominal(input), 0.0)
+            sim = HotWaterSimulation(input)
+            self.assertEqual(sim.get_daily_hot_water_nominal(), 0.0)
         with self.subTest(missing="water_supply_temperature", inherited_error=True):
-            input = copy.deepcopy(self.input)
+            input = copy.deepcopy(self.spec)
             input.water_supply_temperature = None
-            self.assertEqual(get_daily_hot_water_nominal(input), 0.0)
+            sim = HotWaterSimulation(input)
+            self.assertEqual(sim.get_daily_hot_water_nominal(), 0.0)
         with self.subTest(missing="water_system_efficiency_cop", inherited_error=False):
-            input = copy.deepcopy(self.input)
+            input = copy.deepcopy(self.spec)
             input.water_system_efficiency_cop = None
-            self.assertEqual(get_daily_hot_water(input), 0.0)
+            sim = HotWaterSimulation(input)
+            self.assertEqual(sim.get_daily_hot_water(), 0.0)
 
     def test_hot_water_per_month(self):
-        expected = DataFrame(
+        expected = Series(
             [
-                [
-                    275.880000, 306.533333, 352.513333, 337.186667, 352.513333, 337.186667,
-                    352.513333, 352.513333, 337.186667, 352.513333, 337.186667, 260.553333,
-                ]
+                275.88000000000, 306.53333333333, 337.18666666667, 321.86000000000, 352.51333333333, 321.86000000000,
+                337.18666666667, 352.51333333333, 306.53333333333, 352.51333333333, 337.18666666667, 229.90000000000
             ],
-            columns=MONTHS.list_values(),
-            index=["kWh"]
-        ).round(DECIMAL_PLACES)
-        output = get_hot_water_per_month(self.input).round(DECIMAL_PLACES)
+            index=list(MONTHS),
+            name="kWh"
+        ).round(self.decimal_places)
+        output = self.sim.get_hot_water_per_month().round(self.decimal_places)
         self.assertTrue(expected.equals(output), expected.compare(output))
 
+    def test_energy_use(self):
+        expected = 3831.66666667
+        calculated = self.sim.energy_use[self.spec.water_system_energy_source].sum()
+        self.assertAlmostEqual(expected, calculated, self.decimal_places)
 
 if __name__ == '__main__':
     unittest.main()

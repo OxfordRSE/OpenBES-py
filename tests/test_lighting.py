@@ -1,15 +1,13 @@
 import unittest
-from pandas import DataFrame
+from pandas import DataFrame, Series
 
 from src.openbes.simulations.base import HOURS_DF
 from src.openbes.simulations.lighting import LightingSimulation
-from src.openbes.types import MONTHS, OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, OpenBESParameters
-from tests.test_holywell_house import DECIMAL_PLACES
+from src.openbes.types import MONTHS, OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, OpenBESParameters, \
+    ENERGY_SOURCES
 from tests.utils import (
-    HOLYWELL_HOUSE_SPEC,
     OpenBESTestCase,
 )
-
 
 class LightingWattPerLuminaire(OpenBESTestCase):
     def test_valid_inputs(self):
@@ -165,67 +163,45 @@ class LightingWattPerLuminaire(OpenBESTestCase):
 
 class LightingPipeline(OpenBESTestCase):
     def setUp(self):
-        self.input = OpenBESSpecification(
-            lighting_system_name_z1="First Floor",
-            lighting_system_tech_z1=LIGHTING_TECHNOLOGIES.FT_T8,
-            lighting_system_lamp_number_z1=4,
-            lighting_system_lamp_power_z1=18,
-            lighting_system_ballast_z1=LIGHTING_BALLASTS.BE,
-            lighting_system_luminary_number_z1=35,
-            lighting_system_similar_zone_number_z1=1,
-            lighting_system_operating_hours_z1=8,
-            lighting_system_simultaneity_factor_z1=0.7,
-            lighting_system_name_z2="Second Floor",
-            lighting_system_tech_z2=LIGHTING_TECHNOLOGIES.LED,
-            lighting_system_lamp_number_z2=1,
-            lighting_system_lamp_power_z2=40,
-            lighting_system_luminary_number_z2=55,
-            lighting_system_similar_zone_number_z2=1,
-            lighting_system_operating_hours_z2=8,
-            lighting_system_simultaneity_factor_z2=0.7,
-        )
-        self.simulation = LightingSimulation(spec=self.input)
-        self.hh_sim = LightingSimulation(spec=HOLYWELL_HOUSE_SPEC)
+        super().setUp()
+        self.sim = LightingSimulation(spec=self.spec)
 
     def test_kwh_per_day_per_zone(self):
-        output = self.simulation.get_kwh_per_day_per_zone().round(DECIMAL_PLACES)
+        output = self.sim.get_kwh_per_day_per_zone().round(self.decimal_places)
         expected = DataFrame(
             {"kWh/day": [15.680, 12.320, 0, 0, 0, 0]},
             index=[f"Zone type {i}" for i in range(1, 7)],
-        ).round(DECIMAL_PLACES)
+        ).round(self.decimal_places)
         self.assertTrue(expected.equals(output), expected.compare(output))
 
     def test_kwh_per_month_per_zone(self):
-        output = self.simulation.get_kwh_per_month_per_zone().round(DECIMAL_PLACES)
+        output = self.sim.get_kwh_per_month_per_zone().round(self.decimal_places)
         expected = DataFrame(
             [
-                [282.24, 221.76, 0.0, 0.0, 0.0, 0.0],
-                [313.60, 246.40, 0.0, 0.0, 0.0, 0.0],
-                [360.64, 283.36, 0.0, 0.0, 0.0, 0.0],
-                [344.96, 271.04, 0.0, 0.0, 0.0, 0.0],
-                [360.64, 283.36, 0.0, 0.0, 0.0, 0.0],
-                [344.96, 271.04, 0.0, 0.0, 0.0, 0.0],
-                [329.28, 258.72, 0.0, 0.0, 0.0, 0.0],
-                [344.96, 271.04, 0.0, 0.0, 0.0, 0.0],
-                [344.96, 271.04, 0.0, 0.0, 0.0, 0.0],
-                [360.64, 283.36, 0.0, 0.0, 0.0, 0.0],
-                [344.96, 271.04, 0.0, 0.0, 0.0, 0.0],
-                [266.56, 209.44, 0.0, 0.0, 0.0, 0.0],
+                [282.24000000, 221.76000000, 0.0, 0.0, 0.0, 0.0],
+                [313.60000000, 246.40000000, 0.0, 0.0, 0.0, 0.0],
+                [344.96000000, 271.04000000, 0.0, 0.0, 0.0, 0.0],
+                [329.28000000, 258.72000000, 0.0, 0.0, 0.0, 0.0],
+                [360.64000000, 283.36000000, 0.0, 0.0, 0.0, 0.0],
+                [329.28000000, 258.72000000, 0.0, 0.0, 0.0, 0.0],
+                [344.96000000, 271.04000000, 0.0, 0.0, 0.0, 0.0],
+                [360.64000000, 283.36000000, 0.0, 0.0, 0.0, 0.0],
+                [313.60000000, 246.40000000, 0.0, 0.0, 0.0, 0.0],
+                [360.64000000, 283.36000000, 0.0, 0.0, 0.0, 0.0],
+                [344.96000000, 271.04000000, 0.0, 0.0, 0.0, 0.0],
+                [235.20000000, 184.80000000, 0.0, 0.0, 0.0, 0.0],
             ],
-            index=MONTHS.list_values(),
+            index=list(MONTHS),
             columns=[f"Zone type {i}" for i in range(1, 7)],
-        ).transpose().round(DECIMAL_PLACES)
+        ).transpose().round(self.decimal_places)
         self.assertTrue(expected.equals(output), expected.compare(output))
 
     def test_annual_kwh(self):
-        output = self.simulation.get_kwh_per_month().round(DECIMAL_PLACES)
-        expected = DataFrame(
-            [[
-                504.000000, 560.000000, 644.000000, 616.000000, 644.000000, 616.000000,
-                588.000000, 616.000000, 616.000000, 644.000000, 616.000000, 476.000000,
-            ]],
-            index=["kWh/month"],
-            columns=MONTHS.list_values()
+        output = self.sim.get_kwh_per_month().round(self.decimal_places)
+        expected = Series(
+            [504.0, 560.0, 616.0, 588.0, 644.0, 588.0, 616.0, 644.0, 560.0, 644.0, 616.0, 420.0],
+            name="kWh/month",
+            index=list(MONTHS)
         )
         self.assertTrue(expected.equals(output), expected.compare(output))
 
@@ -233,13 +209,13 @@ class LightingPipeline(OpenBESTestCase):
         expected = self.read_single_col_csv_to_series('fixtures/hh_lighting_ratio.csv')
         expected.index = HOURS_DF.index
         expected = expected
-        calculated = self.hh_sim.lighting_ratio
+        calculated = self.sim.lighting_ratio
         self.assertTrue(expected.equals(calculated), expected.compare(calculated))
 
     def test_parasitic_heat(self):
         with self.subTest(lighting='on'):
-            expected = round(0.684931507, DECIMAL_PLACES)
-            computed = round(self.hh_sim.parasitic_heat, DECIMAL_PLACES)
+            expected = round(0.684931507, self.decimal_places)
+            computed = round(self.sim.parasitic_heat, self.decimal_places)
             self.assertEqual(expected, computed)
         with self.subTest(lighting='off'):
             simulation = LightingSimulation(
@@ -249,14 +225,20 @@ class LightingPipeline(OpenBESTestCase):
 
     def test_lighting_heat(self):
         with self.subTest(lighting='on'):
-            expected = round(17.6184817, DECIMAL_PLACES)
-            computed = round(self.hh_sim.lighting_heat, DECIMAL_PLACES)
+            expected = round(17.6184817, self.decimal_places)
+            computed = round(self.sim.lighting_heat, self.decimal_places)
             self.assertEqual(expected, computed)
         with self.subTest(lighting='off'):
             simulation = LightingSimulation(
                 spec=OpenBESSpecification(parameters=OpenBESParameters(lighting_on_off=False))
             )
             self.assertEqual(0.0, simulation.lighting_heat)
+
+    def test_energy_use(self):
+        self.check_series_versus_values(
+            self.sim.energy_use[ENERGY_SOURCES.Electricity],
+            [self.sim.get_kwh_per_month().sum().sum() / 8760] * 8760,
+        )
 
 if __name__ == '__main__':
     unittest.main()
