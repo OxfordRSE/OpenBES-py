@@ -301,7 +301,10 @@ class ClimateSimulation(HourlySimulation):
                 * q4pa
                 * (dcp * (vsite_by_vmetro * self._cache['wind_speed'][i])**2)**0.667
         )
-        qv_sw = max(qv_stack, qv_wind) + (0.14 * qv_stack * qv_wind / q4pa)
+        if q4pa == 0.0:
+            qv_sw = 0.0
+        else:
+            qv_sw = max(qv_stack, qv_wind) + (0.14 * qv_stack * qv_wind / q4pa)
         qv_infred = max(
             qv_sw,
             (

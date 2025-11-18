@@ -25,7 +25,7 @@ class SolarIrradiationSimulation:
         self._hours = HOURS_DF.copy()
         self.epw_data = epw_data
         self.epw_metadata = epw_metadata
-        tz = epw_data.index[0].tzinfo
+        tz = epw_metadata['TZ']
         self.location = pvlib.location.Location(
             latitude=epw_metadata['latitude'],
             longitude=epw_metadata['longitude'],

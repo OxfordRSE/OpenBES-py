@@ -105,8 +105,7 @@ class VentilationSimulation(EnergyUseSimulation):
         self.ventilation_simulations = []
         while True:
             system_number = len(self.ventilation_simulations) + 1
-            attr_name = f"ventilation_system{system_number}_rated_input_power"
-            if not hasattr(spec, attr_name):
+            if not hasattr(spec, f"ventilation_system{system_number}_rated_input_power"):
                 break
             self.ventilation_simulations.append(
                 VentilationSystemSimulation(
