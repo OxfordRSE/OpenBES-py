@@ -2,6 +2,7 @@ from math import atan
 from typing import Tuple
 
 import line_profiler
+import numba
 from numpy import nan, isnan, select, outer, array, maximum
 from pvlib.iotools import read_epw
 from pandas import DataFrame, Series
@@ -35,6 +36,66 @@ def get_available_epw_files() -> list[str]:
         f for f in os.listdir(climate_data_dir)
         if f.endswith('.epw')
     ]
+
+@numba.njit
+# @line_profiler.profile  # JIT compilation OR runtime profiling, can't have both
+def _calculate_temperatures(
+        prev_thermal_mass: float,
+        Hc_nd: float,
+        m: float,
+        internal_heat_capacity_w: float,
+        htr_1: float,
+        htr_2: float,
+        htr_3: float,
+        Htr_em: float,
+        dry_bulb_temp: float,
+        Htr_is: float,
+        Htr_ms: float,
+        Htr_w: float,
+        temp_st: float,
+        internal_heat_adjusted: float,
+        heat_transmission_by_ventilation: float,
+        supply_air_temp: float,
+):
+    """Return a tuple of
+    (m_tot, building_thermal_mass_t, internal_surface_temp, air_free_temp)
+    for the given inputs.
+    """
+    m_tot = (
+            m
+            + Htr_em * dry_bulb_temp
+            + htr_3 * (
+                    temp_st +
+                    Htr_w * dry_bulb_temp +
+                    htr_1 * (
+                            (internal_heat_adjusted + Hc_nd) / heat_transmission_by_ventilation +
+                            supply_air_temp
+                    )
+            ) / htr_2
+    )
+    building_thermal_mass_t = (
+            prev_thermal_mass * (internal_heat_capacity_w - 0.5 * (htr_3 + Htr_em))
+            + m_tot
+    ) / (internal_heat_capacity_w + 0.5 * (htr_3 + Htr_em))
+    building_thermal_mass = (prev_thermal_mass + building_thermal_mass_t) / 2
+    internal_surface_temp = (
+            Htr_ms * building_thermal_mass
+            + temp_st
+            + Htr_w * dry_bulb_temp
+            + htr_1
+            * (
+                    supply_air_temp
+                    + (internal_heat_adjusted + Hc_nd)
+                    / heat_transmission_by_ventilation
+            )
+    ) / (Htr_ms + Htr_w + htr_1)
+    air_free_temp = (
+            Htr_is * internal_surface_temp
+            + heat_transmission_by_ventilation * supply_air_temp
+            + internal_heat_adjusted
+            + Hc_nd
+    ) / (Htr_is + heat_transmission_by_ventilation)
+    return m_tot, building_thermal_mass_t, internal_surface_temp, air_free_temp
 
 @line_profiler.profile
 class ClimateSimulation(HourlySimulation):
@@ -238,7 +299,7 @@ class ClimateSimulation(HourlySimulation):
         qv_wind = (
                 0.0769
                 * q4pa
-                * (dcp * (vsite_by_vmetro * self.wind_speed.iat[i])**2)**0.667
+                * (dcp * (vsite_by_vmetro * self._cache['wind_speed'][i])**2)**0.667
         )
         qv_sw = max(qv_stack, qv_wind) + (0.14 * qv_stack * qv_wind / q4pa)
         qv_infred = max(
@@ -351,7 +412,7 @@ class ClimateSimulation(HourlySimulation):
         # semi-curry _calculate_temperatures function now all fixed parameters are known
         def calculate_temperatures(hc_need: float, prev_tm: float) -> Tuple[float, float, float, float]:
             """Returns (m_tot, building_thermal_mass_t, internal_surface_temp, air_free_temp)"""
-            return self._calculate_temperatures(
+            return _calculate_temperatures(
                 Hc_nd=hc_need,
                 prev_thermal_mass=prev_tm,
                 m=m,
@@ -449,159 +510,6 @@ class ClimateSimulation(HourlySimulation):
         }
         return values
 
-    def _m_tot(
-            self,
-            Hc_nd: float,
-            m: float,
-            dry_bulb_temp: float,
-            htr_1: float,
-            htr_2: float,
-            htr_3: float,
-            temp_st: float,
-            internal_heat_adjusted: float,
-            heat_transmission_by_ventilation: float,
-            supply_air_temp: float,
-            Htr_em: float,
-    ):
-        """Calculate the total heat increase of the building in W/m2 for a given hour.
-        m_tot [Used in several places, so formula is extracted here]
-        """
-        return (
-                m
-                + Htr_em * dry_bulb_temp
-                + htr_3 * (
-                        temp_st +
-                        self.geometry.heat_transfer_rate_windows * dry_bulb_temp +
-                        htr_1 * (
-                                (internal_heat_adjusted + Hc_nd) / heat_transmission_by_ventilation +
-                                supply_air_temp
-                        )
-                ) / htr_2
-        )
-
-    def _building_thermal_mass(
-            self,
-            prev_thermal_mass: float,
-            m_tot: float,
-            internal_heat_capacity_w: float,
-            htr_3: float,
-            Htr_em: float,
-    ) -> float:
-        """Calculate the building thermal mass for the current hour."""
-        return (
-                prev_thermal_mass * (internal_heat_capacity_w - 0.5 * (htr_3 + Htr_em))
-                + m_tot
-        ) / (internal_heat_capacity_w + 0.5 * (htr_3 + Htr_em))
-
-    def _internal_surface_temp(
-            self,
-            Hc_nd: float,
-            building_thermal_mass: float,
-            dry_bulb_temp: float,
-            htr_1: float,
-            Htr_ms: float,
-            Htr_w: float,
-            temp_st: float,
-            internal_heat_adjusted: float,
-            heat_transmission_by_ventilation: float,
-            supply_air_temp: float,
-    ):
-        """Calculate the internal surface temperature for the current hour."""
-        return (
-                Htr_ms * building_thermal_mass
-                + temp_st
-                + Htr_w * dry_bulb_temp
-                + htr_1
-                * (
-                        supply_air_temp
-                        + (internal_heat_adjusted + Hc_nd)
-                        / heat_transmission_by_ventilation
-                )
-        ) / (Htr_ms + Htr_w + htr_1)
-
-    def _air_free_temp(
-            self,
-            Hc_nd: float,
-            internal_surface_temp: float,
-            Htr_is: float,
-            heat_transmission_by_ventilation: float,
-            internal_heat_adjusted: float,
-            supply_air_temp: float,
-    ):
-        """Calculate the air free temperature for the current hour."""
-        return (
-                Htr_is * internal_surface_temp
-                + heat_transmission_by_ventilation * supply_air_temp
-                + internal_heat_adjusted
-                + Hc_nd
-        ) / (Htr_is + heat_transmission_by_ventilation)
-
-    def _calculate_temperatures(
-            self,
-            prev_thermal_mass: float,
-            Hc_nd: float,
-            m: float,
-            internal_heat_capacity_w: float,
-            htr_1: float,
-            htr_2: float,
-            htr_3: float,
-            Htr_em: float,
-            dry_bulb_temp: float,
-            Htr_is: float,
-            Htr_ms: float,
-            Htr_w: float,
-            temp_st: float,
-            internal_heat_adjusted: float,
-            heat_transmission_by_ventilation: float,
-            supply_air_temp: float,
-    ):
-        """Return a tuple of
-        (m_tot, building_thermal_mass_t, internal_surface_temp, air_free_temp)
-        for the given inputs.
-        """
-        m_tot = self._m_tot(
-            Hc_nd=Hc_nd,
-            m=m,
-            dry_bulb_temp=dry_bulb_temp,
-            htr_1=htr_1,
-            htr_2=htr_2,
-            htr_3=htr_3,
-            temp_st=temp_st,
-            internal_heat_adjusted=internal_heat_adjusted,
-            heat_transmission_by_ventilation=heat_transmission_by_ventilation,
-            supply_air_temp=supply_air_temp,
-            Htr_em=Htr_em,
-        )
-        building_thermal_mass_t = self._building_thermal_mass(
-            prev_thermal_mass=prev_thermal_mass,
-            m_tot=m_tot,
-            internal_heat_capacity_w=internal_heat_capacity_w,
-            htr_3=htr_3,
-            Htr_em=Htr_em,
-        )
-        building_thermal_mass = (prev_thermal_mass + building_thermal_mass_t) / 2
-        internal_surface_temp = self._internal_surface_temp(
-            building_thermal_mass=building_thermal_mass,
-            Hc_nd=Hc_nd,
-            dry_bulb_temp=dry_bulb_temp,
-            htr_1=htr_1,
-            Htr_ms=Htr_ms,
-            Htr_w=Htr_w,
-            temp_st=temp_st,
-            internal_heat_adjusted=internal_heat_adjusted,
-            heat_transmission_by_ventilation=heat_transmission_by_ventilation,
-            supply_air_temp=supply_air_temp,
-        )
-        air_free_temp = self._air_free_temp(
-            internal_surface_temp=internal_surface_temp,
-            Hc_nd=Hc_nd,
-            Htr_is=Htr_is,
-            internal_heat_adjusted=internal_heat_adjusted,
-            heat_transmission_by_ventilation=heat_transmission_by_ventilation,
-            supply_air_temp=supply_air_temp
-        )
-        return m_tot, building_thermal_mass_t, internal_surface_temp, air_free_temp
-
     @property
     def set_point_temperature(self) -> DataFrame:
         """Set point temperatures for each hour of the year.
@@ -633,6 +541,7 @@ class ClimateSimulation(HourlySimulation):
                 file_name
             )
             self._epw_data, self._epw_metadata = read_epw(path)
+            self._hours['wind_speed'] = array(self._epw_data['wind_speed'])
         return self._epw_data
 
     @property
@@ -655,7 +564,6 @@ class ClimateSimulation(HourlySimulation):
     def get_heating_and_cooling_degrees_days(self, base_temperature: float = 18.0) -> DataFrame:
         """Calculate heating degree days for each month based on dry bulb temperature.
         Args:
-            spec (OpenBESSpecification): The building specifications spec data class.
             base_temperature (float): The base temperature for heating degree days calculation. Generally 65°F (18°C).
         Returns:
             DataFrame: Heating degree days for each month.
@@ -765,7 +673,7 @@ class ClimateSimulation(HourlySimulation):
         Ѳsup = Te [Hourly simulation column AG]
         """
         if 'supply_air_temp' not in self._hours.columns:
-            self._hours['supply_air_temp'] = list(self.epw_data['temp_air'])
+            self._hours['supply_air_temp'] = array(self.epw_data['temp_air'])
         return self._hours['supply_air_temp']
 
     @property
@@ -803,7 +711,7 @@ class ClimateSimulation(HourlySimulation):
         [Hourly simulation column I]
         """
         if 'dry_bulb_temp' not in self._hours.columns:
-            self._hours['dry_bulb_temp'] = list(self.epw_data['temp_air'])
+            self._hours['dry_bulb_temp'] = array(self.epw_data['temp_air'])
         return self._hours['dry_bulb_temp']
 
     @property
@@ -856,7 +764,7 @@ class ClimateSimulation(HourlySimulation):
         [Hourly simulation column W]
         """
         if 'wind_speed' not in self._hours.columns:
-            self._hours['wind_speed'] = list(self.epw_data['wind_speed'])
+            self._hours['wind_speed'] = array(self.epw_data['wind_speed'])
         return self._hours['wind_speed']
 
     @property
@@ -943,9 +851,11 @@ class ClimateSimulation(HourlySimulation):
         an occupancy-scaled output (Wli).
         """
         if 'internal_heat_from_lighting' not in self._hours.columns:
+            ratio = array(self.lighting.lighting_ratio)
+            heat = array(self.lighting.lighting_heat)
+            parasitic = array(self.lighting.parasitic_heat)
             self._hours['internal_heat_from_lighting'] = (
-                    (self.lighting.lighting_ratio * self.lighting.lighting_heat) +
-                    self.lighting.parasitic_heat
+                    (ratio * heat) + parasitic
             )
         return self._hours['internal_heat_from_lighting']
 

@@ -106,7 +106,9 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         """
         if 'phi_c_nd_ac' not in self._hours.columns:
             self._hours['phi_c_nd_ac'] = self.phi_hc_nd_actual.apply(
-                lambda r: min(r, 0.0) if r < (self.spec.parameters.cooling_system1_min_demand * -1) else 0.0
+                lambda r: min(r, 0.0) if r < (
+                        getattr(self.spec.parameters, f"cooling_system{self.system_number}_min_demand") * -1
+                ) else 0.0
             ) * self.spec.parameters.cooling_load_factor
         return self._hours['phi_c_nd_ac']
 
@@ -257,7 +259,7 @@ class CoolingSystemSimulation(EnergyUseSimulation):
     @property
     def energy_use(self) -> 'Series[float]':
         """Cooling system energy use in kWh for each hour of the year for each ENERGY_SOURCES.
-        [Hourly outputs column P, disaggregated; Hourly simulation column HK]
+        [Hourly outputs column Q, disaggregated; Hourly simulation column HK]
         """
         if self._energy_use[ENERGY_SOURCES.Electricity].hasnans:
             self._energy_use = self._energy_use.fillna(0.0).infer_objects(copy=False)
@@ -310,8 +312,6 @@ class CoolingSimulation(EnergyUseSimulation):
     @property
     def energy_use(self) -> 'Series[float]':
         """Cooling energy use in kWh for each hour of the year for each ENERGY_SOURCES.
-        [Hourly outputs column P], disaggregated
+        [Hourly outputs column Q], disaggregated
         """
-        if 'cooling_energy_use' not in self._hours.columns:
-            raise NotImplementedError
-        return self._hours['cooling_energy_use']
+        return sum([x.energy_use for x in self.cooling_simulations])

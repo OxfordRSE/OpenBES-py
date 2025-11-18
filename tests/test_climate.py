@@ -10,6 +10,12 @@ from tests.utils import (
 )
 
 
+class ClimateSetup(OpenBESTestCase):
+    def test_climate_model_init(self):
+        sim = ClimateSimulation(HOLYWELL_HOUSE_SPEC)
+        self.assertIsInstance(sim, ClimateSimulation)
+
+
 class Climate(OpenBESTestCase):
     @classmethod
     def setUpClass(cls):

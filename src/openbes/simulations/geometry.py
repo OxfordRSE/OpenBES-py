@@ -89,6 +89,7 @@ class BuildingGeometry:
     _roof_projections: Series
     _roof_factor: float
     _conditioned_floor_area: float
+    _building_mass_factor: float
 
     def __init__(self, spec: OpenBESSpecification):
         self.spec = spec
@@ -489,7 +490,9 @@ class BuildingGeometry:
         """Building mass factor (Am / Af). Am is sometimes Af and vice-versa?????
         Listed as Am/Af in Hourly simulation cell AM91.
         """
-        return HEAT_CAPACITY_VALUES['Am'].loc[self.spec.heat_capacity].iat[0]
+        if not hasattr(self, '_building_mass_factor') or self._building_mass_factor is None:
+            self._building_mass_factor = HEAT_CAPACITY_VALUES['Am'].loc[self.spec.heat_capacity].iat[0]
+        return self._building_mass_factor
 
     @property
     def heat_transfer_rate_windows(self) -> float:

@@ -7,5 +7,6 @@ requires-python = ">=3.11"
 dependencies = [
     "pandas",
     "pvlib",
+    "numba",
     "line_profiler"
 ]

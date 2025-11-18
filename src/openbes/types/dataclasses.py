@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Optional
 
-from . import LIGHTING_CONTROL, COOLING_SYSTEM_TYPES
+from . import LIGHTING_CONTROL, COOLING_SYSTEM_TYPES, HEATING_SYSTEM_TYPES
 from .enums import (
     LIGHTING_TECHNOLOGIES,
     LIGHTING_BALLASTS,
@@ -46,13 +46,13 @@ class OpenBESParameters:
     floor_correction_factor: Optional[float] = 1.0
     heat_capacity_correction_factor: Optional[float] = 1.0
     heat_capacity_joule: Optional[float] = None
-    heating_load_factor: Optional[float] = None
-    heating_system1_min_demand: Optional[float] = None
+    heating_load_factor: Optional[float] = 1.0
+    heating_system1_min_demand: Optional[float] = 35
     heating_system2_efficiency_cop: Optional[float] = None
-    heating_system2_energy_source: Optional[float] = None
+    heating_system2_energy_source: Optional[ENERGY_SOURCES] = None
     heating_system2_min_demand: Optional[float] = None
     heating_system2_nominal_capacity: Optional[float] = None
-    heating_system2_number: Optional[float] = None
+    heating_system2_number: Optional[int] = None
     heating_system2_off_time: Optional[float] = None
     heating_system2_on_time: Optional[float] = None
     heating_system2_simultaneity_factor_canteen: Optional[float] = None
@@ -60,7 +60,7 @@ class OpenBESParameters:
     heating_system2_simultaneity_factor_office: Optional[float] = None
     heating_system2_simultaneity_factor_other: Optional[float] = None
     heating_system2_simultaneity_factor_teaching: Optional[float] = None
-    heating_system2_type: Optional[float] = None
+    heating_system2_type: Optional[HEATING_SYSTEM_TYPES] = None
     infiltration_correction_factor: Optional[float] = 1.0
     leakage_air_flow_dependent: Optional[float] = 0.0001
     lighting_on_off: Optional[bool] = True
@@ -185,9 +185,9 @@ class OpenBESSpecification:
     ground_floor_area_z5: Optional[float] = None
     heat_capacity: Optional[HEAT_CAPACTIY_CLASSES] = None
     heating_system1_efficiency_cop: Optional[float] = None
-    heating_system1_energy_source: Optional[float] = None
+    heating_system1_energy_source: Optional[ENERGY_SOURCES] = None
     heating_system1_nominal_capacity: Optional[float] = None
-    heating_system1_number: Optional[float] = None
+    heating_system1_number: Optional[int] = None
     heating_system1_off_time: Optional[float] = None
     heating_system1_on_time: Optional[float] = None
     heating_system1_simultaneity_factor_canteen: Optional[float] = None
@@ -195,7 +195,7 @@ class OpenBESSpecification:
     heating_system1_simultaneity_factor_office: Optional[float] = None
     heating_system1_simultaneity_factor_other: Optional[float] = None
     heating_system1_simultaneity_factor_teaching: Optional[float] = None
-    heating_system1_type: Optional[float] = None
+    heating_system1_type: Optional[HEATING_SYSTEM_TYPES] = None
     holiday: Optional[bool] = None
     leakage_air_flow: Optional[float] = None
     leakage_air_flow_independent: Optional[float] = None
