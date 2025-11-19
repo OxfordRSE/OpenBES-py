@@ -14,16 +14,9 @@ OpenBES-py is an open-source building energy simulation tool written in Python. 
 
 ## Current Status
 
-The following simulation categories are implemented and tested:
-- [x] Others
-- [x] Building standby
-- [x] Lighting
-- [x] Hot water
-- [x] Ventilation
+The Python code reproduces the Excel spreadsheet simulation results for the Holywell House specification to at least 6 decimal places.
 
-The following categories are planned and under development:
-- [ ] Cooling
-- [ ] Heating
+The next step is to validate the Python code against ASHRAE Standard 140 test cases.
 
 ## Installation
 
