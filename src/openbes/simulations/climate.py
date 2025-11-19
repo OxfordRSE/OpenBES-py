@@ -74,27 +74,27 @@ def _calculate_temperatures(
             ) / htr_2
     )
     building_thermal_mass_t = (
-            prev_thermal_mass * (internal_heat_capacity_w - 0.5 * (htr_3 + Htr_em))
-            + m_tot
-    ) / (internal_heat_capacity_w + 0.5 * (htr_3 + Htr_em))
+                                      prev_thermal_mass * (internal_heat_capacity_w - 0.5 * (htr_3 + Htr_em))
+                                      + m_tot
+                              ) / (internal_heat_capacity_w + 0.5 * (htr_3 + Htr_em))
     building_thermal_mass = (prev_thermal_mass + building_thermal_mass_t) / 2
     internal_surface_temp = (
-            Htr_ms * building_thermal_mass
-            + temp_st
-            + Htr_w * dry_bulb_temp
-            + htr_1
-            * (
-                    supply_air_temp
-                    + (internal_heat_adjusted + Hc_nd)
-                    / heat_transmission_by_ventilation
-            )
-    ) / (Htr_ms + Htr_w + htr_1)
+                                    Htr_ms * building_thermal_mass
+                                    + temp_st
+                                    + Htr_w * dry_bulb_temp
+                                    + htr_1
+                                    * (
+                                            supply_air_temp
+                                            + (internal_heat_adjusted + Hc_nd)
+                                            / heat_transmission_by_ventilation
+                                    )
+                            ) / (Htr_ms + Htr_w + htr_1)
     air_free_temp = (
-            Htr_is * internal_surface_temp
-            + heat_transmission_by_ventilation * supply_air_temp
-            + internal_heat_adjusted
-            + Hc_nd
-    ) / (Htr_is + heat_transmission_by_ventilation)
+                            Htr_is * internal_surface_temp
+                            + heat_transmission_by_ventilation * supply_air_temp
+                            + internal_heat_adjusted
+                            + Hc_nd
+                    ) / (Htr_is + heat_transmission_by_ventilation)
     return m_tot, building_thermal_mass_t, internal_surface_temp, air_free_temp
 
 @line_profiler.profile

@@ -3,7 +3,11 @@ import os
 import re
 import tomllib
 import unittest
+from typing import Dict, Any, List
 
+from pandas import Series
+
+from src.openbes.simulations.base import HOURS_DF
 from src.openbes.simulations.building_energy import BuildingEnergySimulation
 from src.openbes.types import (
     OpenBESSpecification,
@@ -16,11 +20,36 @@ from src.openbes.types import (
     LIGHTING_TECHNOLOGIES,
     OpenBESParameters,
     TERRAINS,
+    ENERGY_USE_CATEGORIES,
+    MONTHS,
 )
 
 
-class MyTestCase(unittest.TestCase):
+m_index = HOURS_DF.index.names.index('month')
+d_index = HOURS_DF.index.names.index('day')
+h_index = HOURS_DF.index.names.index('hour')
+
+def day_of_the_month(d: int, m: int) -> int:
+    first_day_of_the_month = HOURS_DF.index.get_loc((m, 1, 1))
+    return (d - HOURS_DF.index.get_level_values('day')[first_day_of_the_month]) + 1
+
+def translate_index(summary_column: Series, summary_value: float, title: str) -> dict:
+    """Extract the value, month, day-of-the-month, hour from a DataFrame row and return as dict.
+    """
+    index = summary_column[summary_column == summary_value].index[0]
+    return {
+        title: summary_column,
+        f'{title}_month': MONTHS.get_by_index(index[m_index] - 1).value[:3],
+        f'{title}_day': day_of_the_month(index[d_index], index[m_index]),
+        f'{title}_hour': index[h_index],
+    }
+
+
+class ASHRAE140_2023(unittest.TestCase):
+    decimal_places = 2
+
     def setUp(self):
+        self.case_outputs: List[Dict[str, Any]] = []
         case_files = []
         case_file_dir = os.path.join(os.path.dirname(__file__), 'cases')
         for file in os.listdir(case_file_dir):
@@ -80,7 +109,53 @@ class MyTestCase(unittest.TestCase):
                     toml_content = tomllib.load(f)
                 spec = self.toml_to_spec(toml_content)
                 simulation = BuildingEnergySimulation(spec=spec)
-                simulation.energy_use
+                summary = {
+                    'case': os.path.basename(file).rstrip('.toml'),
+                    **translate_index(
+                        simulation.energy_use_by_category[ENERGY_USE_CATEGORIES.Heating].max(axis="columns"),
+                        simulation.energy_use_by_category[ENERGY_USE_CATEGORIES.Heating].max(axis="columns").max(),
+                        'peak_heating_load'
+                    ),
+                    **translate_index(
+                        simulation.energy_use_by_category[ENERGY_USE_CATEGORIES.Cooling].max(axis="columns"),
+                        simulation.energy_use_by_category[ENERGY_USE_CATEGORIES.Cooling].max(axis="columns").max(),
+                        'peak_cooling_load'
+                    ),
+                    'temperature_setpoint_avg_hr': simulation.climate.air_set_temp.mean(),
+                    **translate_index(
+                        simulation.climate.air_set_temp,
+                        simulation.climate.air_set_temp.min(),
+                        'temperature_setpoint_min'
+                    ),
+                    **translate_index(
+                        simulation.climate.air_set_temp,
+                        simulation.climate.air_set_temp.max(),
+                        'temperature_setpoint_max'
+                    ),
+                }
+                self.case_outputs.append(summary)
+                # Find matching row in CSV data
+                matching_rows = [
+                    row for row in self.csv_data if row['case'] == summary['case']
+                ]
+                self.assertTrue(
+                    len(matching_rows) == 1,
+                    msg=f"Expected one matching row in CSV for case {summary['case']}, found {len(matching_rows)}"
+                )
+                csv_row = matching_rows[0]
+                for key, value in summary.items():
+                    if key == 'case':
+                        continue
+                    with self.subTest(metric=key):
+                        expected_value = float(csv_row[key])
+                        if isinstance(expected_value, float):
+                            self.assertAlmostEqual(
+                                expected_value,
+                                value,
+                                places=self.decimal_places,
+                            )
+                        else:
+                            self.assertEqual(expected_value, value)
 
 if __name__ == '__main__':
     unittest.main()
