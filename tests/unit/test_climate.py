@@ -3,7 +3,7 @@ from pandas import Series
 
 from src.openbes.simulations.base import HOURS_DF
 from src.openbes.simulations.climate import ClimateSimulation
-from tests.utils import (
+from tests.unit.utils import (
     HOLYWELL_HOUSE_SPEC,
     OpenBESTestCase,
 )

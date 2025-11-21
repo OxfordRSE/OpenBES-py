@@ -5,7 +5,7 @@ import unittest
 
 from src.openbes.simulations.solar_irradiation import SolarIrradiationSimulation
 from src.openbes.types import COMPASS_POINTS
-from tests.utils import (
+from tests.unit.utils import (
     HOLYWELL_HOUSE_SPEC, 
     OpenBESTestCase, 
 )
@@ -13,7 +13,7 @@ from tests.utils import (
 
 class SolarIrradiation(OpenBESTestCase):
     def setUp(self):
-        climate_dir_path = os.path.join(os.path.dirname(__file__), '../src/openbes/simulations/climate_data')
+        climate_dir_path = os.path.join(os.path.dirname(__file__), '../../src/openbes/simulations/climate_data')
         data, metadata = read_epw(os.path.join(climate_dir_path, HOLYWELL_HOUSE_SPEC.meteorological_file))
         self.sim = SolarIrradiationSimulation(epw_data=data, epw_metadata=metadata)
 

@@ -4,7 +4,7 @@ from pandas import Series
 
 from src.openbes.simulations.building_energy import BuildingEnergySimulation
 from src.openbes.types import ENERGY_SOURCES, ENERGY_USE_CATEGORIES
-from tests.utils import OpenBESTestCase
+from tests.unit.utils import OpenBESTestCase
 
 class HolywellHousePipeline(OpenBESTestCase):
     def test_energy_use_by_category(self):

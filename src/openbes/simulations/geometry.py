@@ -42,7 +42,7 @@ EXPOSURES_MAP = DataFrame(
 # Frequently appears as Am/Af e.g. in Hourly simulation AM91
 HEAT_CAPACITY_VALUES = DataFrame({
     'Am': [2.5, 2.5, 2.5, 3.0, 3.5, 2.0],
-    'Cm': [80_000.0, 110_000.0, 165_000.0, 260_000.0, 370_000.0, 51944.0],
+    'Cm': [80_000.0, 110_000.0, 165_000.0, 260_000.0, 370_000.0, 51162.41846666670],
 }, index=[list(HEAT_CAPACTIY_CLASSES)])
 
 class Rectangle:

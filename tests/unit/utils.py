@@ -121,7 +121,7 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     parameters=OpenBESParameters(
         temperature_tolerance=0
     ),
-    appliances_load=None,
+    appliances_load=1.0,
     biomass_annual=None,
     biomass_pellets_annual=None,
     building_area=None,
@@ -207,7 +207,7 @@ HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     heating_system1_simultaneity_factor_other=0.0,
     heating_system1_simultaneity_factor_teaching=1.0,
     heating_system1_type=HEATING_SYSTEM_TYPES.Condensing_boiler,
-    holiday=True,
+    holiday=False,
     leakage_air_flow=None,
     leakage_air_flow_independent=0.45,
     lighting_control=LIGHTING_CONTROL.Manual,

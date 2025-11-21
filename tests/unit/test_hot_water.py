@@ -4,7 +4,7 @@ from pandas import Series
 
 from src.openbes.simulations.hot_water import HotWaterSimulation
 from src.openbes.types import MONTHS
-from tests.utils import OpenBESTestCase
+from tests.unit.utils import OpenBESTestCase
 
 
 class HotWaterPipeline(OpenBESTestCase):

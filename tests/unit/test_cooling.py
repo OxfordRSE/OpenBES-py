@@ -6,7 +6,7 @@ from src.openbes.simulations.geometry import BuildingGeometry
 from src.openbes.simulations.lighting import LightingSimulation
 from src.openbes.simulations.occupancy import OccupationSimulation
 from src.openbes.types import ENERGY_SOURCES
-from tests.utils import OpenBESTestCase, HOLYWELL_HOUSE_SPEC
+from tests.unit.utils import OpenBESTestCase, HOLYWELL_HOUSE_SPEC
 
 
 class Cooling(OpenBESTestCase):

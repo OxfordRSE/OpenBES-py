@@ -2,7 +2,6 @@ from math import atan
 from typing import Tuple
 
 import line_profiler
-import numba
 from numpy import nan, isnan, select, outer, array, maximum
 from pvlib.iotools import read_epw
 from pandas import DataFrame, Series
@@ -37,7 +36,7 @@ def get_available_epw_files() -> list[str]:
         if f.endswith('.epw')
     ]
 
-@numba.njit
+# @numba.njit
 # @line_profiler.profile  # JIT compilation OR runtime profiling, can't have both
 def _calculate_temperatures(
         prev_thermal_mass: float,
@@ -289,7 +288,7 @@ class ClimateSimulation(HourlySimulation):
         3. Air flow dependent [Hourly simulation column JH]
         """
         qv_diff = 0.0  # [Hardcoded as blank in Hourly simulation column IU]
-        q4pa = self.spec.parameters.leakage_air_flow_dependent  # JE97
+        q4pa = max(self.spec.parameters.leakage_air_flow_dependent, 0.0001)  # JE97
         Hstack = 10  # [Hardcoded in JE101: ISO 15242:2007. 6.7.1]
         air_set_temp_prev = get_prev("air_set_temp", 20.0)
         temp_diff = abs(dry_bulb_temp - air_set_temp_prev)
@@ -301,10 +300,7 @@ class ClimateSimulation(HourlySimulation):
                 * q4pa
                 * (dcp * (vsite_by_vmetro * self._cache['wind_speed'][i])**2)**0.667
         )
-        if q4pa == 0.0:
-            qv_sw = 0.0
-        else:
-            qv_sw = max(qv_stack, qv_wind) + (0.14 * qv_stack * qv_wind / q4pa)
+        qv_sw = max(qv_stack, qv_wind) + (0.14 * qv_stack * qv_wind / q4pa)
         qv_infred = max(
             qv_sw,
             (
@@ -468,19 +464,20 @@ class ClimateSimulation(HourlySimulation):
         20. Building thermal mass/@t with heating/cooling need = actual need [Hourly Simulation columns CR, CQ]
         21. Air temp with heating/cooling need = actual need [Hourly Simulation column CT]
         Note: The heating/cooling need is an interpretation of the Excel spreadsheet's winter/summer set point temps.
+        22. Heating/cooling need [Hourly Simulation column DB]
         """
         # [Hourly simulation column CK]
         is_occupied = self._cache['is_occupied'][i]
         needs_heating = air_free_temp_hc_0 < max_temp
         needs_cooling = air_free_temp_hc_0 > min_temp
         if is_occupied and (needs_heating or needs_cooling):
-            heating_cooling_need = (
+            heating_cooling_demand = (
                     10 * (air_set_temp - air_free_temp_hc_0) / (air_free_temp_hc_10 - air_free_temp_hc_0)
             )
         else:
-            heating_cooling_need = 0.0
+            heating_cooling_demand = 0.0
         _, building_thermal_mass_hc_actual_t, _, air_free_temp_hc_actual = calculate_temperatures(
-            hc_need=heating_cooling_need,
+            hc_need=heating_cooling_demand,
             prev_tm=prev_thermal_mass_hc_actual
         )
 
@@ -510,6 +507,7 @@ class ClimateSimulation(HourlySimulation):
             "building_thermal_mass_hc_actual": building_thermal_mass_hc_actual,
             "building_thermal_mass_hc_actual_t": building_thermal_mass_hc_actual_t,
             "air_free_temp_hc_actual": air_free_temp_hc_actual,
+            "heating_cooling_demand": heating_cooling_demand,
         }
         return values
 
@@ -837,8 +835,8 @@ class ClimateSimulation(HourlySimulation):
         ϕint,ap [Hourly Simulation column KJ]
         """
         if 'internal_heat_from_appliances' not in self._hours.columns:
-            # Constant, Inputs cell C144, Table G.11 ISO 13790
-            appliance_W_per_m2 = 1.0
+            # Inputs cell C144, Table G.11 ISO 13790
+            appliance_W_per_m2 = self.spec.appliances_load * self.spec.parameters.appliance_on_off
             self._hours['internal_heat_from_appliances'] = (
                     self.occupancy.occupancy['occupancy_ratio'] *
                     appliance_W_per_m2
@@ -1056,10 +1054,31 @@ class ClimateSimulation(HourlySimulation):
         return self._hours['solar_heat']
 
     @property
-    def temp_change_demand(self) -> float:
-        """Temperature change demand based in W/m2.
-        ϕHC,nd, W/m2
+    def heating_cooling_demand(self) -> 'Series[float]':
+        """Hourly temperature change demand based in W.
+        ϕHC,nd W [Hourly simulation column DB * zone area]
+
+        Has columns for heating and cooling demand because they need to be weighted by their scaling factors.
+
+        This is used for the ASHRAE140 test cases to determine the heating and cooling demand.
         """
-        if 'temp_change_demand' not in self._hours.columns:
-            raise NotImplementedError
-        return self._hours['temp_change_demand']
+        return self._hours['heating_cooling_demand']
+
+    @property
+    def heating_demand(self) -> 'Series[float]':
+        """Hourly heating need in W/m2.
+        Represents values from heating_cooling_demand clipped to only positive values.
+        """
+        if 'heating_need' not in self._hours.columns:
+            self._hours['heating_need'] = self.heating_cooling_demand.clip(0, None)
+        return self._hours['heating_need']
+
+    @property
+    def cooling_demand(self) -> 'Series[float]':
+        """Hourly cooling need in W/m2.
+        Represents values from heating_cooling_demand clipped to only negative values, then inverted.
+        """
+        if 'cooling_need' not in self._hours.columns:
+            self._hours['cooling_need'] = self.heating_cooling_demand.clip(None, 0)
+            self._hours['cooling_need'] = -self._hours['cooling_need']
+        return self._hours['cooling_need']

@@ -97,7 +97,7 @@ class OccupationSimulation(HourlySimulation):
         Returns:
             bool: True if the day is occupied, False otherwise.
         """
-        if self.spec.holiday and is_public_holiday(day_number_in_year):
+        if not self.spec.holiday and is_public_holiday(day_number_in_year):
             return False
         day = day_of_the_week(day_number_in_year)
         if day == DAYS.Mon:

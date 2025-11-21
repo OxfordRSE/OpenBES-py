@@ -1,7 +1,7 @@
 import unittest
 
 from src.openbes.simulations.ventilation import VentilationSimulation
-from tests.utils import OpenBESTestCase
+from tests.unit.utils import OpenBESTestCase
 
 
 class Ventilation(OpenBESTestCase):
