@@ -4,6 +4,9 @@ This is the source code for OpenBES.
 
 This README is a place to keep development notes and tips.
 
+NOTE: This is not necessarily a reflection of how the Python code works. 
+  It is primarily a documentation of how the original Excel BES tool works,
+
 ## Excel sheet useful bookmarks
 
 - Target output values: 4_XL-BES_tool!R243:R248

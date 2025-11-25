@@ -38,12 +38,12 @@ class SolarIrradiationSimulation:
     @property
     def lat(self) -> float:
         """Latitude of the location from EPW metadata."""
-        return round(self.epw_metadata.get('latitude'), 2)
+        return round(self.epw_metadata.get('latitude'), 3)
 
     @property
     def lon(self) -> float:
         """Longitude of the location from EPW metadata."""
-        return round(self.epw_metadata.get('longitude'), 1)
+        return round(self.epw_metadata.get('longitude'), 2)
 
     @property
     def timezone(self) -> float:

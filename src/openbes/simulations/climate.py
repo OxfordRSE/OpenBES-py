@@ -72,6 +72,7 @@ def _calculate_temperatures(
                     )
             ) / htr_2
     )
+    # Hourly variables are prev_thermal_mass, htr_3, m_tot
     building_thermal_mass_t = (
                                       prev_thermal_mass * (internal_heat_capacity_w - 0.5 * (htr_3 + Htr_em))
                                       + m_tot
@@ -220,7 +221,7 @@ class ClimateSimulation(HourlySimulation):
             ),
             "internal_heat_capacity_w": self.internal_heat_capacity / 3600,  # J/K to W/K [Hourly simulation AM93]
             "mass_factor_scaled": (
-                    self.geometry.building_mass_factor /
+                    self.geometry.heat_capacity_am /
                     4.5  # [A_at hardcoded as 4.5 in Hourly Simulation cell AM84]
             ),
             # Arrayify some Series for performance
@@ -425,7 +426,7 @@ class ClimateSimulation(HourlySimulation):
                 supply_air_temp=supply_air_temp,
                 Htr_em=Htr_em,
                 Htr_is=Htr_is,
-                Htr_ms=9.1 * self.geometry.building_mass_factor,  # [Hardcoded in Hourly Simulation cell AR95]
+                Htr_ms=9.1 * self.geometry.heat_capacity_am,  # [Hardcoded in Hourly Simulation cell AR95]
                 Htr_w=self.geometry.heat_transfer_rate_windows,
                 internal_heat_capacity_w=internal_heat_capacity_w,
             )
@@ -618,7 +619,7 @@ class ClimateSimulation(HourlySimulation):
             A_at = 4.5  # [Hardcoded in Hourly Simulation cell AM84]
             self._theta_st_partial = (
                     1 -
-                    (self.geometry.building_mass_factor / A_at) -
+                    (self.geometry.heat_capacity_am / A_at) -
                     (self.geometry.heat_transfer_rate_windows / (9.1 * A_at))
             )
         return self._theta_st_partial
@@ -637,7 +638,7 @@ class ClimateSimulation(HourlySimulation):
         """
         return (
                 self.spec.parameters.heat_capacity_correction_factor *
-                self.geometry.building_heat_capacitance
+                self.geometry.heat_capacity_cm
         )
 
     @property

@@ -1,7 +1,5 @@
 import csv
 import os
-import re
-import tomllib
 import unittest
 from typing import Dict
 
@@ -12,15 +10,6 @@ from src.openbes.simulations.base import HOURS_DF
 from src.openbes.simulations.building_energy import BuildingEnergySimulation
 from src.openbes.types import (
     OpenBESSpecification,
-    ENERGY_SOURCES,
-    HEATING_SYSTEM_TYPES,
-    COOLING_SYSTEM_TYPES,
-    HEAT_CAPACTIY_CLASSES,
-    LIGHTING_CONTROL,
-    LIGHTING_BALLASTS,
-    LIGHTING_TECHNOLOGIES,
-    OpenBESParameters,
-    TERRAINS,
     MONTHS,
 )
 
@@ -46,7 +35,38 @@ def translate_index(summary_column: Series, summary_value: float, title: str) ->
     }
 
 
+def get_summary(sim: BuildingEnergySimulation) -> dict:
+    return {
+        **translate_index(
+            sim.climate.heating_demand,
+            sim.climate.heating_demand.max(),
+            'peak_heating_load'
+        ),
+        **translate_index(
+            -sim.climate.cooling_demand,
+            -sim.climate.cooling_demand.max(),
+            'peak_cooling_load'
+        ),
+        'temperature_setpoint_avg_hr': sim.climate.air_set_temp.mean(),
+        **translate_index(
+            sim.climate.air_set_temp,
+            sim.climate.air_set_temp.min(),
+            'temperature_setpoint_min'
+        ),
+        **translate_index(
+            sim.climate.air_set_temp,
+            sim.climate.air_set_temp.max(),
+            'temperature_setpoint_max'
+        ),
+    }
+
+
 class ASHRAE140_2023(unittest.TestCase):
+    """
+    The ASHRAE 140 tests target the heating/cooling need values. They do not model heating/cooling systems.
+
+    [BES Tool cells N103, Q103]
+    """
     ENABLE_DETAIL = False
 
     decimal_places = 2
@@ -92,94 +112,29 @@ class ASHRAE140_2023(unittest.TestCase):
             })
             self.csv_data = csv_data
 
-    def get_meteorological_file(self, filename: str) -> str:
-        if 'Denver' in filename:
-            return 'USA_Denver_725650TYCST.epw'
-        if 'Oxford' in filename:
-            return 'UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw'
-        if 'Sevilla' in filename:
-            return 'SPAIN_Sevilla.083910_SWEC.epw'
-        if 'Madrid' in filename:
-            return 'SPAIN_Madrid.082210_SWEC.epw'
-        raise ValueError(f"Unknown meteorological file: {filename}")
-
-    def toml_to_spec(self, toml_content: dict) -> OpenBESSpecification:
-        filtered = {k: v for k, v in toml_content.items() if v is not None and v != ""}
-        typed = filtered
-        for k, v in typed.items():
-            if k == 'i.meteorological_file':
-                typed[k] = self.get_meteorological_file(v)
-            if k.endswith('_energy_source'):
-                typed[k] = ENERGY_SOURCES.get_by_value(v)
-            elif k.endswith('_type'):
-                if bool(re.search('[id]\.heating_system\d_type', k)):
-                    typed[k] = HEATING_SYSTEM_TYPES.get_by_value(v)
-                elif bool(re.search('[id]\.cooling_system\d_type', k)):
-                    typed[k] = COOLING_SYSTEM_TYPES.get_by_value(v)
-            elif k == 'i.heat_capacity':
-                typed[k] = HEAT_CAPACTIY_CLASSES.get_by_value(v)
-            elif k == 'i.lighting_control':
-                typed[k] = LIGHTING_CONTROL.get_by_value(v)
-            elif k.startswith('i.lighting_system_ballast'):
-                typed[k] = LIGHTING_BALLASTS.get_by_value(v)
-            elif k.startswith('i.lighting_system_tech'):
-                typed[k] = LIGHTING_TECHNOLOGIES.get_by_value(v)
-            elif k == 'i.terrain_class':
-                typed[k] = TERRAINS.get_by_value(v)
-            elif isinstance(v, str) and v.lower() in ['false', 'no']:
-                typed[k] = False
-            elif isinstance(v, str) and v.lower() in ['true', 'yes']:
-                typed[k] = True
-            elif k.startswith('condition_z'):
-                typed[k] = v.lower() == "Conditioned"
-
-        parameters = {k[2:]: v for k, v in filtered.items() if k.startswith("d")}
-        specification = {k[2:]: v for k, v in filtered.items() if k.startswith("i")}
-        return OpenBESSpecification(parameters=OpenBESParameters(**parameters), **specification)
-
     def _load_sim(self, name: str) -> BuildingEnergySimulation:
         if name not in self.simulations:
-            file = self.case_files[name]
-            with open(file, 'rb') as f:
-                toml_content = tomllib.load(f)
-            spec = self.toml_to_spec(toml_content)
+            spec = OpenBESSpecification.from_toml(self.case_files[name])
             simulation = BuildingEnergySimulation(spec=spec)
             self.simulations[name] = simulation
         return self.simulations[name]
 
-    def get_summary(self, sim: BuildingEnergySimulation) -> dict:
-        return {
-            **translate_index(
-                sim.climate.heating_demand,
-                sim.climate.heating_demand.max(),
-                'peak_heating_load'
-            ),
-            **translate_index(
-                -sim.climate.cooling_demand,
-                -sim.climate.cooling_demand.max(),
-                'peak_cooling_load'
-            ),
-            'temperature_setpoint_avg_hr': sim.climate.air_set_temp.mean(),
-            **translate_index(
-                sim.climate.air_set_temp,
-                sim.climate.air_set_temp.min(),
-                'temperature_setpoint_min'
-            ),
-            **translate_index(
-                sim.climate.air_set_temp,
-                sim.climate.air_set_temp.max(),
-                'temperature_setpoint_max'
-            ),
-        }
-
     def test_cases(self):
+        # cases = ['900C']
+        # _debug = read_csv(os.path.join(os.path.dirname(__file__), 'debug.csv')).squeeze()
+
         self.case_outputs = DataFrame([], index=self.csv_data.index, columns=self.csv_data.columns)
         for idx, case in self.csv_data.iterrows():
+            try:
+                if case['case'] not in cases:  # noqa: F821
+                    continue
+            except NameError:
+                pass
             name = case['case'][:-1]
             category = case['case'][-1]
             with self.subTest(case=name, category=category):
                 simulation = self._load_sim(name)
-                summary = self.get_summary(simulation)
+                summary = get_summary(simulation)
                 if category == "H":
                     summary['cal'] = simulation.climate.heating_demand.sum()
                 else:
@@ -224,7 +179,12 @@ class ASHRAE140_2023(unittest.TestCase):
                     if not expected.equals(computed):
                         print("Detailed dataframes are not equal.")
                         print(expected.compare(computed))
-        print(self.csv_data.compare(self.case_outputs))
+
+        computed = self.case_outputs[['case', 'cal', 'in_range']].round(self.decimal_places).set_index(['case'])
+        expected = self.csv_data[['case', 'cal', 'in_range']].round(self.decimal_places).set_index(['case'])
+        comp = expected.compare(computed)
+        comp['cal_diff'] = comp[('cal','self')] - comp[('cal','other')]
+        print(comp)
 
 if __name__ == '__main__':
     unittest.main()

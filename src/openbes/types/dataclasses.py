@@ -1,5 +1,8 @@
+import re
 from dataclasses import dataclass, field
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
+import tomllib
 
 from . import LIGHTING_CONTROL, COOLING_SYSTEM_TYPES, HEATING_SYSTEM_TYPES
 from .enums import (
@@ -97,6 +100,18 @@ class OpenBESParameters:
     view_factor_to_sky_facade: Optional[float] = 0.5
     view_factor_to_sky_roof: Optional[float] = 1.0
     window_correction_factor: Optional[float] = 1.0
+
+
+def _get_meteorological_file(filename: str) -> str:
+    if 'Denver' in filename:
+        return 'USA_Denver_725650TYCST.epw'
+    if 'Oxford' in filename:
+        return 'UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw'
+    if 'Sevilla' in filename:
+        return 'SPAIN_Sevilla.083910_SWEC.epw'
+    if 'Madrid' in filename:
+        return 'SPAIN_Madrid.082210_SWEC.epw'
+    raise ValueError(f"Unknown meteorological file: {filename}")
 
 
 @dataclass
@@ -368,3 +383,44 @@ class OpenBESSpecification:
     zone_name_z3: Optional[float] = None
     zone_name_z4: Optional[float] = None
     zone_name_z5: Optional[float] = None
+
+    @classmethod
+    def from_toml(cls, toml_file: Union[dict, str, Path]):
+        if isinstance(toml_file, (str, Path)):
+            with open(toml_file, "rb") as f:
+                toml_content = tomllib.load(f)
+        else:
+            toml_content = toml_file
+            
+        filtered = {k: v for k, v in toml_content.items() if v is not None and v != ""}
+        typed = filtered
+        for k, v in typed.items():
+            if k == 'i.meteorological_file':
+                typed[k] = _get_meteorological_file(v)
+            if k.endswith('_energy_source'):
+                typed[k] = ENERGY_SOURCES.get_by_value(v)
+            elif k.endswith('_type'):
+                if bool(re.search('[id]\.heating_system\d_type', k)):
+                    typed[k] = HEATING_SYSTEM_TYPES.get_by_value(v)
+                elif bool(re.search('[id]\.cooling_system\d_type', k)):
+                    typed[k] = COOLING_SYSTEM_TYPES.get_by_value(v)
+            elif k == 'i.heat_capacity':
+                typed[k] = HEAT_CAPACTIY_CLASSES.get_by_value(v)
+            elif k == 'i.lighting_control':
+                typed[k] = LIGHTING_CONTROL.get_by_value(v)
+            elif k.startswith('i.lighting_system_ballast'):
+                typed[k] = LIGHTING_BALLASTS.get_by_value(v)
+            elif k.startswith('i.lighting_system_tech'):
+                typed[k] = LIGHTING_TECHNOLOGIES.get_by_value(v)
+            elif k == 'i.terrain_class':
+                typed[k] = TERRAINS.get_by_value(v)
+            elif isinstance(v, str) and v.lower() in ['false', 'no']:
+                typed[k] = False
+            elif isinstance(v, str) and v.lower() in ['true', 'yes']:
+                typed[k] = True
+            elif k.startswith('condition_z'):
+                typed[k] = v.lower() == "Conditioned"
+
+        parameters = {k[2:]: v for k, v in filtered.items() if k.startswith("d")}
+        specification = {k[2:]: v for k, v in filtered.items() if k.startswith("i")}
+        return cls(parameters=OpenBESParameters(**parameters), **specification)
