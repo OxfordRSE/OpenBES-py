@@ -22,13 +22,13 @@ def day_of_the_month(d: int, m: int) -> int:
     first_day_of_the_month = HOURS_DF.index.get_locs([m, slice(None), 1])[0]
     return (d - HOURS_DF.index.get_level_values('day')[first_day_of_the_month]) + 1
 
-def translate_index(summary_column: Series, summary_value: float, title: str) -> dict:
+def translate_index(summary_column: Series, summary_value: float, title: str, area: float) -> dict:
     """Extract the value, month, day-of-the-month, hour from a DataFrame row and return as dict.
     """
     index = summary_column[summary_column == summary_value].index[0]
     hour_suffix = '_hr' if '_setpoint_' in title else '_hour'
     return {
-        title: summary_column.loc[index],
+        title: abs(summary_column.loc[index] * area / 1000.0),
         f'{title}_month': MONTHS.get_by_index(index[m_index] - 1).value[:3],
         f'{title}_day': day_of_the_month(index[d_index], index[m_index]),
         f'{title}_{hour_suffix}': index[h_index],
@@ -40,23 +40,27 @@ def get_summary(sim: BuildingEnergySimulation) -> dict:
         **translate_index(
             sim.climate.heating_demand,
             sim.climate.heating_demand.max(),
-            'peak_heating_load'
+            'peak_heating_load',
+            sim.geometry.conditioned_floor_area
         ),
         **translate_index(
             -sim.climate.cooling_demand,
             -sim.climate.cooling_demand.max(),
-            'peak_cooling_load'
+            'peak_cooling_load',
+            sim.geometry.conditioned_floor_area
         ),
         'temperature_setpoint_avg_hr': sim.climate.air_set_temp.mean(),
         **translate_index(
             sim.climate.air_set_temp,
             sim.climate.air_set_temp.min(),
-            'temperature_setpoint_min'
+            'temperature_setpoint_min',
+            sim.geometry.conditioned_floor_area
         ),
         **translate_index(
             sim.climate.air_set_temp,
             sim.climate.air_set_temp.max(),
-            'temperature_setpoint_max'
+            'temperature_setpoint_max',
+            sim.geometry.conditioned_floor_area
         ),
     }
 

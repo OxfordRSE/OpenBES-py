@@ -2,6 +2,7 @@ from math import atan
 from typing import Tuple
 
 import line_profiler
+import numba
 from numpy import nan, isnan, select, outer, array, maximum
 from pvlib.iotools import read_epw
 from pandas import DataFrame, Series
@@ -36,7 +37,7 @@ def get_available_epw_files() -> list[str]:
         if f.endswith('.epw')
     ]
 
-# @numba.njit
+@numba.njit
 # @line_profiler.profile  # JIT compilation OR runtime profiling, can't have both
 def _calculate_temperatures(
         prev_thermal_mass: float,
