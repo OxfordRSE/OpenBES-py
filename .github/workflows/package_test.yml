@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  install_and_run_pipeline:
+  install_and_run:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,5 +22,5 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-      - name: Run pipeline example
-        run: python .github/workflows/scripts/run_pipeline_example.py
+      - name: Run example
+        run: python .github/workflows/scripts/run_example.py
