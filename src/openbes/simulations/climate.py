@@ -1,7 +1,5 @@
 from math import atan
 from typing import Tuple
-
-import line_profiler
 import numba
 from numpy import nan, isnan, select, outer, array, maximum
 from pvlib.iotools import read_epw
@@ -15,6 +13,49 @@ from .occupancy import OccupationSimulation
 from .solar_irradiation import SolarIrradiationSimulation
 from .ventilation import VentilationSimulation
 from ..types import OpenBESSpecification, TERRAINS, ORIENTATIONS
+
+# Optional dependencies
+try:
+    import numba
+    USE_JIT = True
+except ImportError:
+    numba = None
+    USE_JIT = False
+try:
+    import line_profiler
+    USE_PROFILER = os.environ.get('LINE_PROFILE', '0') == '1'
+except ImportError:
+    line_profiler = None
+    USE_PROFILER = False
+
+def jit_if_available(**jit_kwargs):
+    def decorator(fn):
+        if numba is None:
+            return fn
+        return numba.jit(**jit_kwargs)(fn)
+    return decorator
+
+def profile_if_available(**profile_kwargs):
+    """Profile if line_profiler is installed and enabled via LINE_PROFILE=1 environment variable."""
+    def decorator(fn):
+        if line_profiler is None:
+            return fn
+        return line_profiler.profile(**profile_kwargs)(fn)
+    return decorator
+
+def profile_or_jit(jit_kwargs: dict = None, profile_kwargs: dict = None):
+    """
+    Can't have both JIT and line profiler at the same time, so this decorator applies one or the other if available.
+    """
+    def decorator(fn):
+        if USE_PROFILER:
+            return line_profiler.profile(**profile_kwargs)(fn)
+        elif USE_JIT:
+            return numba.jit(**jit_kwargs)(fn)
+        else:
+            return fn
+    return decorator
+    
 
 RELATIVE_HUMIDITY = 55.0  # Percentage
 
@@ -37,8 +78,7 @@ def get_available_epw_files() -> list[str]:
         if f.endswith('.epw')
     ]
 
-@numba.njit
-# @line_profiler.profile  # JIT compilation OR runtime profiling, can't have both
+@profile_or_jit
 def _calculate_temperatures(
         prev_thermal_mass: float,
         Hc_nd: float,
@@ -98,7 +138,7 @@ def _calculate_temperatures(
                     ) / (Htr_is + heat_transmission_by_ventilation)
     return m_tot, building_thermal_mass_t, internal_surface_temp, air_free_temp
 
-@line_profiler.profile
+@profile_if_available
 class ClimateSimulation(HourlySimulation):
     geometry: BuildingGeometry
     occupancy: OccupationSimulation

@@ -11,5 +11,5 @@ dependencies = [
 ]
 [project.optional-dependencies]
 dev = [
-    "lineprofiler",
+    "line_profiler",
 ]
