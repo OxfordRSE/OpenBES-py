@@ -1,6 +1,15 @@
-from src.openbes import OpenBESSpecification
-from src.openbes.types import OpenBESParameters, ENERGY_SOURCES, COOLING_SYSTEM_TYPES, HEAT_CAPACTIY_CLASSES, \
-    HEATING_SYSTEM_TYPES, LIGHTING_CONTROL, LIGHTING_BALLASTS, LIGHTING_TECHNOLOGIES, TERRAINS
+from .types import (
+    OpenBESSpecification,
+    OpenBESParameters,
+    ENERGY_SOURCES,
+    COOLING_SYSTEM_TYPES,
+    HEAT_CAPACTIY_CLASSES,
+    HEATING_SYSTEM_TYPES,
+    LIGHTING_CONTROL,
+    LIGHTING_BALLASTS,
+    LIGHTING_TECHNOLOGIES,
+    TERRAINS
+)
 
 HOLYWELL_HOUSE_SPEC = OpenBESSpecification(
     parameters=OpenBESParameters(
