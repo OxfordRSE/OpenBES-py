@@ -60,8 +60,9 @@ class Occupancy(OpenBESTestCase):
                 (132.76 + 55.65 + 52.93) / 5,
                 0.0,
             ]
-            expected = spec.typical_occupation / sum(zonal_capacities)
-            self.assertEqual(sim.occupation_ratio, expected)
+            expected = round(spec.typical_occupation / sum(zonal_capacities), self.decimal_places)
+            computed = round(sim.occupation_ratio, self.decimal_places)
+            self.assertEqual(expected, computed)
 
     def test_occupation_by_hour(self):
         expected = self.read_single_col_csv_to_series(
