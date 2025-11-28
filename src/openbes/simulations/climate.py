@@ -1,4 +1,6 @@
+from importlib.resources import files
 from math import atan
+from pathlib import Path
 from typing import Tuple
 from numpy import nan, isnan, select, outer, array, maximum
 from pvlib.iotools import read_epw
@@ -68,10 +70,7 @@ def get_available_epw_files() -> list[str]:
     """
     Returns a list of available EPW climate data files.
     """
-    climate_data_dir = os.path.join(
-        os.path.dirname(__file__),
-        "climate_data"
-    )
+    climate_data_dir = Path(str(files("openbes.simulations.climate_data")))
     return [
         f for f in os.listdir(climate_data_dir)
         if f.endswith('.epw')
@@ -577,11 +576,7 @@ class ClimateSimulation(HourlySimulation):
         """
         if not hasattr(self, '_epw_data') or self._epw_data is None:
             file_name = self.spec.meteorological_file
-            path = os.path.join(
-                os.path.dirname(__file__),
-                "climate_data",
-                file_name
-            )
+            path = Path(str(files("openbes.simulations.climate_data") / file_name))
             self._epw_data, self._epw_metadata = read_epw(path)
             self._hours['wind_speed'] = array(self._epw_data['wind_speed'])
         return self._epw_data

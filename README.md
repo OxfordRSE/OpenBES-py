@@ -55,9 +55,11 @@ total_annual_energy_used = simulation.energy_use.sum().sum()  # collaspse energy
 
 2. Set up a virtual environment (recommended): `uv venv`
 
-3. Install dependencies: `uv sync`
+3. Install editable package: `uv pip install -e .[dev]`
 
-4. Run tests to verify installation: `uv run python -m unittest discover -s tests`
+4. Install dependencies: `uv sync`
+
+5. Run tests to verify installation: `uv run python -m unittest discover -s tests`
 
 ## License
 

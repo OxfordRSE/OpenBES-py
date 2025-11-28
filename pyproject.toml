@@ -20,6 +20,12 @@ dev = [
 where = ["src"]
 include = ["openbes*"]
 
+[tool.setuptools.package-data]
+openbes = [
+    "**/lighting_data/*.csv",
+    "**/climate_data/*.epw",
+]
+
 [build-system]
 requires = ["setuptools>=61", "wheel", "build"]
 build-backend = "setuptools.build_meta"

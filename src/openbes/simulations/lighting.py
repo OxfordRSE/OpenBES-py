@@ -1,5 +1,6 @@
+from importlib.resources import files
+
 from pandas import DataFrame, read_csv, Series
-from os import path
 import logging
 
 from .base import EnergyUseSimulation
@@ -33,17 +34,9 @@ class LightingSimulation(EnergyUseSimulation):
             ]:
                 return float(lamp_power * lamp_number)
             if ballast == LIGHTING_BALLASTS.BE and tech == LIGHTING_TECHNOLOGIES.FT_T8:
-                d = read_csv(path.join(
-                    path.dirname(__file__),
-                    "lighting_data",
-                    "lamp_ft_t8_be.csv"
-                ))
+                d = read_csv(str(files('openbes.simulations.lighting_data') / "lamp_ft_t8_be.csv"))
                 return float(d.loc[(d["lamp_power"] == lamp_power)][f"lamp_number_{lamp_number}"].values[0])
-            d = read_csv(path.join(
-                path.dirname(__file__),
-                "lighting_data",
-                f"lamp_{tech.name.lower()}.csv"
-            ))
+            d = read_csv(str(files("openbes.simulations.lighting_data") / f"lamp_{tech.name.lower()}.csv"))
             return float(d.loc[(d["lamp_power"] == lamp_power)][f"lamp_number_{lamp_number}"].values[0])
         except (AttributeError, FileNotFoundError, KeyError, IndexError) as e:
             logger.warning(f"Badly matched self.spec for zone {zone} [{e.__class__.__name__}: {e}]")
