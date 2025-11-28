@@ -28,12 +28,15 @@ jobs:
       - name: Run example
         run: python .github/workflows/scripts/run_example.py
 
-  build:
+  build-and-publish:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.setver.outputs.version }}
       name: ${{ steps.setver.outputs.name }}
     needs: install_and_run
+    environment: ${{ github.event_name == 'release' && 'pypi' || 'pypiTest' }}
+    permissions:
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
       - uses: actions/checkout@v4
 
@@ -52,38 +55,12 @@ jobs:
       - name: Build distributions
         run: python -m build --sdist --wheel
 
-  pypi-publish:
-    name: Upload release to PyPI
-    if: github.event_name == 'release'
-    runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: pypi
-      url: https://pypi.org/p/openbes
-    permissions:
-      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
-    steps:
       - name: Publish
         run: |
-          echo "Release detected: ${GITHUB_EVENT_NAME}"
+          echo "Release detected: ${GITHUB_EVENT_NAME} ${GITHUB_REF}"
           pip install twine
-          python -m twine upload dist/*
-
-  pypi-test-publish:
-    name: Upload release to PyPI [Test]
-    if: github.event_name != 'release'
-    runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: pypiTest
-      url: https://pypi.org/p/openbes
-    permissions:
-      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
-    steps:
-      - name: Publish
-        run: |
-          echo "Release detected: ${GITHUB_EVENT_NAME}"
-          echo "dist contents:"
-          ls -la dist
-          pip install twine
-          python -m twine upload dist/* --repository-url https://test.pypi.org/legacy/
+          if [ "${{ github.event_name }}" = "release" ]; then
+            python -m twine upload dist/*
+          else
+            python -m twine upload dist/* --repository-url https://test.pypi.org/legacy/
+          fi
