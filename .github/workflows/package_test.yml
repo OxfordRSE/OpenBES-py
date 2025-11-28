@@ -55,12 +55,45 @@ jobs:
       - name: Build distributions
         run: python -m build --sdist --wheel
 
-      - name: Publish
+      - name: Inspect distributions
         run: |
-          echo "Release detected: ${GITHUB_EVENT_NAME} ${GITHUB_REF}"
-          unzip -p dist/openbes-0.1.1-py3-none-any.whl openbes-0.1.1.dist-info/WHEEL
+          set -euo pipefail
+
+          # Find the universal wheel (fail if none)
+          wheel=$(ls dist/openbes-*-py3-none-any.whl 2>/dev/null | head -n1 || true)
+          if [ -z "${wheel:-}" ]; then
+            echo "ERROR: No py3-none-any wheel found in dist/" >&2
+            ls -la dist || true
+            exit 1
+          fi
           
-          pip install twine
+          echo "=== Wheel file ==="
+          echo "$wheel"
+          
+          echo "=== Wheel contents ==="
+          unzip -l "$wheel"
+          
+          echo "=== WHEEL metadata ==="
+          # -Z1 reliably prints only file paths (if available)
+          if unzip -Z1 "$wheel" >/dev/null 2>&1; then
+            wheel_file=$(unzip -Z1 "$wheel" | grep -m1 '\.dist-info/WHEEL$')
+          else
+            # fallback: extract the 4th col which is the path
+            wheel_file=$(unzip -l "$wheel" | awk '{print $4}' | grep -m1 '\.dist-info/WHEEL$')
+          fi
+          
+          if [ -z "$wheel_file" ]; then
+            echo "ERROR: Could not locate the WHEEL file inside archive." >&2
+            exit 1
+          fi
+          
+          unzip -p "$wheel" "$wheel_file"
+
+      - name: Install twine
+        run: python -m pip install --upgrade pip twine
+
+      - name: Publish
+        run: |          
           if [ "${{ github.event_name }}" = "release" ]; then
             python -m twine upload dist/*
           else
