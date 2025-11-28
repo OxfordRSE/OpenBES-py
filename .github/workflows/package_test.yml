@@ -70,10 +70,10 @@ jobs:
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
-    - name: Publish package distributions to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        packages-dir: ${{ needs.build.outputs.dist-path }}
+      - name: Publish
+        run: |
+          echo "Release detected: ${GITHUB_EVENT_NAME}"
+          python -m twine upload ${{ needs.build.outputs.dist-path }}/*
 
   pypi-test-publish:
     name: Upload release to PyPI [Test]
@@ -86,8 +86,7 @@ jobs:
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     steps:
-    - name: Publish package distributions to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        repository-url: https://test.pypi.org/legacy/
-        packages-dir: ${{ needs.build.outputs.dist-path }}
+      - name: Publish
+        run: |
+          echo "Release detected: ${GITHUB_EVENT_NAME}"
+          python -m twine upload ${{ needs.build.outputs.dist-path }}/* --repository https://test.pypi.org/legacy/
