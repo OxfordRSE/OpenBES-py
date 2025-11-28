@@ -28,22 +28,22 @@ except ImportError:
     line_profiler = None
     USE_PROFILER = False
 
-def jit_if_available(**jit_kwargs):
+def jit_if_available(_fn=None, **jit_kwargs):
     def decorator(fn):
-        if numba is None:
+        if not USE_JIT:
             return fn
         return numba.jit(**jit_kwargs)(fn)
-    return decorator
+    return decorator if _fn is None else decorator(_fn)
 
-def profile_if_available(**profile_kwargs):
+def profile_if_available(_fn=None, **profile_kwargs):
     """Profile if line_profiler is installed and enabled via LINE_PROFILE=1 environment variable."""
     def decorator(fn):
-        if line_profiler is None:
+        if not USE_PROFILER:
             return fn
         return line_profiler.profile(**profile_kwargs)(fn)
-    return decorator
+    return decorator if _fn is None else decorator(_fn)
 
-def profile_or_jit(jit_kwargs: dict = None, profile_kwargs: dict = None):
+def profile_or_jit(_fn=None, jit_kwargs: dict = None, profile_kwargs: dict = None):
     """
     Can't have both JIT and line profiler at the same time, so this decorator applies one or the other if available.
     """
@@ -54,7 +54,7 @@ def profile_or_jit(jit_kwargs: dict = None, profile_kwargs: dict = None):
             return numba.jit(**jit_kwargs)(fn)
         else:
             return fn
-    return decorator
+    return decorator if _fn is None else decorator(_fn)
     
 
 RELATIVE_HUMIDITY = 55.0  # Percentage
@@ -78,7 +78,7 @@ def get_available_epw_files() -> list[str]:
         if f.endswith('.epw')
     ]
 
-@profile_or_jit
+@profile_or_jit(jit_kwargs={'nopython': True})
 def _calculate_temperatures(
         prev_thermal_mass: float,
         Hc_nd: float,
