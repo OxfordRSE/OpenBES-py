@@ -6,9 +6,9 @@ import unittest
 from src.openbes.simulations.solar_irradiation import SolarIrradiationSimulation
 from src.openbes.types import COMPASS_POINTS
 from tests.unit.utils import (
-    HOLYWELL_HOUSE_SPEC, 
-    OpenBESTestCase, 
+    OpenBESTestCase,
 )
+from src.openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
 class SolarIrradiation(OpenBESTestCase):

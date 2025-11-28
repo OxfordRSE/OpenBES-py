@@ -8,7 +8,8 @@ from src.openbes.simulations.geometry import (
     BuildingGeometry,
 )
 from src.openbes.types import FLOORS, COMPASS_POINTS, ORIENTATIONS
-from tests.unit.utils import HOLYWELL_HOUSE_SPEC, OpenBESTestCase
+from tests.unit.utils import OpenBESTestCase
+from src.openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
 class Geometry(OpenBESTestCase):

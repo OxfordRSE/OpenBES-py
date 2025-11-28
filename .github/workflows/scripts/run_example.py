@@ -1,5 +1,5 @@
-from openbes import BuildingEnergySimulation, OpenBESSpecification
+from openbes import BuildingEnergySimulation
+from openbes.examples import HOLYWELL_HOUSE_SPECIFICATION
 
-spec = OpenBESSpecification.from_toml('tests/test_cases/cases/600.toml')
-simulation = BuildingEnergySimulation(spec=spec)
+simulation = BuildingEnergySimulation(spec=HOLYWELL_HOUSE_SPECIFICATION)
 print('Overall annual energy use:', simulation.energy_use.sum().sum())

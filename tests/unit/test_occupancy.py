@@ -8,7 +8,8 @@ from src.openbes.simulations.occupancy import (
     OccupationSimulation,
 )
 from src.openbes.simulations.base import HOURS_DF
-from tests.unit.utils import HOLYWELL_HOUSE_SPEC, OpenBESTestCase
+from tests.unit.utils import OpenBESTestCase
+from src.openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
 class Occupancy(OpenBESTestCase):
