@@ -9,7 +9,16 @@ dependencies = [
     "pvlib",
     "numba",
 ]
+
 [project.optional-dependencies]
 dev = [
     "line_profiler",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["openbes*"]
+
+[build-system]
+requires = ["setuptools>=61", "wheel", "build"]
+build-backend = "setuptools.build_meta"
