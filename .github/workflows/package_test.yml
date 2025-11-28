@@ -73,6 +73,7 @@ jobs:
       - name: Publish
         run: |
           echo "Release detected: ${GITHUB_EVENT_NAME}"
+          pip install twine
           python -m twine upload ${{ needs.build.outputs.dist-path }}/*
 
   pypi-test-publish:
@@ -89,4 +90,5 @@ jobs:
       - name: Publish
         run: |
           echo "Release detected: ${GITHUB_EVENT_NAME}"
+          pip install twine
           python -m twine upload ${{ needs.build.outputs.dist-path }}/* --repository https://test.pypi.org/legacy/
