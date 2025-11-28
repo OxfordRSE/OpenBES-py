@@ -38,16 +38,16 @@ if not is_tag:
     devs = [int(r[len(prefix):]) for r in releases if r.startswith(prefix) and r[len(prefix):].isdigit()]
     nextdev = max(devs)+1 if devs else 1
     new_version = f"{base_version}.dev{nextdev}"
+else:
+    # Set the version to the tag version
+    new_version = sys.argv[1][len('refs/tags/'):]
+
+if new_version:
     txt = p.read_text()
     txt_new, n = re.subn(r'(?m)^(version\s*=\s*)\"[^\"]+\"', r'\1"' + new_version + '"', txt, count=1)
     if n == 0:
         print("ERROR: couldn't rewrite version", file=sys.stderr)
         sys.exit(1)
-else:
-    # Set the version to the tag version
-    txt_new = sys.argv[1][len('refs/tags/'):]
-
-if txt_new:
     print("Updating version to:", new_version, file=sys.stderr)
     p.write_text(txt_new)
 else:
