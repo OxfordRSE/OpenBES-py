@@ -14,6 +14,9 @@ doc = tomllib.loads(p.read_text())
 name = doc.get('project',{}).get('name') or doc.get('tool',{}).get('poetry',{}).get('name')
 base_version = doc.get('project',{}).get('version') or doc.get('tool',{}).get('poetry',{}).get('version')
 
+print(f"Current name: {name}", file=sys.stderr)
+print(f"Current version: {base_version}", file=sys.stderr)
+
 if not name or not base_version:
     print("ERROR: missing name/version", file=sys.stderr)
     sys.exit(1)
@@ -28,6 +31,9 @@ if not is_tag:
         releases = list(j.get('releases',{}).keys())
     except Exception:
         releases = []
+
+    print(f"Existing releases on TestPyPI: {releases}", file=sys.stderr)
+
     prefix = base_version + ".dev"
     devs = [int(r[len(prefix):]) for r in releases if r.startswith(prefix) and r[len(prefix):].isdigit()]
     nextdev = max(devs)+1 if devs else 1
@@ -37,7 +43,15 @@ if not is_tag:
     if n == 0:
         print("ERROR: couldn't rewrite version", file=sys.stderr)
         sys.exit(1)
+else:
+    # Set the version to the tag version
+    txt_new = sys.argv[1][len('refs/tags/'):]
+
+if txt_new:
+    print("Updating version to:", new_version, file=sys.stderr)
     p.write_text(txt_new)
+else:
+    print("No changes made to version", file=sys.stderr)
 
 # output for later jobs
 with open(output, 'a') as f:
