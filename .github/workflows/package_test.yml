@@ -91,4 +91,4 @@ jobs:
         run: |
           echo "Release detected: ${GITHUB_EVENT_NAME}"
           pip install twine
-          python -m twine upload ${{ needs.build.outputs.dist-path }}/* --repository https://test.pypi.org/legacy/
+          python -m twine upload ${{ needs.build.outputs.dist-path }}/* --repository-url https://test.pypi.org/legacy/
