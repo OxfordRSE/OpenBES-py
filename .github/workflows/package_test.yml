@@ -90,5 +90,8 @@ jobs:
       - name: Publish
         run: |
           echo "Release detected: ${GITHUB_EVENT_NAME}"
+          echo "Target dir is: ${{ needs.build.outputs.dist-path }}"
+          echo "Contents:"
+          ls -la ${{ needs.build.outputs.dist-path }}
           pip install twine
           python -m twine upload ${{ needs.build.outputs.dist-path }}/* --repository-url https://test.pypi.org/legacy/
