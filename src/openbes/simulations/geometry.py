@@ -3,7 +3,7 @@ from typing import Optional
 
 from pandas import MultiIndex, DataFrame, Series
 
-from src.openbes.types import (
+from ..types import (
     OpenBESSpecification,
     OCCUPATION_ZONES,
     get_zone_number,
