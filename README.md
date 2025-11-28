@@ -28,7 +28,7 @@ If you do not need JIT support, you can install without the `[jit]` extra.
 
 <details>
 <summary>
-### Why doesn't the package default to JIT support?
+<h3>Why doesn't the package default to JIT support?</h3>
 </summary>
 A major use-case for the package is in a web-based environment, using Pyodide. 
 Pyodide does not currently support Numba, so to keep the package lightweight and compatible with such environments, JIT support is made optional.

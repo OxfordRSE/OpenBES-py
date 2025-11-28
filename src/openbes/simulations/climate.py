@@ -1,6 +1,5 @@
 from math import atan
 from typing import Tuple
-import numba
 from numpy import nan, isnan, select, outer, array, maximum
 from pvlib.iotools import read_epw
 from pandas import DataFrame, Series
@@ -18,13 +17,13 @@ from ..types import OpenBESSpecification, TERRAINS, ORIENTATIONS
 try:
     import numba
     USE_JIT = True
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     numba = None
     USE_JIT = False
 try:
     import line_profiler
     USE_PROFILER = os.environ.get('LINE_PROFILE', '0') == '1'
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     line_profiler = None
     USE_PROFILER = False
 
