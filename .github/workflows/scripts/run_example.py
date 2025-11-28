@@ -1,5 +1,5 @@
-from openbes.simulations import BuildingEnergySimulation
-from openbes.types import OpenBESSpecification
+from openBES.simulations import BuildingEnergySimulation
+from openBES.types import OpenBESSpecification
 
 spec = OpenBESSpecification.from_toml('tests/test_cases/cases/600.toml')
 simulation = BuildingEnergySimulation(spec=spec)
