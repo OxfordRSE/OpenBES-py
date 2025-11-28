@@ -3,6 +3,8 @@
 [![Unittest](https://github.com/OxfordRSE/OpenBES-py/actions/workflows/unittest.yml/badge.svg)](https://github.com/OxfordRSE/OpenBES-py/actions/workflows/unittest.yml)
 [![ASHRAE 140 Suite](https://github.com/OxfordRSE/OpenBES-py/actions/workflows/test_cases.yml/badge.svg)](https://github.com/OxfordRSE/OpenBES-py/actions/workflows/test_cases.yml)
 [![.github/workflows/package_test.yml](https://github.com/OxfordRSE/OpenBES-py/actions/workflows/package_test.yml/badge.svg)](https://github.com/OxfordRSE/OpenBES-py/actions/workflows/package_test.yml)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/openBES)
+![PyPI - Version](https://img.shields.io/pypi/v/openBES)
 
 OpenBES-py is an open-source building energy simulation tool written in Python. It is designed to provide transparent, reproducible, and extensible energy modeling for buildings, supporting research, education, and practical analysis.
 
@@ -13,13 +15,41 @@ OpenBES-py is an open-source building energy simulation tool written in Python. 
 - **Standardized test cases**: Planned integration with ASHRAE Standard 140 test cases (see `cases_ashrae_std140_...` directory).
 - **Modern dependency management**: Uses [UV](https://github.com/astral-sh/uv) for fast, reliable Python environment setup (`uv.lock` included).
 
-## Current Status
-
-The Python code reproduces the Excel spreadsheet simulation results for the Holywell House specification to at least 6 decimal places.
-
-The next step is to validate the Python code against ASHRAE Standard 140 test cases.
-
 ## Installation
+
+You can install OpenBES-py via pip:
+
+```bash
+pip install openBES[jit]
+```
+
+This will install the package along with optional JIT compilation support for improved performance (via Numba). 
+If you do not need JIT support, you can install without the `[jit]` extra.
+
+<details>
+<summary>
+### Why doesn't the package default to JIT support?
+</summary>
+A major use-case for the package is in a web-based environment, using Pyodide. 
+Pyodide does not currently support Numba, so to keep the package lightweight and compatible with such environments, JIT support is made optional.
+
+At a later date we might custom-compile the project to WASM with Numba support, but for now this is not available.
+</details>
+
+## Usage
+
+Here is a simple example of how to use OpenBES-py to run a building energy simulation:
+
+```python
+from openBES import BuildingSimulation, OpenBESSpecification
+
+spec_file = "path/to/specification.toml"
+spec = OpenBESSpecification.from_toml(spec_file)
+simulation = BuildingSimulation(spec)  # the simulation is run upon initialization
+total_annual_energy_used = simulation.energy_use.sum().sum()  # collaspse energy use DataFrame -> annual energy in kWh
+```
+
+## Development
 
 1. Install [UV](https://github.com/astral-sh/uv) if you do not have it: `pip install uv`
 

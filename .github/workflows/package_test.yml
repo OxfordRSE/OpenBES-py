@@ -50,7 +50,7 @@ jobs:
 
       - name: Read version, bump .devN for TestPyPI if needed
         id: setver
-        run: python .github/workflows/scripts/set_version.py "${{ github.ref }}"
+        run: python .github/workflows/scripts/update_pyproject.py "${{ github.ref }}"
 
       - name: Build distributions
         run: python -m build --sdist --wheel

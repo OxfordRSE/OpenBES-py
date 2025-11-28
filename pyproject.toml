@@ -7,12 +7,13 @@ requires-python = ">=3.11"
 dependencies = [
     "pandas",
     "pvlib",
-    "numba",
 ]
 
 [project.optional-dependencies]
+jit = ["numba"]
 dev = [
     "line_profiler",
+    "numba",
 ]
 
 [tool.setuptools.packages.find]
