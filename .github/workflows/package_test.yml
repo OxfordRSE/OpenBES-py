@@ -58,6 +58,8 @@ jobs:
       - name: Publish
         run: |
           echo "Release detected: ${GITHUB_EVENT_NAME} ${GITHUB_REF}"
+          unzip -p dist/openbes-0.1.1-py3-none-any.whl openbes-0.1.1.dist-info/WHEEL
+          
           pip install twine
           if [ "${{ github.event_name }}" = "release" ]; then
             python -m twine upload dist/*
