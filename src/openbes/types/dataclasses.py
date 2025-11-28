@@ -1,5 +1,8 @@
+import re
 from dataclasses import dataclass, field
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
+import tomllib
 
 from . import LIGHTING_CONTROL, COOLING_SYSTEM_TYPES, HEATING_SYSTEM_TYPES
 from .enums import (
@@ -30,11 +33,11 @@ class OpenBESParameters:
     cooling_system2_off_time: Optional[int] = None
     cooling_system2_on_time: Optional[int] = None
     cooling_system2_sensible_nominal_capacity: Optional[float] = None
-    cooling_system2_simultaneity_factor_canteen: Optional[float] = None
-    cooling_system2_simultaneity_factor_common: Optional[float] = None
-    cooling_system2_simultaneity_factor_office: Optional[float] = None
-    cooling_system2_simultaneity_factor_other: Optional[float] = None
-    cooling_system2_simultaneity_factor_teaching: Optional[float] = None
+    cooling_system2_simultaneity_factor_canteen: Optional[float] = 0.0
+    cooling_system2_simultaneity_factor_common: Optional[float] = 0.0
+    cooling_system2_simultaneity_factor_office: Optional[float] = 0.0
+    cooling_system2_simultaneity_factor_other: Optional[float] = 0.0
+    cooling_system2_simultaneity_factor_teaching: Optional[float] = 0.0
     cooling_system2_type: Optional[COOLING_SYSTEM_TYPES] = None
     courtyard_length: Optional[float] = None
     courtyard_number: Optional[int] = 0
@@ -55,11 +58,11 @@ class OpenBESParameters:
     heating_system2_number: Optional[int] = None
     heating_system2_off_time: Optional[float] = None
     heating_system2_on_time: Optional[float] = None
-    heating_system2_simultaneity_factor_canteen: Optional[float] = None
-    heating_system2_simultaneity_factor_common: Optional[float] = None
-    heating_system2_simultaneity_factor_office: Optional[float] = None
-    heating_system2_simultaneity_factor_other: Optional[float] = None
-    heating_system2_simultaneity_factor_teaching: Optional[float] = None
+    heating_system2_simultaneity_factor_canteen: Optional[float] = 0.0
+    heating_system2_simultaneity_factor_common: Optional[float] = 0.0
+    heating_system2_simultaneity_factor_office: Optional[float] = 0.0
+    heating_system2_simultaneity_factor_other: Optional[float] = 0.0
+    heating_system2_simultaneity_factor_teaching: Optional[float] = 0.0
     heating_system2_type: Optional[HEATING_SYSTEM_TYPES] = None
     infiltration_correction_factor: Optional[float] = 1.0
     leakage_air_flow_dependent: Optional[float] = 0.0001
@@ -99,6 +102,18 @@ class OpenBESParameters:
     window_correction_factor: Optional[float] = 1.0
 
 
+def _get_meteorological_file(filename: str) -> str:
+    if 'Denver' in filename:
+        return 'USA_Denver_725650TYCST.epw'
+    if 'Oxford' in filename:
+        return 'UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw'
+    if 'Sevilla' in filename:
+        return 'SPAIN_Sevilla.083910_SWEC.epw'
+    if 'Madrid' in filename:
+        return 'SPAIN_Madrid.082210_SWEC.epw'
+    raise ValueError(f"Unknown meteorological file: {filename}")
+
+
 @dataclass
 class OpenBESSpecification:
     """
@@ -112,7 +127,7 @@ class OpenBESSpecification:
     building_height: Optional[float] = None
     building_length: Optional[float] = None
     building_name: Optional[float] = None
-    building_standby_load: Optional[float] = None
+    building_standby_load: Optional[float] = 0.0
     building_type: Optional[float] = None
     building_width: Optional[float] = None
     # Conditioned=True, Unconditioned=False
@@ -132,11 +147,11 @@ class OpenBESSpecification:
     cooling_system1_off_time: Optional[int] = None
     cooling_system1_on_time: Optional[int] = None
     cooling_system1_sensible_nominal_capacity: Optional[float] = None
-    cooling_system1_simultaneity_factor_canteen: Optional[float] = None
-    cooling_system1_simultaneity_factor_common: Optional[float] = None
-    cooling_system1_simultaneity_factor_office: Optional[float] = None
-    cooling_system1_simultaneity_factor_other: Optional[float] = None
-    cooling_system1_simultaneity_factor_teaching: Optional[float] = None
+    cooling_system1_simultaneity_factor_canteen: Optional[float] = 0.0
+    cooling_system1_simultaneity_factor_common: Optional[float] = 0.0
+    cooling_system1_simultaneity_factor_office: Optional[float] = 0.0
+    cooling_system1_simultaneity_factor_other: Optional[float] = 0.0
+    cooling_system1_simultaneity_factor_teaching: Optional[float] = 0.0
     cooling_system1_type: Optional[COOLING_SYSTEM_TYPES] = None
     country: Optional[float] = None
     diesel_annual: Optional[float] = None
@@ -190,11 +205,11 @@ class OpenBESSpecification:
     heating_system1_number: Optional[int] = None
     heating_system1_off_time: Optional[float] = None
     heating_system1_on_time: Optional[float] = None
-    heating_system1_simultaneity_factor_canteen: Optional[float] = None
-    heating_system1_simultaneity_factor_common: Optional[float] = None
-    heating_system1_simultaneity_factor_office: Optional[float] = None
-    heating_system1_simultaneity_factor_other: Optional[float] = None
-    heating_system1_simultaneity_factor_teaching: Optional[float] = None
+    heating_system1_simultaneity_factor_canteen: Optional[float] = 0.0
+    heating_system1_simultaneity_factor_common: Optional[float] = 0.0
+    heating_system1_simultaneity_factor_office: Optional[float] = 0.0
+    heating_system1_simultaneity_factor_other: Optional[float] = 0.0
+    heating_system1_simultaneity_factor_teaching: Optional[float] = 0.0
     heating_system1_type: Optional[HEATING_SYSTEM_TYPES] = None
     holiday: Optional[bool] = None
     leakage_air_flow: Optional[float] = None
@@ -245,12 +260,12 @@ class OpenBESSpecification:
     lighting_system_similar_zone_number_z4: Optional[float] = None
     lighting_system_similar_zone_number_z5: Optional[float] = None
     lighting_system_similar_zone_number_z6: Optional[float] = None
-    lighting_system_simultaneity_factor_z1: Optional[float] = None
-    lighting_system_simultaneity_factor_z2: Optional[float] = None
-    lighting_system_simultaneity_factor_z3: Optional[float] = None
-    lighting_system_simultaneity_factor_z4: Optional[float] = None
-    lighting_system_simultaneity_factor_z5: Optional[float] = None
-    lighting_system_simultaneity_factor_z6: Optional[float] = None
+    lighting_system_simultaneity_factor_z1: Optional[float] = 0.0
+    lighting_system_simultaneity_factor_z2: Optional[float] = 0.0
+    lighting_system_simultaneity_factor_z3: Optional[float] = 0.0
+    lighting_system_simultaneity_factor_z4: Optional[float] = 0.0
+    lighting_system_simultaneity_factor_z5: Optional[float] = 0.0
+    lighting_system_simultaneity_factor_z6: Optional[float] = 0.0
     lighting_system_tech_z1: Optional[LIGHTING_TECHNOLOGIES] = None
     lighting_system_tech_z2: Optional[LIGHTING_TECHNOLOGIES] = None
     lighting_system_tech_z3: Optional[LIGHTING_TECHNOLOGIES] = None
@@ -270,8 +285,8 @@ class OpenBESSpecification:
     occupancy_open_office: Optional[float] = None
     occupancy_open_teaching: Optional[float] = None
     orientation_angle: Optional[float] = None
-    other_electricity_usage: Optional[float] = None
-    other_gas_usage: Optional[float] = None
+    other_electricity_usage: Optional[float] = 0.0
+    other_gas_usage: Optional[float] = 0.0
     roof_angle: Optional[float] = None
     schedule_april: Optional[bool] = None
     schedule_august: Optional[bool] = None
@@ -324,14 +339,14 @@ class OpenBESSpecification:
     uvalue_floor: Optional[float] = None
     uvalue_roof: Optional[float] = None
     uvalue_window: Optional[float] = None
-    ventilation_system1_airflow: Optional[float] = None
+    ventilation_system1_airflow: Optional[float] = 0.0
     ventilation_system1_energy_source: Optional[ENERGY_SOURCES] = None
-    ventilation_system1_heat_recovery_efficiency: Optional[float] = None
-    ventilation_system1_off_time: Optional[int] = None
-    ventilation_system1_on_time: Optional[int] = None
-    ventilation_system1_rated_input_power: Optional[float] = None
+    ventilation_system1_heat_recovery_efficiency: Optional[float] = 0.0
+    ventilation_system1_off_time: Optional[int] = 1
+    ventilation_system1_on_time: Optional[int] = 24
+    ventilation_system1_rated_input_power: Optional[float] = 0.0
     ventilation_system1_type: Optional[float] = None
-    ventilation_system1_ventilated_area: Optional[float] = None
+    ventilation_system1_ventilated_area: Optional[float] = 1.0
     water_demand: Optional[float] = None
     water_reference_temperature: Optional[float] = None
     water_supply_temperature: Optional[float] = None
@@ -368,3 +383,44 @@ class OpenBESSpecification:
     zone_name_z3: Optional[float] = None
     zone_name_z4: Optional[float] = None
     zone_name_z5: Optional[float] = None
+
+    @classmethod
+    def from_toml(cls, toml_file: Union[dict, str, Path]):
+        if isinstance(toml_file, (str, Path)):
+            with open(toml_file, "rb") as f:
+                toml_content = tomllib.load(f)
+        else:
+            toml_content = toml_file
+            
+        filtered = {k: v for k, v in toml_content.items() if v is not None and v != ""}
+        typed = filtered
+        for k, v in typed.items():
+            if k == 'i.meteorological_file':
+                typed[k] = _get_meteorological_file(v)
+            if k.endswith('_energy_source'):
+                typed[k] = ENERGY_SOURCES.get_by_value(v)
+            elif k.endswith('_type'):
+                if bool(re.search('[id]\.heating_system\d_type', k)):
+                    typed[k] = HEATING_SYSTEM_TYPES.get_by_value(v)
+                elif bool(re.search('[id]\.cooling_system\d_type', k)):
+                    typed[k] = COOLING_SYSTEM_TYPES.get_by_value(v)
+            elif k == 'i.heat_capacity':
+                typed[k] = HEAT_CAPACTIY_CLASSES.get_by_value(v)
+            elif k == 'i.lighting_control':
+                typed[k] = LIGHTING_CONTROL.get_by_value(v)
+            elif k.startswith('i.lighting_system_ballast'):
+                typed[k] = LIGHTING_BALLASTS.get_by_value(v)
+            elif k.startswith('i.lighting_system_tech'):
+                typed[k] = LIGHTING_TECHNOLOGIES.get_by_value(v)
+            elif k == 'i.terrain_class':
+                typed[k] = TERRAINS.get_by_value(v)
+            elif isinstance(v, str) and v.lower() in ['false', 'no']:
+                typed[k] = False
+            elif isinstance(v, str) and v.lower() in ['true', 'yes']:
+                typed[k] = True
+            elif k.startswith('condition_z'):
+                typed[k] = v.lower() == "Conditioned"
+
+        parameters = {k[2:]: v for k, v in filtered.items() if k.startswith("d")}
+        specification = {k[2:]: v for k, v in filtered.items() if k.startswith("i")}
+        return cls(parameters=OpenBESParameters(**parameters), **specification)

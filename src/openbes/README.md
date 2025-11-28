@@ -4,6 +4,9 @@ This is the source code for OpenBES.
 
 This README is a place to keep development notes and tips.
 
+NOTE: This is not necessarily a reflection of how the Python code works. 
+  It is primarily a documentation of how the original Excel BES tool works,
+
 ## Excel sheet useful bookmarks
 
 - Target output values: 4_XL-BES_tool!R243:R248
@@ -180,21 +183,6 @@ The consumption calculated below only matters when the building is occupied and 
 
 ## Data representation
 
-### Long format
-
-As a stylistic choice, data are presented in "long" format, where the number of columns is known a priori, 
-and the number of rows can (theoretically) vary.
-
-This means, for example, that a data frame of monthly energy consumption by lighting zone will have columns
-representing the months (because the number of months is known), and rows representing the lighting zones 
-(because the number of zones can vary).
-
-### Operational days/month
-
-Operational days/month count is used for scaling daily energy use to monthly energy use. 
-In the case of lighting, for July and August, this value is hardcoded, whereas for other months and other
-energy uses it is calculated based on the hourly simulation and occupancy information.
-
 ### Magic numbers
 
 The heating/cooling calculation uses a number of "magic numbers" (i.e., hardcoded constants) that are derived from regression analysis.
@@ -215,7 +203,7 @@ When we have achieved full parity, we can consider refactoring to use dynamic li
   - Users can input values as they wish, so this is fine.
 - [x] Only Office and Teaching zones are considered for calculating occupancy (m2/person) in 4_BES-Inputs!C139)
   - People only 'belong' in these zones, so this is fine. If they're in other zones, they're generating heat there, but not their 'home' zone, so the energy generation is still the same.
-- 4_BES-Inputs!C144 is a constant that could be a parameter
+- [ ] 4_BES-Inputs!C144 is a constant that could be a parameter
 
 ### Known/potential issues
 

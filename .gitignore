@@ -2,3 +2,7 @@
 .venv/
 **/__pycache__/
 **/profile_output*
+.cases_ashrae-std140-2023_with-results
+build/
+dist/
+*.egg-info/

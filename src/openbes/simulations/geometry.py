@@ -3,7 +3,7 @@ from typing import Optional
 
 from pandas import MultiIndex, DataFrame, Series
 
-from src.openbes.types import (
+from ..types import (
     OpenBESSpecification,
     OCCUPATION_ZONES,
     get_zone_number,
@@ -37,13 +37,6 @@ COMPASS_POINT_FACADE = DataFrame(
 EXPOSURES_MAP = DataFrame(
     index=MultiIndex.from_product([list(ORIENTATIONS), list(COMPASS_POINTS)], names=['orientation', 'compass_point'])
 )
-
-# Database AC5:AG10
-# Frequently appears as Am/Af e.g. in Hourly simulation AM91
-HEAT_CAPACITY_VALUES = DataFrame({
-    'Am': [2.5, 2.5, 2.5, 3.0, 3.5, 2.0],
-    'Cm': [80_000.0, 110_000.0, 165_000.0, 260_000.0, 370_000.0, 51944.0],
-}, index=[list(HEAT_CAPACTIY_CLASSES)])
 
 class Rectangle:
     def __init__(self, length: float, width: float):
@@ -90,6 +83,8 @@ class BuildingGeometry:
     _roof_factor: float
     _conditioned_floor_area: float
     _building_mass_factor: float
+    _heat_capacity_am: float
+    _heat_capacity_cm: float
 
     def __init__(self, spec: OpenBESSpecification):
         self.spec = spec
@@ -97,6 +92,53 @@ class BuildingGeometry:
         self._orientation_facade = ORIENTATION_FACADE.copy()
         self._compass_point_facade = COMPASS_POINT_FACADE.copy()
         self._exposures = EXPOSURES_MAP.copy()
+
+    @property
+    def heat_capacity_am(self) -> float:
+        """Building heat capacity factor Am (m²).
+        [Database cells AF5:AF10]
+        Frequently appears as Am/Af e.g. in Hourly simulation AM91
+        """
+        if not hasattr(self, '_heat_capacity_am') or self._heat_capacity_am is None:
+            if self.spec.heat_capacity in [
+                HEAT_CAPACTIY_CLASSES.Very_light,
+                HEAT_CAPACTIY_CLASSES.Light,
+                HEAT_CAPACTIY_CLASSES.Medium,
+            ]:
+                self._heat_capacity_am = 2.5
+            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Heavy:
+                self._heat_capacity_am = 3.0
+            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Very_heavy:
+                self._heat_capacity_am = 3.5
+            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Custom_value:
+                self._heat_capacity_am = self.spec.parameters.advanced_heat_capacity_am
+            else:
+                raise ValueError(f"Unknown heat capacity class: {self.spec.heat_capacity}")
+        return self._heat_capacity_am
+
+    @property
+    def heat_capacity_cm(self) -> float:
+        """Building heat capacity Cm (kJ/K).
+        [Database cells AG5:AG10]
+        """
+        if not hasattr(self, '_heat_capacity_cm') or self._heat_capacity_cm is None:
+            if self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Very_light:
+                self._heat_capacity_cm = 80_000.0
+            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Light:
+                self._heat_capacity_cm = 110_000.0
+            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Medium:
+                self._heat_capacity_cm = 165_000.0
+            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Heavy:
+                self._heat_capacity_cm = 260_000.0
+            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Very_heavy:
+                self._heat_capacity_cm = 370_000.0
+            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Custom_value:
+                self._heat_capacity_cm = (
+                        self.spec.parameters.heat_capacity_joule + self.spec.parameters.air_heat_capacity
+                )
+            else:
+                raise ValueError(f"Unknown heat capacity class: {self.spec.heat_capacity}")
+        return self._heat_capacity_cm
 
     @property
     def equivalent_rectangle(self) -> Rectangle:
@@ -472,27 +514,11 @@ class BuildingGeometry:
         return self.opaque_areas.sum()
 
     @property
-    def building_heat_capacitance(self) -> float:
-        """Building heat capacitance in kJ/K.
-        Cm
-        """
-        return HEAT_CAPACITY_VALUES['Cm'].loc[self.spec.heat_capacity].iat[0]
-
-    @property
     def building_mass_area(self) -> float:
         """Building mass area in m².
         Am  (sometimes Af????)
         """
-        return self.building_mass_factor * self.conditioned_floor_area
-
-    @property
-    def building_mass_factor(self) -> float:
-        """Building mass factor (Am / Af). Am is sometimes Af and vice-versa?????
-        Listed as Am/Af in Hourly simulation cell AM91.
-        """
-        if not hasattr(self, '_building_mass_factor') or self._building_mass_factor is None:
-            self._building_mass_factor = HEAT_CAPACITY_VALUES['Am'].loc[self.spec.heat_capacity].iat[0]
-        return self._building_mass_factor
+        return self.heat_capacity_am * self.conditioned_floor_area
 
     @property
     def heat_transfer_rate_windows(self) -> float:
@@ -693,7 +719,7 @@ class BuildingGeometry:
         if not hasattr(self, '_heat_transfer_ms') or self._heat_transfer_ms is None:
             factor = 9.1  # Unnamed factor hardcoded in cell AR95 formula
             # Am or Am/Af is converted and reconverted several times, but ends up being just the lookup value
-            Am = HEAT_CAPACITY_VALUES.loc[self.spec.heat_capacity, 'Am'].iat[0]
+            Am = self.heat_capacity_am
             self._heat_transfer_ms = factor * Am
         return self._heat_transfer_ms
 

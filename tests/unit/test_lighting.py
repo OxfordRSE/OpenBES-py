@@ -5,7 +5,7 @@ from src.openbes.simulations.base import HOURS_DF
 from src.openbes.simulations.lighting import LightingSimulation
 from src.openbes.types import MONTHS, OpenBESSpecification, LIGHTING_TECHNOLOGIES, LIGHTING_BALLASTS, OpenBESParameters, \
     ENERGY_SOURCES
-from tests.utils import (
+from tests.unit.utils import (
     OpenBESTestCase,
 )
 

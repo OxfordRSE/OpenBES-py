@@ -9,6 +9,14 @@ class ListableEnum(Enum):
     def get_by_index(cls, index):
         return cls(cls.list_values()[index])
 
+    @classmethod
+    def get_by_value(cls, value):
+        v = value.strip().lower()
+        for member in cls:
+            if member.value.strip().lower() == v:
+                return member
+        raise ValueError(f"{value} is not a valid value for {cls.__name__}")
+
     def __lt__(self, other):
         if type(other) is not type(self):
             return NotImplemented
@@ -163,7 +171,7 @@ class HEAT_CAPACTIY_CLASSES(ListableEnum):
 
 
 class TERRAINS(ListableEnum):
-    Open = "Open"
+    Open = "Open terrain"
     Country = "Country"
     Urban = "Urban"
 

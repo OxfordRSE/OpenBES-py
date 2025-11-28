@@ -1,7 +1,5 @@
 from math import atan
 from typing import Tuple
-
-import line_profiler
 import numba
 from numpy import nan, isnan, select, outer, array, maximum
 from pvlib.iotools import read_epw
@@ -15,6 +13,49 @@ from .occupancy import OccupationSimulation
 from .solar_irradiation import SolarIrradiationSimulation
 from .ventilation import VentilationSimulation
 from ..types import OpenBESSpecification, TERRAINS, ORIENTATIONS
+
+# Optional dependencies
+try:
+    import numba
+    USE_JIT = True
+except ImportError:
+    numba = None
+    USE_JIT = False
+try:
+    import line_profiler
+    USE_PROFILER = os.environ.get('LINE_PROFILE', '0') == '1'
+except ImportError:
+    line_profiler = None
+    USE_PROFILER = False
+
+def jit_if_available(_fn=None, **jit_kwargs):
+    def decorator(fn):
+        if not USE_JIT:
+            return fn
+        return numba.jit(**jit_kwargs)(fn)
+    return decorator if _fn is None else decorator(_fn)
+
+def profile_if_available(_fn=None, **profile_kwargs):
+    """Profile if line_profiler is installed and enabled via LINE_PROFILE=1 environment variable."""
+    def decorator(fn):
+        if not USE_PROFILER:
+            return fn
+        return line_profiler.profile(**profile_kwargs)(fn)
+    return decorator if _fn is None else decorator(_fn)
+
+def profile_or_jit(_fn=None, jit_kwargs: dict = None, profile_kwargs: dict = None):
+    """
+    Can't have both JIT and line profiler at the same time, so this decorator applies one or the other if available.
+    """
+    def decorator(fn):
+        if USE_PROFILER:
+            return line_profiler.profile(**profile_kwargs)(fn)
+        elif USE_JIT:
+            return numba.jit(**jit_kwargs)(fn)
+        else:
+            return fn
+    return decorator if _fn is None else decorator(_fn)
+    
 
 RELATIVE_HUMIDITY = 55.0  # Percentage
 
@@ -37,8 +78,7 @@ def get_available_epw_files() -> list[str]:
         if f.endswith('.epw')
     ]
 
-@numba.njit
-# @line_profiler.profile  # JIT compilation OR runtime profiling, can't have both
+@profile_or_jit(jit_kwargs={'nopython': True})
 def _calculate_temperatures(
         prev_thermal_mass: float,
         Hc_nd: float,
@@ -73,31 +113,32 @@ def _calculate_temperatures(
                     )
             ) / htr_2
     )
+    # Hourly variables are prev_thermal_mass, htr_3, m_tot
     building_thermal_mass_t = (
-            prev_thermal_mass * (internal_heat_capacity_w - 0.5 * (htr_3 + Htr_em))
-            + m_tot
-    ) / (internal_heat_capacity_w + 0.5 * (htr_3 + Htr_em))
+                                      prev_thermal_mass * (internal_heat_capacity_w - 0.5 * (htr_3 + Htr_em))
+                                      + m_tot
+                              ) / (internal_heat_capacity_w + 0.5 * (htr_3 + Htr_em))
     building_thermal_mass = (prev_thermal_mass + building_thermal_mass_t) / 2
     internal_surface_temp = (
-            Htr_ms * building_thermal_mass
-            + temp_st
-            + Htr_w * dry_bulb_temp
-            + htr_1
-            * (
-                    supply_air_temp
-                    + (internal_heat_adjusted + Hc_nd)
-                    / heat_transmission_by_ventilation
-            )
-    ) / (Htr_ms + Htr_w + htr_1)
+                                    Htr_ms * building_thermal_mass
+                                    + temp_st
+                                    + Htr_w * dry_bulb_temp
+                                    + htr_1
+                                    * (
+                                            supply_air_temp
+                                            + (internal_heat_adjusted + Hc_nd)
+                                            / heat_transmission_by_ventilation
+                                    )
+                            ) / (Htr_ms + Htr_w + htr_1)
     air_free_temp = (
-            Htr_is * internal_surface_temp
-            + heat_transmission_by_ventilation * supply_air_temp
-            + internal_heat_adjusted
-            + Hc_nd
-    ) / (Htr_is + heat_transmission_by_ventilation)
+                            Htr_is * internal_surface_temp
+                            + heat_transmission_by_ventilation * supply_air_temp
+                            + internal_heat_adjusted
+                            + Hc_nd
+                    ) / (Htr_is + heat_transmission_by_ventilation)
     return m_tot, building_thermal_mass_t, internal_surface_temp, air_free_temp
 
-@line_profiler.profile
+@profile_if_available
 class ClimateSimulation(HourlySimulation):
     geometry: BuildingGeometry
     occupancy: OccupationSimulation
@@ -221,7 +262,7 @@ class ClimateSimulation(HourlySimulation):
             ),
             "internal_heat_capacity_w": self.internal_heat_capacity / 3600,  # J/K to W/K [Hourly simulation AM93]
             "mass_factor_scaled": (
-                    self.geometry.building_mass_factor /
+                    self.geometry.heat_capacity_am /
                     4.5  # [A_at hardcoded as 4.5 in Hourly Simulation cell AM84]
             ),
             # Arrayify some Series for performance
@@ -289,7 +330,7 @@ class ClimateSimulation(HourlySimulation):
         3. Air flow dependent [Hourly simulation column JH]
         """
         qv_diff = 0.0  # [Hardcoded as blank in Hourly simulation column IU]
-        q4pa = self.spec.parameters.leakage_air_flow_dependent  # JE97
+        q4pa = max(self.spec.parameters.leakage_air_flow_dependent, 0.0001)  # JE97
         Hstack = 10  # [Hardcoded in JE101: ISO 15242:2007. 6.7.1]
         air_set_temp_prev = get_prev("air_set_temp", 20.0)
         temp_diff = abs(dry_bulb_temp - air_set_temp_prev)
@@ -426,7 +467,7 @@ class ClimateSimulation(HourlySimulation):
                 supply_air_temp=supply_air_temp,
                 Htr_em=Htr_em,
                 Htr_is=Htr_is,
-                Htr_ms=9.1 * self.geometry.building_mass_factor,  # [Hardcoded in Hourly Simulation cell AR95]
+                Htr_ms=9.1 * self.geometry.heat_capacity_am,  # [Hardcoded in Hourly Simulation cell AR95]
                 Htr_w=self.geometry.heat_transfer_rate_windows,
                 internal_heat_capacity_w=internal_heat_capacity_w,
             )
@@ -465,19 +506,20 @@ class ClimateSimulation(HourlySimulation):
         20. Building thermal mass/@t with heating/cooling need = actual need [Hourly Simulation columns CR, CQ]
         21. Air temp with heating/cooling need = actual need [Hourly Simulation column CT]
         Note: The heating/cooling need is an interpretation of the Excel spreadsheet's winter/summer set point temps.
+        22. Heating/cooling need [Hourly Simulation column DB]
         """
         # [Hourly simulation column CK]
         is_occupied = self._cache['is_occupied'][i]
         needs_heating = air_free_temp_hc_0 < max_temp
         needs_cooling = air_free_temp_hc_0 > min_temp
         if is_occupied and (needs_heating or needs_cooling):
-            heating_cooling_need = (
+            heating_cooling_demand = (
                     10 * (air_set_temp - air_free_temp_hc_0) / (air_free_temp_hc_10 - air_free_temp_hc_0)
             )
         else:
-            heating_cooling_need = 0.0
+            heating_cooling_demand = 0.0
         _, building_thermal_mass_hc_actual_t, _, air_free_temp_hc_actual = calculate_temperatures(
-            hc_need=heating_cooling_need,
+            hc_need=heating_cooling_demand,
             prev_tm=prev_thermal_mass_hc_actual
         )
 
@@ -507,6 +549,7 @@ class ClimateSimulation(HourlySimulation):
             "building_thermal_mass_hc_actual": building_thermal_mass_hc_actual,
             "building_thermal_mass_hc_actual_t": building_thermal_mass_hc_actual_t,
             "air_free_temp_hc_actual": air_free_temp_hc_actual,
+            "heating_cooling_demand": heating_cooling_demand,
         }
         return values
 
@@ -617,7 +660,7 @@ class ClimateSimulation(HourlySimulation):
             A_at = 4.5  # [Hardcoded in Hourly Simulation cell AM84]
             self._theta_st_partial = (
                     1 -
-                    (self.geometry.building_mass_factor / A_at) -
+                    (self.geometry.heat_capacity_am / A_at) -
                     (self.geometry.heat_transfer_rate_windows / (9.1 * A_at))
             )
         return self._theta_st_partial
@@ -636,7 +679,7 @@ class ClimateSimulation(HourlySimulation):
         """
         return (
                 self.spec.parameters.heat_capacity_correction_factor *
-                self.geometry.building_heat_capacitance
+                self.geometry.heat_capacity_cm
         )
 
     @property
@@ -834,8 +877,8 @@ class ClimateSimulation(HourlySimulation):
         ϕint,ap [Hourly Simulation column KJ]
         """
         if 'internal_heat_from_appliances' not in self._hours.columns:
-            # Constant, Inputs cell C144, Table G.11 ISO 13790
-            appliance_W_per_m2 = 1.0
+            # Inputs cell C144, Table G.11 ISO 13790
+            appliance_W_per_m2 = self.spec.appliances_load * self.spec.parameters.appliance_on_off
             self._hours['internal_heat_from_appliances'] = (
                     self.occupancy.occupancy['occupancy_ratio'] *
                     appliance_W_per_m2
@@ -1053,10 +1096,31 @@ class ClimateSimulation(HourlySimulation):
         return self._hours['solar_heat']
 
     @property
-    def temp_change_demand(self) -> float:
-        """Temperature change demand based in W/m2.
-        ϕHC,nd, W/m2
+    def heating_cooling_demand(self) -> 'Series[float]':
+        """Hourly temperature change demand based in W.
+        ϕHC,nd W [Hourly simulation column DB * zone area]
+
+        Has columns for heating and cooling demand because they need to be weighted by their scaling factors.
+
+        This is used for the ASHRAE140 test cases to determine the heating and cooling demand.
         """
-        if 'temp_change_demand' not in self._hours.columns:
-            raise NotImplementedError
-        return self._hours['temp_change_demand']
+        return self._hours['heating_cooling_demand']
+
+    @property
+    def heating_demand(self) -> 'Series[float]':
+        """Hourly heating need in W/m2.
+        Represents values from heating_cooling_demand clipped to only positive values.
+        """
+        if 'heating_need' not in self._hours.columns:
+            self._hours['heating_need'] = self.heating_cooling_demand.clip(0, None)
+        return self._hours['heating_need']
+
+    @property
+    def cooling_demand(self) -> 'Series[float]':
+        """Hourly cooling need in W/m2.
+        Represents values from heating_cooling_demand clipped to only negative values, then inverted.
+        """
+        if 'cooling_need' not in self._hours.columns:
+            self._hours['cooling_need'] = self.heating_cooling_demand.clip(None, 0)
+            self._hours['cooling_need'] = -self._hours['cooling_need']
+        return self._hours['cooling_need']
