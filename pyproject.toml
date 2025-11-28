@@ -8,5 +8,8 @@ dependencies = [
     "pandas",
     "pvlib",
     "numba",
-    "line_profiler"
+]
+[project.optional-dependencies]
+dev = [
+    "lineprofiler",
 ]
