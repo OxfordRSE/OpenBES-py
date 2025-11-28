@@ -55,7 +55,7 @@ jobs:
 
       - name: Save artifacts path
         id: save
-        run: echo "dist-path=dist" >> $GITHUB_OUTPUT
+        run: echo "dist-path=$(realpath dist)" >> $GITHUB_OUTPUT
 
   pypi-publish:
     name: Upload release to PyPI
