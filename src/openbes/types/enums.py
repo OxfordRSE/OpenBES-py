@@ -161,7 +161,7 @@ class THERMAL_BREAKS(ListableEnum):
     Shading = "Shading devices (roller blinds)"
 
 
-class HEAT_CAPACTIY_CLASSES(ListableEnum):
+class HEAT_CAPACITY_CLASSES(ListableEnum):
     Very_light = "Very light"
     Light = "Light"
     Medium = "Medium"

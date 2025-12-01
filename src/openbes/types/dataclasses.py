@@ -9,7 +9,7 @@ from .enums import (
     LIGHTING_TECHNOLOGIES,
     LIGHTING_BALLASTS,
     ENERGY_SOURCES,
-    HEAT_CAPACTIY_CLASSES,
+    HEAT_CAPACITY_CLASSES,
     TERRAINS
 )
 
@@ -88,7 +88,7 @@ class OpenBESParameters:
     roof_emissivity: Optional[float] = 0.9
     shading_correction_factor: Optional[float] = 1.0
     specific_heat_of_air: Optional[float] = 1.015
-    temperature_tolerance: Optional[float] = None
+    temperature_tolerance: Optional[float] = 0.0
     ventilation_system2_airflow: Optional[float] = None
     ventilation_system2_energy_source: Optional[float] = None
     ventilation_system2_heat_recovery_efficiency: Optional[float] = None
@@ -198,7 +198,7 @@ class OpenBESSpecification:
     ground_floor_area_z3: Optional[float] = None
     ground_floor_area_z4: Optional[float] = None
     ground_floor_area_z5: Optional[float] = None
-    heat_capacity: Optional[HEAT_CAPACTIY_CLASSES] = None
+    heat_capacity: Optional[HEAT_CAPACITY_CLASSES] = None
     heating_system1_efficiency_cop: Optional[float] = None
     heating_system1_energy_source: Optional[ENERGY_SOURCES] = None
     heating_system1_nominal_capacity: Optional[float] = None
@@ -405,7 +405,7 @@ class OpenBESSpecification:
                 elif bool(re.search('[id]\.cooling_system\d_type', k)):
                     typed[k] = COOLING_SYSTEM_TYPES.get_by_value(v)
             elif k == 'i.heat_capacity':
-                typed[k] = HEAT_CAPACTIY_CLASSES.get_by_value(v)
+                typed[k] = HEAT_CAPACITY_CLASSES.get_by_value(v)
             elif k == 'i.lighting_control':
                 typed[k] = LIGHTING_CONTROL.get_by_value(v)
             elif k.startswith('i.lighting_system_ballast'):

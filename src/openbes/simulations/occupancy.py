@@ -168,7 +168,7 @@ class OccupationSimulation(HourlySimulation):
             open_times = [self.spec.occupancy_open_office, self.spec.occupancy_open_canteen, self.spec.occupancy_open_teaching]
             close_times = [self.spec.occupancy_close_office, self.spec.occupancy_close_canteen, self.spec.occupancy_close_teaching]
             if all(ot is None for ot in open_times) or all(ct is None for ct in close_times):
-                raise ValueError("Occupancy open and close times must be self.specified in the building self.specification.")
+                raise ValueError("Occupancy open and close times must be self.specified in the building specification.")
             open_time = min(ot for ot in open_times if ot is not None)
             close_time = max(ct for ct in close_times if ct is not None)
 
@@ -200,7 +200,7 @@ class OccupationSimulation(HourlySimulation):
 
     @property
     def occupation_m2_per_person(self) -> float:
-        """Calculate the occupation area per person based on building self.specifications.
+        """Calculate the occupation area per person based on building specifications.
         m2/person [Inputs C139]
 
         The occupation m2/person is calculated as the building area for zones in which people typically inhabit
@@ -236,14 +236,14 @@ class OccupationSimulation(HourlySimulation):
 
     @property
     def metabolic_rate_per_m2(self) -> float:
-        """Calculate the metabolic rate per square meter based on building self.specifications.
+        """Calculate the metabolic rate per square meter based on building specifications.
         [Inputs cell C140, Database R32: Table G.10 ISO 13790]
 
         The more space each person has (m2/person), the lower the metabolic rate per square meter (W/m2).
         ISO 13790 provides typical values for metabolic rates based on occupation density.
 
         Args:
-            self.spec (OpenBESSpecification): The building self.specifications self.spec data class.
+            self.spec (OpenBESSpecification): The building specifications self.spec data class.
         Returns:
             float: The metabolic rate per square meter in W/m2.
         """
@@ -263,7 +263,7 @@ class OccupationSimulation(HourlySimulation):
                     if occupation_density < occupation_density_thresholds[i]['threshold_m2_per_person']:
                         self._metabolic_rate_per_m2 = occupation_density_thresholds[i]['metabolic_rate_W_per_m2']
                         break
-            if self._metabolic_rate_per_m2 is None:
+            if not hasattr(self, '_metabolic_rate_per_m2') or self._metabolic_rate_per_m2 is None:
                 logger.warning("Occupation density lower than 0.05 person/m2. Using minimum metabolic rate of 2 W/m2.")
                 self._metabolic_rate_per_m2 = 2.0
         return self._metabolic_rate_per_m2

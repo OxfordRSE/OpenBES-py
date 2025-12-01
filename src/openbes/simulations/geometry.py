@@ -10,7 +10,7 @@ from ..types import (
     COMPASS_POINTS,
     FLOORS,
     ORIENTATIONS,
-    THERMAL_BREAKS, HEAT_CAPACTIY_CLASSES,
+    THERMAL_BREAKS, HEAT_CAPACITY_CLASSES,
 )
 
 THERMAL_BREAK_TRANSMITTANCE = {
@@ -101,16 +101,16 @@ class BuildingGeometry:
         """
         if not hasattr(self, '_heat_capacity_am') or self._heat_capacity_am is None:
             if self.spec.heat_capacity in [
-                HEAT_CAPACTIY_CLASSES.Very_light,
-                HEAT_CAPACTIY_CLASSES.Light,
-                HEAT_CAPACTIY_CLASSES.Medium,
+                HEAT_CAPACITY_CLASSES.Very_light,
+                HEAT_CAPACITY_CLASSES.Light,
+                HEAT_CAPACITY_CLASSES.Medium,
             ]:
                 self._heat_capacity_am = 2.5
-            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Heavy:
+            elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Heavy:
                 self._heat_capacity_am = 3.0
-            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Very_heavy:
+            elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Very_heavy:
                 self._heat_capacity_am = 3.5
-            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Custom_value:
+            elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Custom_value:
                 self._heat_capacity_am = self.spec.parameters.advanced_heat_capacity_am
             else:
                 raise ValueError(f"Unknown heat capacity class: {self.spec.heat_capacity}")
@@ -122,17 +122,17 @@ class BuildingGeometry:
         [Database cells AG5:AG10]
         """
         if not hasattr(self, '_heat_capacity_cm') or self._heat_capacity_cm is None:
-            if self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Very_light:
+            if self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Very_light:
                 self._heat_capacity_cm = 80_000.0
-            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Light:
+            elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Light:
                 self._heat_capacity_cm = 110_000.0
-            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Medium:
+            elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Medium:
                 self._heat_capacity_cm = 165_000.0
-            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Heavy:
+            elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Heavy:
                 self._heat_capacity_cm = 260_000.0
-            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Very_heavy:
+            elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Very_heavy:
                 self._heat_capacity_cm = 370_000.0
-            elif self.spec.heat_capacity == HEAT_CAPACTIY_CLASSES.Custom_value:
+            elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Custom_value:
                 self._heat_capacity_cm = (
                         self.spec.parameters.heat_capacity_joule + self.spec.parameters.air_heat_capacity
                 )
