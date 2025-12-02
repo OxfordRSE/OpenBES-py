@@ -2,7 +2,7 @@ from importlib.resources import files
 from math import atan
 from pathlib import Path
 from typing import Tuple
-from numpy import nan, isnan, select, outer, array, maximum
+from numpy import nan, select, outer, array, maximum, isnan
 from pvlib.iotools import read_epw
 from pandas import DataFrame, Series
 import os
@@ -181,8 +181,6 @@ class ClimateSimulation(HourlySimulation):
         for i in range(n):
             row = self._calculate_hour_row(i=i, prev_row=row)
             results.append(row)
-            if i == 1 and any(isnan(v) for v in row.values()):
-                raise ValueError(f"NaN values:\n{DataFrame([row])}")
         results_df = DataFrame(results, index=self._hours.index)
         self._hours = self._hours.join(results_df)
         # clear cache
@@ -549,6 +547,10 @@ class ClimateSimulation(HourlySimulation):
             "air_free_temp_hc_actual": air_free_temp_hc_actual,
             "heating_cooling_demand": heating_cooling_demand,
         }
+
+        if i == 1 and any(isnan(v) for v in values.values()):
+            raise ValueError(f"NaN values:\n{DataFrame([values])}")
+
         return values
 
     @property

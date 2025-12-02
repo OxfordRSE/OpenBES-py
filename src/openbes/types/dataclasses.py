@@ -28,7 +28,7 @@ class OpenBESParameters:
     cooling_system2_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
     cooling_system2_min_demand: Optional[float] = None
     cooling_system2_nominal_capacity: Optional[float] = None
-    cooling_system2_number: Optional[int] = None
+    cooling_system2_number: Optional[int] = 0
     cooling_system2_off_time: Optional[int] = None
     cooling_system2_on_time: Optional[int] = None
     cooling_system2_sensible_nominal_capacity: Optional[float] = None
@@ -54,7 +54,7 @@ class OpenBESParameters:
     heating_system2_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
     heating_system2_min_demand: Optional[float] = None
     heating_system2_nominal_capacity: Optional[float] = None
-    heating_system2_number: Optional[int] = None
+    heating_system2_number: Optional[int] = 0
     heating_system2_off_time: Optional[float] = None
     heating_system2_on_time: Optional[float] = None
     heating_system2_simultaneity_factor_canteen: Optional[float] = 0.0
@@ -139,11 +139,11 @@ class OpenBESSpecification:
     building_type: Optional[float] = None
     building_width: Optional[float] = None
     # Conditioned=True, Unconditioned=False
-    condition_z1: Optional[bool] = None
+    condition_z1: Optional[bool] = True
     # Conditioned=True, Unconditioned=False
-    condition_z2: Optional[bool] = None
+    condition_z2: Optional[bool] = True
     # Conditioned=True, Unconditioned=False
-    condition_z3: Optional[bool] = None
+    condition_z3: Optional[bool] = True
     # Conditioned=True, Unconditioned=False
     condition_z4: Optional[bool] = None
     # Conditioned=True, Unconditioned=False
@@ -151,7 +151,7 @@ class OpenBESSpecification:
     cooling_system1_energy_efficifiency_ratio: Optional[float] = None
     cooling_system1_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
     cooling_system1_nominal_capacity: Optional[float] = None
-    cooling_system1_number: Optional[int] = None
+    cooling_system1_number: Optional[int] = 0
     cooling_system1_off_time: Optional[int] = None
     cooling_system1_on_time: Optional[int] = None
     cooling_system1_sensible_nominal_capacity: Optional[float] = None
@@ -210,7 +210,7 @@ class OpenBESSpecification:
     heating_system1_efficiency_cop: Optional[float] = None
     heating_system1_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
     heating_system1_nominal_capacity: Optional[float] = None
-    heating_system1_number: Optional[int] = None
+    heating_system1_number: Optional[int] = 0
     heating_system1_off_time: Optional[float] = None
     heating_system1_on_time: Optional[float] = None
     heating_system1_simultaneity_factor_canteen: Optional[float] = 0.0
@@ -225,31 +225,31 @@ class OpenBESSpecification:
     lighting_control: Optional[LIGHTING_CONTROL] = field(default=None, metadata={'cls': LIGHTING_CONTROL})
     lighting_off_time: Optional[float] = None
     lighting_on_time: Optional[float] = None
-    lighting_simultaneity_factor: Optional[float] = None
+    lighting_simultaneity_factor: Optional[float] = 0.2
     lighting_system_ballast_z1: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
     lighting_system_ballast_z2: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
     lighting_system_ballast_z3: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
     lighting_system_ballast_z4: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
     lighting_system_ballast_z5: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
     lighting_system_ballast_z6: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
-    lighting_system_lamp_number_z1: Optional[float] = None
-    lighting_system_lamp_number_z2: Optional[float] = None
-    lighting_system_lamp_number_z3: Optional[float] = None
-    lighting_system_lamp_number_z4: Optional[float] = None
-    lighting_system_lamp_number_z5: Optional[float] = None
-    lighting_system_lamp_number_z6: Optional[float] = None
+    lighting_system_lamp_number_z1: Optional[int] = None
+    lighting_system_lamp_number_z2: Optional[int] = None
+    lighting_system_lamp_number_z3: Optional[int] = None
+    lighting_system_lamp_number_z4: Optional[int] = None
+    lighting_system_lamp_number_z5: Optional[int] = None
+    lighting_system_lamp_number_z6: Optional[int] = None
     lighting_system_lamp_power_z1: Optional[float] = None
     lighting_system_lamp_power_z2: Optional[float] = None
     lighting_system_lamp_power_z3: Optional[float] = None
     lighting_system_lamp_power_z4: Optional[float] = None
     lighting_system_lamp_power_z5: Optional[float] = None
     lighting_system_lamp_power_z6: Optional[float] = None
-    lighting_system_luminary_number_z1: Optional[float] = None
-    lighting_system_luminary_number_z2: Optional[float] = None
-    lighting_system_luminary_number_z3: Optional[float] = None
-    lighting_system_luminary_number_z4: Optional[float] = None
-    lighting_system_luminary_number_z5: Optional[float] = None
-    lighting_system_luminary_number_z6: Optional[float] = None
+    lighting_system_luminary_number_z1: Optional[int] = None
+    lighting_system_luminary_number_z2: Optional[int] = None
+    lighting_system_luminary_number_z3: Optional[int] = None
+    lighting_system_luminary_number_z4: Optional[int] = None
+    lighting_system_luminary_number_z5: Optional[int] = None
+    lighting_system_luminary_number_z6: Optional[int] = None
     lighting_system_name_z1: Optional[str] = None
     lighting_system_name_z2: Optional[str] = None
     lighting_system_name_z3: Optional[str] = None
@@ -262,12 +262,12 @@ class OpenBESSpecification:
     lighting_system_operating_hours_z4: Optional[float] = None
     lighting_system_operating_hours_z5: Optional[float] = None
     lighting_system_operating_hours_z6: Optional[float] = None
-    lighting_system_similar_zone_number_z1: Optional[float] = None
-    lighting_system_similar_zone_number_z2: Optional[float] = None
-    lighting_system_similar_zone_number_z3: Optional[float] = None
-    lighting_system_similar_zone_number_z4: Optional[float] = None
-    lighting_system_similar_zone_number_z5: Optional[float] = None
-    lighting_system_similar_zone_number_z6: Optional[float] = None
+    lighting_system_similar_zone_number_z1: Optional[int] = None
+    lighting_system_similar_zone_number_z2: Optional[int] = None
+    lighting_system_similar_zone_number_z3: Optional[int] = None
+    lighting_system_similar_zone_number_z4: Optional[int] = None
+    lighting_system_similar_zone_number_z5: Optional[int] = None
+    lighting_system_similar_zone_number_z6: Optional[int] = None
     lighting_system_simultaneity_factor_z1: Optional[float] = 0.0
     lighting_system_simultaneity_factor_z2: Optional[float] = 0.0
     lighting_system_simultaneity_factor_z3: Optional[float] = 0.0
@@ -285,7 +285,7 @@ class OpenBESSpecification:
     max_building_occupation: Optional[float] = None
     meteorological_file: Optional[str] = None
     natural_gas_annual: Optional[float] = None
-    natural_ventilation_night: Optional[float] = None
+    natural_ventilation_night: Optional[float] = 0.0
     occupancy_close_canteen: Optional[float] = None
     occupancy_close_office: Optional[float] = None
     occupancy_close_teaching: Optional[float] = None
@@ -366,26 +366,26 @@ class OpenBESSpecification:
     window_gvalue: Optional[float] = None
     window_height: Optional[float] = None
     window_length: Optional[float] = None
-    window_number_first_a1: Optional[float] = None
-    window_number_first_b1: Optional[float] = None
-    window_number_first_c1: Optional[float] = None
-    window_number_first_d1: Optional[float] = None
-    window_number_fourth_a1: Optional[float] = None
-    window_number_fourth_b1: Optional[float] = None
-    window_number_fourth_c1: Optional[float] = None
-    window_number_fourth_d1: Optional[float] = None
-    window_number_ground_a1: Optional[float] = None
-    window_number_ground_b1: Optional[float] = None
-    window_number_ground_c1: Optional[float] = None
-    window_number_ground_d1: Optional[float] = None
-    window_number_second_a1: Optional[float] = None
-    window_number_second_b1: Optional[float] = None
-    window_number_second_c1: Optional[float] = None
-    window_number_second_d1: Optional[float] = None
-    window_number_third_a1: Optional[float] = None
-    window_number_third_b1: Optional[float] = None
-    window_number_third_c1: Optional[float] = None
-    window_number_third_d1: Optional[float] = None
+    window_number_first_a1: Optional[int] = 0
+    window_number_first_b1: Optional[int] = 0
+    window_number_first_c1: Optional[int] = 0
+    window_number_first_d1: Optional[int] = 0
+    window_number_fourth_a1: Optional[int] = 0
+    window_number_fourth_b1: Optional[int] = 0
+    window_number_fourth_c1: Optional[int] = 0
+    window_number_fourth_d1: Optional[int] = 0
+    window_number_ground_a1: Optional[int] = 0
+    window_number_ground_b1: Optional[int] = 0
+    window_number_ground_c1: Optional[int] = 0
+    window_number_ground_d1: Optional[int] = 0
+    window_number_second_a1: Optional[int] = 0
+    window_number_second_b1: Optional[int] = 0
+    window_number_second_c1: Optional[int] = 0
+    window_number_second_d1: Optional[int] = 0
+    window_number_third_a1: Optional[int] = 0
+    window_number_third_b1: Optional[int] = 0
+    window_number_third_c1: Optional[int] = 0
+    window_number_third_d1: Optional[int] = 0
     zone_name_z1: Optional[float] = None
     zone_name_z2: Optional[float] = None
     zone_name_z3: Optional[float] = None
