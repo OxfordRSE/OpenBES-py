@@ -16,6 +16,14 @@ class ListableEnum(Enum):
             if member.value.strip().lower() == v:
                 return member
         raise ValueError(f"{value} is not a valid value for {cls.__name__}")
+    
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return NotImplemented
+        return self.value == other.value
+
+    def __hash__(self):
+        return hash(self.value)
 
     def __lt__(self, other):
         if type(other) is not type(self):
