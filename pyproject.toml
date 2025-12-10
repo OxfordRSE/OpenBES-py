@@ -1,6 +1,6 @@
 [project]
 name = "openBES"
-version = "0.1.4"
+version = "0.1.5"
 description = "Python implementation of the Open Building Energy Simulation (OpenBES) tool."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -8,6 +8,7 @@ dependencies = [
     "numpy>=2",
     "pandas",
     "pvlib",
+    "pydantic>=2.7"
 ]
 
 [project.optional-dependencies]
@@ -15,6 +16,8 @@ jit = ["numba"]
 dev = [
     "line_profiler",
     "numba",
+    "datamodel-code-generator>=0.43",
+    "ruff"
 ]
 
 [tool.setuptools.packages.find]

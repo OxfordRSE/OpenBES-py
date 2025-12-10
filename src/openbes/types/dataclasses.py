@@ -12,6 +12,8 @@ from .enums import (
     TERRAINS
 )
 
+# Reexport V2 spec
+from ..schemas import *  # noqa
 
 @dataclass
 class OpenBESParameters:
