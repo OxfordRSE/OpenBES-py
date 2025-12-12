@@ -79,7 +79,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add src/openbes/schemas/generated
           if ! git diff --cached --quiet; then
-              git commit -m "Auto-generate models from schemas"
+              git commit -m "ci: Auto-generate models from schemas"
               git push origin HEAD:${{ github.ref }}
           else
               echo "No changes to commit"
