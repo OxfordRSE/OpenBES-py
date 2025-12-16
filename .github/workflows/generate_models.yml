@@ -77,10 +77,39 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add src/openbes/schemas/generated
-          if ! git diff --cached --quiet; then
-              git commit -m "ci: Auto-generate models from schemas"
-              git push origin HEAD:${{ github.ref }}
+          
+          GENERATED='src/openbes/schemas/generated/models.py'
+      
+          if [ ! -f "$GENERATED" ]; then
+            echo "No generated file: $GENERATED"
+            exit 0
+          fi
+      
+          # retrieve previous committed version if present
+          if git rev-parse --verify HEAD >/dev/null 2>&1 && git ls-tree -r --name-only HEAD | grep -Fxq "$GENERATED"; then
+            git show HEAD:"$GENERATED" > .old_generated || true
           else
-              echo "No changes to commit"
+            : > .old_generated
+          fi
+      
+          # normalize the timestamp line to a stable placeholder
+          normalize_file() {
+            sed -E 's/^[[:space:]]*timestamp: .*$/timestamp: <auto>/' "$1"
+          }
+      
+          normalize_file .old_generated > .old_norm
+          normalize_file "$GENERATED" > .new_norm
+      
+          if cmp -s .old_norm .new_norm; then
+            echo "Only timestamp changed; skipping commit"
+            rm -f .old_generated .old_norm .new_norm
+            exit 0
+          fi
+      
+          git add "$GENERATED"
+          if ! git diff --cached --quiet; then
+            git commit -m "ci: Auto-generate models from schemas"
+            git push origin HEAD:${{ github.ref }}
+          else
+            echo "No changes to commit"
           fi

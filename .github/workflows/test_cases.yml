@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ashrae-140-suite-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:

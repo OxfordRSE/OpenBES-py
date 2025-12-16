@@ -9,6 +9,10 @@ on:
   release:
     types: [created]
 
+concurrency:
+  group: package-test-and-publish-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   install_and_run:
     runs-on: ubuntu-latest
