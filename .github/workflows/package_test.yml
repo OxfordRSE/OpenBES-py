@@ -27,13 +27,14 @@ jobs:
           pip install -e .
       - name: Check version
         if: matrix.python-version == '3.11' && github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           # Check that the package version matches the tag
           pkg_version=$(pip show openbes | grep ^Version: | awk '{print $2}')
           # remove "refs/tags/" prefix
-          tag=${GITHUB_REF#refs/tags/}
           # keep only digits and dots (strip pre/dev/post/local suffix)
-          tag_version=${tag%%[!0-9.]*}
+          tag_version=${TAG%%[!0-9.]*}
           if [ "$pkg_version" != "$tag_version" ]; then
               echo "Version mismatch: package version is $pkg_version but tag is $tag_version"
               exit 1
