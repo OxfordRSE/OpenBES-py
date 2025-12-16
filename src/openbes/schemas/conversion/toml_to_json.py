@@ -191,7 +191,7 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
     heat_capacity = get("heat_capacity")
     if heat_capacity == "Very light":
         out["heat_capacity"] = {"Am": 2.5, "Cm": 80_000.0}
-    if heat_capacity == "Light":
+    elif heat_capacity == "Light":
         out["heat_capacity"] = {"Am": 2.5, "Cm": 110_000.0}
     if heat_capacity == "Medium":
         out["heat_capacity"] = {"Am": 2.5, "Cm": 165_000.0}
@@ -363,7 +363,7 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         }
         if has_required_keys(
                 system,
-                ["tech", "lamp_number", "lamp_power", "luminary_number", "count", "simultaneity_factor"],
+                ["tech", "lamp_number", "lamp_power", "luminary_number", "simultaneity_factor"],
                 f"lighting system {i}"
         ):
             out["lighting_systems"].append(system)

@@ -248,9 +248,9 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
 
     if spec.courtyards is not None and len(spec.courtyards) > 1:
         courtyards = {
-            "d.courtyard_length": sum(c.length * c.number for c in spec.courtyards),
+            "d.courtyard_length": sum(c.length * c.count for c in spec.courtyards),
             "d.courtyard_number": 1,
-            "d.courtyard_width": sum(c.width * c.number for c in spec.courtyards),
+            "d.courtyard_width": sum(c.width * c.count for c in spec.courtyards),
         }
     else:
         courtyards = {
@@ -269,7 +269,7 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
                 key = f"i.window_number_{floor}_{o_code}1"
                 if spec.building and spec.building.window_counts:
                     window_count = dict(spec.building.window_counts).get(o_name, [])
-                    if len(window_count) > f:
+                    if len(window_count) >= f:
                         value = window_count[f - 1] or ""
                 out[key] = value
         return out
@@ -374,28 +374,28 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         },
         
         "d.open_courtyard_depth_a1": spec.open_courtyards.front.depth
-        if spec.open_courtyards.front is not None
+        if spec.open_courtyards is not None and spec.open_courtyards.front is not None
         else 0,
         "d.open_courtyard_depth_b1": spec.open_courtyards.right.depth
-        if spec.open_courtyards.right is not None
+        if spec.open_courtyards is not None and spec.open_courtyards.right is not None
         else 0,
         "d.open_courtyard_depth_c1": spec.open_courtyards.back.depth
-        if spec.open_courtyards.back is not None
+        if spec.open_courtyards is not None and spec.open_courtyards.back is not None
         else 0,
         "d.open_courtyard_depth_d1": spec.open_courtyards.left.depth
-        if spec.open_courtyards.left is not None
+        if spec.open_courtyards is not None and spec.open_courtyards.left is not None
         else 0,
         "d.open_courtyard_number_a1": spec.open_courtyards.front.count
-        if spec.open_courtyards.front is not None
+        if spec.open_courtyards is not None and spec.open_courtyards.front is not None
         else 0,
         "d.open_courtyard_number_b1": spec.open_courtyards.right.count
-        if spec.open_courtyards.right is not None
+        if spec.open_courtyards is not None and spec.open_courtyards.right is not None
         else 0,
         "d.open_courtyard_number_c1": spec.open_courtyards.back.count
-        if spec.open_courtyards.back is not None
+        if spec.open_courtyards is not None and spec.open_courtyards.back is not None
         else 0,
         "d.open_courtyard_number_d1": spec.open_courtyards.left.count
-        if spec.open_courtyards.left is not None
+        if spec.open_courtyards is not None and spec.open_courtyards.left is not None
         else 0,
 
         "d.pressure_of_air": spec.parameters.pressure_of_air or "",

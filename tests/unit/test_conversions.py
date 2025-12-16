@@ -24,7 +24,7 @@ class Conversions(unittest.TestCase):
                 return
             if isinstance(obj1, str) and isinstance(obj2, str):
                 self.assertEqual(obj1.strip().lower(), obj2.strip().lower(), msg=msg_prefix)
-            if isinstance(obj1, float) and isinstance(obj2, float):
+            elif isinstance(obj1, float) and isinstance(obj2, float):
                 self.assertAlmostEqual(obj1, obj2, msg=msg_prefix, places=5)
             else:
                 self.assertEqual(obj1, obj2, msg=msg_prefix)

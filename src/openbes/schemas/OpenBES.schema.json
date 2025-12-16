@@ -232,10 +232,10 @@
         "luminary_number": { "type": "integer", "description": "Number of luminaires." },
         "name": { "type": "string", "description": "Optional human label for the system." },
         "active_hours": { "$ref": "#/definitions/Duration", "description": "Times the lighting is on each day.", "$comment": "Reduced to simply the number of hours/day the lights are on." },
-        "count": { "type": "integer", "description": "Count of similar lighting systems aggregated together." },
+        "count": { "type": "integer", "description": "Count of similar lighting systems aggregated together.", "default": 1 },
         "simultaneity_factor": { "type": "number", "description": "Simultaneity factor (fraction)." }
       },
-      "required": ["tech", "lamp_number", "lamp_power", "luminary_number", "active_hours", "similar_zone_count", "simultaneity_factor"],
+      "required": ["tech", "lamp_number", "lamp_power", "luminary_number", "active_hours", "simultaneity_factor"],
       "additionalProperties": false
     },
     "LightingSystemTech": {

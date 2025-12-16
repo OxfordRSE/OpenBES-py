@@ -174,7 +174,7 @@ class HEAT_CAPACITY_CLASSES(ListableEnum):
     Light = "Light"
     Medium = "Medium"
     Heavy = "Heavy"
-    Very_heavy = "Very Heavy"
+    Very_heavy = "Very heavy"
     Custom_value = "Custom Value"
 
 
