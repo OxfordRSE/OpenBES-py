@@ -1,0 +1,29 @@
+name: Attach JSONSchema to Release
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  upload-schema:
+    name: Upload OpenBES JSONSchema to release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Verify schema exists
+        run: |
+          SCHEMA_PATH="./src/openbes/schemas/OpenBES.schema.json"
+          if [ ! -f "$SCHEMA_PATH" ]; then
+            echo "Schema not found at $SCHEMA_PATH"
+            exit 1
+          fi
+          echo "Found schema: $SCHEMA_PATH"
+
+      - name: Upload schema as release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./src/openbes/schemas/OpenBES.schema.json

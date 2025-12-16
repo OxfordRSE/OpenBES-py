@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Union
 import tomllib
@@ -435,33 +435,3 @@ class OpenBESSpecification:
         parameters = {k[2:]: v for k, v in filtered.items() if k.startswith("d")}
         specification = {k[2:]: v for k, v in filtered.items() if k.startswith("i")}
         return cls(parameters=OpenBESParameters(**parameters), **specification)
-
-    def to_toml(self) -> dict:
-        """Convert the specification into a TOML-compatible mapping."""
-
-        toml_mapping: dict[str, object] = {}
-
-        if self.parameters:
-            for f in fields(OpenBESParameters):
-                value = getattr(self.parameters, f.name)
-                if isinstance(value, ListableEnum):
-                    value = value.value
-                toml_mapping[f"d.{f.name}"] = value if value is not None else ""
-
-        for f in fields(OpenBESSpecification):
-            if f.name == "parameters":
-                continue
-            value = getattr(self, f.name)
-
-            if f.name.startswith("condition_z") and isinstance(value, bool):
-                value = "Conditioned" if value else "Unconditioned"
-            elif (f.name == "holiday" or "thermal_bridge" in f.name) and isinstance(value, bool):
-                value = "Yes" if value else "No"
-            elif f.name == "meteorological_file" and isinstance(value, str):
-                value = get_meteorological_name(value)
-            elif isinstance(value, ListableEnum):
-                value = value.value
-
-            toml_mapping[f"i.{f.name}"] = value if value is not None else ""
-
-        return toml_mapping
