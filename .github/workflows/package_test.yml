@@ -39,7 +39,7 @@ jobs:
           pkg_version=$(pip show openbes | grep ^Version: | awk '{print $2}')
           echo "Package version: $pkg_version"
           # strip to basic version
-          tag_version=$(echo "$TAG" | grep -oE v[0-9.]+ || true)
+          tag_version=$(echo "$TAG" | grep -oE [0-9]+\.[0-9]+\.[0-9]+ || true)
           echo "Tag version: $tag_version"
           if [ "$pkg_version" != "$tag_version" ]; then
             echo "Version mismatch: package version is $pkg_version but tag is $tag_version"
