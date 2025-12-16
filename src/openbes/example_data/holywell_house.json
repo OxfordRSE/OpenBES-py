@@ -8,6 +8,7 @@
     "facade_emissivity": 0.9,
     "floor_correction_factor": 1,
     "heat_capacity_correction_factor": 1,
+    "heat_capacity_joule": 48379.2,
     "heating_load_factor": 1,
     "infiltration_correction_factor": 1,
     "leakage_air_flow_dependent": 0.0001,

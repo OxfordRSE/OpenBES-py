@@ -330,6 +330,7 @@
         "facade_emissivity": { "type": "number", "description": "Facade emissivity value.", "default": 0.9 },
         "floor_correction_factor": { "type": "number", "description": "Floor correction factor.", "default": 1.0 },
         "heat_capacity_correction_factor": { "type": "number", "description": "Heat capacity correction factor.", "default": 1.0 },
+        "heat_capacity_joule": { "type": "number", "description": "Heat capacity of air in J/kgK." },
         "heating_load_factor": { "type": "number", "description": "Multiplier applied to heating loads.", "default": 1.0 },
         "infiltration_correction_factor": { "type": "number", "description": "Correction factor for infiltration.", "default": 1.0 },
         "leakage_air_flow_dependent": { "type": "number", "description": "Leakage air flow rate dependent on other factors (m3/s).", "default": 0.0001 },

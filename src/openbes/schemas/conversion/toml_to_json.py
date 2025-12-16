@@ -123,6 +123,7 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         "facade_emissivity",
         "floor_correction_factor",
         "heat_capacity_correction_factor",
+        "heat_capacity_joule",
         "heating_load_factor",
         "infiltration_correction_factor",
         "leakage_air_flow_dependent",

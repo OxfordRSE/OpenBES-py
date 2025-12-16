@@ -315,15 +315,10 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         hc_class = "Very heavy"
     else:
         hc_class = "Custom Value"
-    if spec.heat_capacity is None or spec.heat_capacity.Cm is None or not spec.parameters.air_heat_capacity:
-        hc_joule = 0.0
-    else:
-        hc_joule = spec.heat_capacity.Cm / spec.parameters.air_heat_capacity
 
     toml = {
         # Parameters
         "d.advanced_heat_capacity_am": spec.heat_capacity.Am if hc_class == "Custom Value" else "",
-        "d.air_heat_capacity": spec.parameters.air_heat_capacity or "",
         "d.altitude": spec.parameters.altitude or "",
         "d.appliance_on_off": 1 if spec.parameters.include_appliances else 0,
         "d.cooling_load_factor": spec.parameters.cooling_load_factor or "",
@@ -343,7 +338,7 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
 
         "d.floor_correction_factor": spec.parameters.floor_correction_factor or "",
         "d.heat_capacity_correction_factor": spec.parameters.heat_capacity_correction_factor or "",
-        "d.heat_capacity_joule": hc_joule or "",
+        "d.heat_capacity_joule": spec.parameters.heat_capacity_joule or "",
         "d.heating_load_factor": spec.parameters.heating_load_factor or "",
         
         "d.heating_system1_min_demand": spec.heating_systems[0].min_demand
