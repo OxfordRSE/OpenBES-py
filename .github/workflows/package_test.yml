@@ -38,9 +38,10 @@ jobs:
           pkg_version=$(pip show openbes | grep ^Version: | awk '{print $2}')
           # remove "refs/tags/" prefix
           # keep only digits and dots (strip pre/dev/post/local suffix)
-          tag_version=${TAG%%[!0-9.]*}
+          tag_version=${$TAG%%[!0-9.]*}
           if [ "$pkg_version" != "$tag_version" ]; then
               echo "Version mismatch: package version is $pkg_version but tag is $tag_version"
+              echo "(full tag: $TAG)"
               exit 1
           fi
 
