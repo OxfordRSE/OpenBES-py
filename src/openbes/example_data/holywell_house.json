@@ -1,0 +1,433 @@
+{
+  "parameters": {
+    "altitude": null,
+    "cooling_load_factor": 1,
+    "density_of_air": null,
+    "facade_absorption_coefficient": 0.6,
+    "facade_correction_factor": 1,
+    "facade_emissivity": 0.9,
+    "floor_correction_factor": 1,
+    "heat_capacity_correction_factor": 1,
+    "heat_capacity_joule": 48379.2,
+    "heating_load_factor": 1,
+    "infiltration_correction_factor": 1,
+    "leakage_air_flow_dependent": 0.0001,
+    "nia_gba_ratio": 0.95,
+    "pressure_of_air": null,
+    "roof_absorption_coefficient": 0.8,
+    "roof_correction_factor": 1,
+    "roof_emissivity": 0.9,
+    "shading_correction_factor": 1,
+    "specific_heat_of_air": 1.015,
+    "temperature_tolerance": 0,
+    "view_factor_to_sky_facade": 0.5,
+    "view_factor_to_sky_roof": 1,
+    "window_correction_factor": 1,
+    "include_lighting": 1,
+    "include_occupancy": 1,
+    "include_appliances": 1
+  },
+  "appliances_load": 1.0,
+  "country": "UK",
+  "holiday": false,
+  "leakage_air_flow": 0,
+  "leakage_air_flow_independent": 0.45,
+  "lighting_control": "Manual",
+  "lighting_simultaneity_factor": 0.2,
+  "location": "Oxford",
+  "max_building_occupation": 150,
+  "natural_ventilation_night": 0,
+  "typical_occupation": 75,
+  "diesel_consumption": {
+    "January": 0.0,
+    "February": 0.0,
+    "March": 0.0,
+    "April": 0.0,
+    "May": 0.0,
+    "June": 0.0,
+    "July": 0.0,
+    "August": 0.0,
+    "September": 0.0,
+    "October": 0.0,
+    "November": 0.0,
+    "December": 0.0
+  },
+  "electricity_consumption": {
+    "January": 4402.2,
+    "February": 4464.8,
+    "March": 4714.0,
+    "April": 4305.7,
+    "May": 4329.6,
+    "June": 4818.2,
+    "July": 5640.3,
+    "August": 5314.2,
+    "September": 4326.2,
+    "October": 4225.1,
+    "November": 4343.6,
+    "December": 3990.2
+  },
+  "natural_gas_consumption": {
+    "January": 10129.7,
+    "February": 9791.0,
+    "March": 9323.0,
+    "April": 4176.0,
+    "May": 697.0,
+    "June": 113.0,
+    "July": 102.0,
+    "August": 11.0,
+    "September": 0.0,
+    "October": 2205.0,
+    "November": 5827.5,
+    "December": 9859.9
+  },
+  "other_electricity_consumption": {
+    "January": 1136.0,
+    "February": 1136.0,
+    "March": 1136.0,
+    "April": 1136.0,
+    "May": 1136.0,
+    "June": 1136.0,
+    "July": 1136.0,
+    "August": 1136.0,
+    "September": 1136.0,
+    "October": 1136.0,
+    "November": 1136.0,
+    "December": 1136.0
+  },
+  "other_gas_consumption": {
+    "January": 0,
+    "February": 0,
+    "March": 0,
+    "April": 0,
+    "May": 0,
+    "June": 0,
+    "July": 0,
+    "August": 0,
+    "September": 0,
+    "October": 0,
+    "November": 0,
+    "December": 0
+  },
+  "building_standby_electricity_consumption": {
+    "January": 2321.2,
+    "February": 2321.2,
+    "March": 2321.2,
+    "April": 2321.2,
+    "May": 2321.2,
+    "June": 2321.2,
+    "July": 2321.2,
+    "August": 2321.2,
+    "September": 2321.2,
+    "October": 2321.2,
+    "November": 2321.2,
+    "December": 2321.2
+  },
+  "energy_generated": {
+    "January": 0,
+    "February": 0,
+    "March": 0,
+    "April": 0,
+    "May": 0,
+    "June": 0,
+    "July": 0,
+    "August": 0,
+    "September": 0,
+    "October": 0,
+    "November": 0,
+    "December": 0
+  },
+  "energy_used": {
+    "January": 0,
+    "February": 0,
+    "March": 0,
+    "April": 0,
+    "May": 0,
+    "June": 0,
+    "July": 0,
+    "August": 0,
+    "September": 0,
+    "October": 0,
+    "November": 0,
+    "December": 0
+  },
+  "heat_capacity": {
+    "Am": 2.5,
+    "Cm": 165000.0
+  },
+  "lighting_active_hours": {
+    "start": 9,
+    "end": 17
+  },
+  "meteorological_file": "UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw",
+  "setpoint_temperature_day": {
+    "min": 21,
+    "max": 22
+  },
+  "setpoint_temperature_night": {
+    "min": 29,
+    "max": 18
+  },
+  "building": {
+    "area": "Osney Mead",
+    "height": 5.5,
+    "length": 43.41,
+    "width": 14.13,
+    "name": "Holywell House",
+    "type": "University",
+    "floor_to_ceiling_height": 2.9,
+    "slab_thickness": 0.35,
+    "orientation_angle": 165.0,
+    "roof_angle": 35,
+    "solar_external_shading_summer": 0.9,
+    "solar_external_shading_winter": 0.6,
+    "terrain_class": "Country",
+    "thermal_bridge_facade_ground": true,
+    "thermal_bridge_facade_intermediate": false,
+    "thermal_bridge_facade_roof": true,
+    "thermal_bridge_shading": false,
+    "thermal_bridge_window": false,
+    "uvalue_facade": 0.97,
+    "uvalue_roof": 0.84,
+    "uvalue_window": 2.5,
+    "uvalue_floor": 1.368,
+    "window_frame_factor": 0.15,
+    "window_gvalue": 0.65,
+    "window_height": 1.6,
+    "window_length": 2.4,
+    "window_counts": {
+      "front": [
+        9,
+        9,
+        0,
+        0,
+        0
+      ],
+      "right": [
+        3,
+        3,
+        0,
+        0,
+        0
+      ],
+      "back": [
+        9,
+        9,
+        0,
+        0,
+        0
+      ],
+      "left": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "zones": [
+    {
+      "name": "Office area",
+      "conditioned": true,
+      "active_hours": {
+        "start": 8,
+        "end": 17
+      },
+      "areas": [
+        190.56,
+        494.85,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "Teaching",
+      "conditioned": true,
+      "active_hours": {
+        "start": 9,
+        "end": 17
+      },
+      "areas": [
+        129.28,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "Canteen",
+      "conditioned": true,
+      "active_hours": {
+        "start": 10,
+        "end": 14
+      },
+      "areas": [
+        97.88,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "Common areas",
+      "conditioned": true,
+      "active_hours": null,
+      "areas": [
+        132.76,
+        55.65,
+        52.93,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "name": "Other spaces",
+      "conditioned": false,
+      "active_hours": null,
+      "areas": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "occupation_schedule": {
+    "January": true,
+    "February": true,
+    "March": true,
+    "April": true,
+    "May": true,
+    "June": true,
+    "July": true,
+    "August": true,
+    "September": true,
+    "October": true,
+    "November": true,
+    "December": true,
+    "Monday": true,
+    "Tuesday": true,
+    "Wednesday": true,
+    "Thursday": true,
+    "Friday": true,
+    "Saturday": false,
+    "Sunday": false
+  },
+  "heating_systems": [
+    {
+      "type": "Condensing boiler",
+      "energy_source": "Natural gas",
+      "efficiency_cop": 0.86,
+      "min_demand": 35,
+      "nominal_capacity": 48.0,
+      "count": 2,
+      "active_hours": {
+        "start": 17,
+        "end": 8
+      },
+      "simultaneity": {
+        "Office area": 1.0,
+        "Teaching": 1.0,
+        "Canteen": 1.0,
+        "Common areas": 0.2,
+        "Other spaces": 0
+      }
+    }
+  ],
+  "cooling_systems": [
+    {
+      "type": "Heat pump",
+      "energy_source": "Electricity",
+      "efficiency_ratio": 2.8,
+      "min_demand": 15.0,
+      "nominal_capacity": 96.0,
+      "sensible_nominal_capacity": 75.0,
+      "count": 1,
+      "active_hours": {
+        "start": 8,
+        "end": 17
+      },
+      "simultaneity": {
+        "Office area": 1.0,
+        "Teaching": 1.0,
+        "Canteen": 1.0,
+        "Common areas": 0.0,
+        "Other spaces": 0.0
+      }
+    }
+  ],
+  "ventilation_systems": [
+    {
+      "airflow": 300,
+      "energy_source": "Electricity",
+      "heat_recovery_efficiency": 0.75,
+      "active_hours": {
+        "start": 10,
+        "end": 14
+      },
+      "rated_input_power": 0.3,
+      "type": null,
+      "ventilated_area": 100
+    }
+  ],
+  "lighting_systems": [
+    {
+      "tech": "Tubular fluorescent T8",
+      "ballast": "Electronic ballast",
+      "lamp_number": 4,
+      "lamp_power": 18,
+      "luminary_number": 35,
+      "name": "First Floor",
+      "active_hours": {
+        "start": 0,
+        "end": 8
+      },
+      "count": 1,
+      "simultaneity_factor": 0.7
+    },
+    {
+      "tech": "LED",
+      "ballast": null,
+      "lamp_number": 1,
+      "lamp_power": 40,
+      "luminary_number": 55,
+      "name": "Second Floor",
+      "active_hours": {
+        "start": 0,
+        "end": 8
+      },
+      "count": 1,
+      "simultaneity_factor": 0.7
+    }
+  ],
+  "hot_water_systems": [
+    {
+      "demand": {
+        "January": 9125.0,
+        "February": 9125.0,
+        "March": 9125.0,
+        "April": 9125.0,
+        "May": 9125.0,
+        "June": 9125.0,
+        "July": 9125.0,
+        "August": 9125.0,
+        "September": 9125.0,
+        "October": 9125.0,
+        "November": 9125.0,
+        "December": 9125.0
+      },
+      "reference_temperature": 60,
+      "supply_temperature": 16,
+      "energy_source": "Electricity",
+      "efficiency_cop": 1,
+      "nominal_capacity": 27.0,
+      "type": null
+    }
+  ],
+  "courtyards": [],
+  "open_courtyards": {}
+}

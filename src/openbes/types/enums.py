@@ -175,7 +175,7 @@ class HEAT_CAPACITY_CLASSES(ListableEnum):
     Medium = "Medium"
     Heavy = "Heavy"
     Very_heavy = "Very heavy"
-    Custom_value = "Custom value"
+    Custom_value = "Custom Value"
 
 
 class TERRAINS(ListableEnum):

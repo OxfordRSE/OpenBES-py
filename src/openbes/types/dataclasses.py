@@ -12,7 +12,6 @@ from .enums import (
     TERRAINS
 )
 
-
 @dataclass
 class OpenBESParameters:
     """
@@ -110,7 +109,7 @@ class OpenBESParameters:
                     setattr(self, f.name, cls.get_by_value(value))
 
 
-def _get_meteorological_file(filename: str) -> str:
+def get_meteorological_file(filename: str) -> str:
     if 'Denver' in filename:
         return 'USA_Denver_725650TYCST.epw'
     if 'Oxford' in filename:
@@ -121,6 +120,16 @@ def _get_meteorological_file(filename: str) -> str:
         return 'SPAIN_Madrid.082210_SWEC.epw'
     raise ValueError(f"Unknown meteorological file: {filename}")
 
+def get_meteorological_name(epw_filename: str) -> str:
+    if 'Denver' in epw_filename:
+        return '725650_Denver'
+    if 'Oxford' in epw_filename:
+        return 'Oxford'
+    if 'Sevilla' in epw_filename:
+        return 'Sevilla'
+    if 'Madrid' in epw_filename:
+        return 'Madrid'
+    return epw_filename
 
 @dataclass
 class OpenBESSpecification:
@@ -131,12 +140,12 @@ class OpenBESSpecification:
     appliances_load: Optional[float] = None
     biomass_annual: Optional[float] = None
     biomass_pellets_annual: Optional[float] = None
-    building_area: Optional[float] = None
+    building_area: Optional[str] = None
     building_height: Optional[float] = None
     building_length: Optional[float] = None
-    building_name: Optional[float] = None
+    building_name: Optional[str] = None
     building_standby_load: Optional[float] = 0.0
-    building_type: Optional[float] = None
+    building_type: Optional[str] = None
     building_width: Optional[float] = None
     # Conditioned=True, Unconditioned=False
     condition_z1: Optional[bool] = True
@@ -161,7 +170,7 @@ class OpenBESSpecification:
     cooling_system1_simultaneity_factor_other: Optional[float] = 0.0
     cooling_system1_simultaneity_factor_teaching: Optional[float] = 0.0
     cooling_system1_type: Optional[COOLING_SYSTEM_TYPES] = field(default=None, metadata={'cls': COOLING_SYSTEM_TYPES})
-    country: Optional[float] = None
+    country: Optional[str] = None
     diesel_annual: Optional[float] = None
     electricity_annual: Optional[float] = None
     electricity_april: Optional[float] = None
@@ -415,13 +424,13 @@ class OpenBESSpecification:
         typed = filtered
         for k, v in typed.items():
             if k == 'i.meteorological_file':
-                typed[k] = _get_meteorological_file(v)
+                typed[k] = get_meteorological_file(v)
             elif isinstance(v, str) and v.lower() in ['false', 'no']:
                 typed[k] = False
             elif isinstance(v, str) and v.lower() in ['true', 'yes']:
                 typed[k] = True
-            elif k.startswith('condition_z'):
-                typed[k] = v.lower() == "Conditioned"
+            elif k.startswith(('i.condition_z', 'd.condition_z')):
+                typed[k] = v.lower() == "conditioned"
 
         parameters = {k[2:]: v for k, v in filtered.items() if k.startswith("d")}
         specification = {k[2:]: v for k, v in filtered.items() if k.startswith("i")}
