@@ -64,11 +64,6 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             return 0.0
         return sum(dict(consumption).values())
 
-    def monthly_average_consumption(consumption: Consumption):
-        return annual_consumption(consumption) / 12.0
-
-    toml: Dict[str, str|int|float] = {}
-
     # Parameters
 
     # Map default zone names and numbers to the spec Zones with best-effort matching.
@@ -101,8 +96,8 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         out = []
         for i in range(len(zone_map)):
             zone = zone_map[i]['zone']
-            if zone is not None and zone.name in zs:
-                out.append((zone_map[i]["default_name"], zs[zone.name]))
+            if zone is not None and zone.name in zs.root:
+                out.append((zone_map[i]["default_name"], zs.root[zone.name]))
             else:
                 out.append((zone_map[i]["default_name"], ""))
         return out
@@ -197,12 +192,10 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         out = {}
         for i in range(6):  # for some reason there are 6 lighting system slots in the TOML schema
             zone_number = i + 1
-            ls = None
-            if _len(spec.lighting_systems) >= zone_number:
-                for s in spec.lighting_systems:
-                    if s.zone == spec.zones[zone_number].name:
-                        ls = s
-                        break
+            if _len(spec.lighting_systems) <= i:
+                ls = None
+            else:
+                ls = spec.lighting_systems[i]
             if not ls:
                 out = {
                     **out,
@@ -308,25 +301,28 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             f"i.schedule_{k.lower()}": v for k, v in dict(spec.occupation_schedule).items()
         }
 
-    def get_heat_capacity(hc: float) -> (str, float|None):
-        if hc is None:
-            return ("",)
-        elif hc == 2.5:
-            return ("Very light",)
-        elif hc == 3.0:
-            return ("Light",)
-        elif hc == 3.5:
-            return ("Medium",)
-        elif hc == 4.0:
-            return ("Heavy",)
-        elif hc == 4.5:
-            return ("Very heavy",)
-        else:
-            return "Custom Value", hc
+    if spec.heat_capacity is None or spec.heat_capacity.Am is None:
+        hc_class = ""
+    elif spec.heat_capacity.Cm == 80_000.0:
+        hc_class = "Very light"
+    elif spec.heat_capacity.Cm == 110_000.0:
+        hc_class = "Light"
+    elif spec.heat_capacity.Cm == 165_000.0:
+        hc_class = "Medium"
+    elif spec.heat_capacity.Cm == 260_000.0:
+        hc_class = "Heavy"
+    elif spec.heat_capacity.Cm == 370_000.0:
+        hc_class = "Very heavy"
+    else:
+        hc_class = "Custom Value"
+    if spec.heat_capacity is None or spec.heat_capacity.Cm is None or not spec.parameters.air_heat_capacity:
+        hc_joule = 0.0
+    else:
+        hc_joule = spec.heat_capacity.Cm / spec.parameters.air_heat_capacity
 
-    out = {
+    toml = {
         # Parameters
-        "d.advanced_heat_capacity_am": get_heat_capacity(spec.heat_capacity)[1],
+        "d.advanced_heat_capacity_am": spec.heat_capacity.Am if hc_class == "Custom Value" else "",
         "d.air_heat_capacity": spec.parameters.air_heat_capacity or "",
         "d.altitude": spec.parameters.altitude or "",
         "d.appliance_on_off": 1 if spec.parameters.include_appliances else 0,
@@ -347,7 +343,7 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
 
         "d.floor_correction_factor": spec.parameters.floor_correction_factor or "",
         "d.heat_capacity_correction_factor": spec.parameters.heat_capacity_correction_factor or "",
-        "d.heat_capacity_joule": spec.parameters.heat_capacity_joule or "",
+        "d.heat_capacity_joule": hc_joule or "",
         "d.heating_load_factor": spec.parameters.heating_load_factor or "",
         
         "d.heating_system1_min_demand": spec.heating_systems[0].min_demand
@@ -435,7 +431,7 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         "i.building_name": spec.building.name or "",
         "i.building_standby_load": annual_consumption(
             spec.building_standby_electricity_consumption
-        )
+        ) / 12
         or "",
         "i.building_type": spec.building.type or "",
         "i.building_width": spec.building.width or "",
@@ -448,22 +444,22 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         ),
         "i.country": spec.country or "",
         "i.diesel_annual": annual_consumption(spec.diesel_consumption),
-        "i.electricity_annual": annual_consumption(spec.electricity_consumption) or "",
+        "i.electricity_annual": "",
         **{
             f"i.electricity_{month.lower()}": v
             for month, v in dict(spec.electricity_consumption or monthly_average_to_consumption(0.0)).items()
         },
-        "i.energy_generated": annual_consumption(spec.energy_generated) or "",
-        "i.energy_used": annual_consumption(spec.energy_used) or "",
+        "i.energy_generated": annual_consumption(spec.energy_generated),
+        "i.energy_used": annual_consumption(spec.energy_used),
         **get_zone_floor_areas("first", 1),
         "i.floor_to_ceiling_height": spec.building.floor_to_ceiling_height or "",
         **get_zone_floor_areas("fourth", 4),
         **{
             f"i.gas_{month.lower()}": v
-            for month, v in dict(spec.gas_consumption or monthly_average_to_consumption(0.0)).items()
+            for month, v in dict(spec.natural_gas_consumption or monthly_average_to_consumption(0.0)).items()
         },
         **get_zone_floor_areas("ground", 0),
-        "i.heat_capacity": get_heat_capacity(spec.heat_capacity)[0],
+        "i.heat_capacity": hc_class,
         **heating_system_to_toml(
             spec.heating_systems[0] if _len(spec.heating_systems) >= 1 else None, n=1
         ),
@@ -483,7 +479,7 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         "i.LPG_annual": annual_consumption(spec.LPG_consumption) or "",
         "i.max_building_occupation": spec.max_building_occupation or "",
         "i.meteorological_file": get_meteorological_name(spec.meteorological_file or ""),
-        "i.natural_gas_annual": annual_consumption(spec.natural_gas_consumption) or "",
+        "i.natural_gas_annual": "",
         "i.natural_ventilation_night": spec.natural_ventilation_night or "",
         **{
             f"i.occupancy_close_{zone_map[i]['default_name']}": zone_map[i][
@@ -507,7 +503,7 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         "i.orientation_angle": spec.building.orientation_angle or "",
         "i.other_electricity_usage": (annual_consumption(spec.other_electricity_consumption) or 0) / 12
         or "",
-        "i.other_gas_usage": (annual_consumption(spec.other_gas_consumption) or 0) / 12 or "",
+        "i.other_gas_usage": (annual_consumption(spec.other_gas_consumption) or 0) / 12,
         "i.roof_angle": spec.building.roof_angle or "",
         **get_occupation_schedule(),
         **get_zone_floor_areas("second", 2),
@@ -561,6 +557,6 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             for idx in range(len(zone_map))
         },
     }
-    del out["i.cooling_system1_min_demand"]  # included as a parameter
-    del out["i.heating_system1_min_demand"]  # included as a parameter
-    return out
+    del toml["i.cooling_system1_min_demand"]  # included as a parameter
+    del toml["i.heating_system1_min_demand"]  # included as a parameter
+    return toml

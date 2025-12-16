@@ -429,8 +429,8 @@ class OpenBESSpecification:
                 typed[k] = False
             elif isinstance(v, str) and v.lower() in ['true', 'yes']:
                 typed[k] = True
-            elif k.startswith('condition_z'):
-                typed[k] = v.lower() == "Conditioned"
+            elif k.startswith(('i.condition_z', 'd.condition_z')):
+                typed[k] = v.lower() == "conditioned"
 
         parameters = {k[2:]: v for k, v in filtered.items() if k.startswith("d")}
         specification = {k[2:]: v for k, v in filtered.items() if k.startswith("i")}

@@ -133,9 +133,13 @@ class BuildingGeometry:
             elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Very_heavy:
                 self._heat_capacity_cm = 370_000.0
             elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Custom_value:
-                self._heat_capacity_cm = (
-                        self.spec.parameters.heat_capacity_joule + self.spec.parameters.air_heat_capacity
-                )
+                # These formulas come from [BES_Tool cells F8-9, Q8-9, I106]
+                internal_area = self.conditioned_floor_area
+                air_volume = self.conditioned_floor_area * self.spec.floor_to_ceiling_height
+                air_density = self.spec.parameters.density_of_air
+                air_spec_heat = self.spec.parameters.specific_heat_of_air
+                air_heat_capacity = air_density * air_spec_heat * air_volume * 1000.0 / internal_area
+                self._heat_capacity_cm = self.spec.parameters.heat_capacity_joule + air_heat_capacity
             else:
                 raise ValueError(f"Unknown heat capacity class: {self.spec.heat_capacity}")
         return self._heat_capacity_cm
