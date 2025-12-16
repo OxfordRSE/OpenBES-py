@@ -10,7 +10,7 @@ on:
     types: [created]
 
 concurrency:
-  group: package-test-and-publish-${{ github.ref }}
+  group: package-test-and-publish-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:

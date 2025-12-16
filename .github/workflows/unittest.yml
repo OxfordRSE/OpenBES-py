@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 concurrency:
-  group: unittest-${{ github.ref }}
+  group: unittest-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:

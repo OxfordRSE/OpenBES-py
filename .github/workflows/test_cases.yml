@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 concurrency:
-  group: ashrae-140-suite-${{ github.ref }}
+  group: ashrae-140-suite-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
