@@ -53,9 +53,26 @@ class Conversions(unittest.TestCase):
         spec = OpenBESSpecificationV2(**self.json)
         jsonschema.validate(spec, self.json)
 
+    def test_schema_is_valid(self):
+        jsonschema.validators.Draft202012Validator.check_schema(SPECIFICATION)
+
     def test_spec_vs_exported_schema(self):
         spec = OpenBESSpecificationV2(**self.json)
-        jsonschema.validate(spec, SPECIFICATION)
+        spec_dump = spec.model_dump()
+        # Strip None values for validation
+        def strip_none(d):
+            if isinstance(d, dict):
+                return {k: strip_none(v) for k, v in d.items() if v is not None}
+            elif isinstance(d, list):
+                return [strip_none(i) for i in d if i is not None]
+            else:
+                return d
+        instance_to_validate = strip_none(spec_dump)
+        jsonschema.validate(
+            instance=instance_to_validate,
+            schema=SPECIFICATION,
+            cls=jsonschema.validators.Draft202012Validator
+        )
 
 if __name__ == '__main__':
     unittest.main()

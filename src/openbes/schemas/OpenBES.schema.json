@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.1.5/OpenBES.schema.json",
+  "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.1.6/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.1.0",
+  "$version": "0.1.1",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
