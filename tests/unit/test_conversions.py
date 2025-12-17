@@ -5,7 +5,7 @@ from pathlib import Path
 
 import jsonschema
 
-from openbes import OpenBESSpecification
+from openbes import OpenBESSpecification, SPECIFICATION
 from openbes.schemas.conversion import json_to_toml, toml_to_json
 from openbes.schemas import OpenBESSpecificationV2
 
@@ -49,9 +49,13 @@ class Conversions(unittest.TestCase):
         json_spec = toml_to_json(toml_spec)
         self.assertIsInstance(OpenBESSpecificationV2(**json_spec), OpenBESSpecificationV2)
 
-    def test_self_schema(self):
+    def test_spec_vs_schema(self):
         spec = OpenBESSpecificationV2(**self.json)
         jsonschema.validate(spec, self.json)
+
+    def test_spec_vs_exported_schema(self):
+        spec = OpenBESSpecificationV2(**self.json)
+        jsonschema.validate(spec, SPECIFICATION)
 
 if __name__ == '__main__':
     unittest.main()
