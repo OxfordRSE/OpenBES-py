@@ -5,7 +5,6 @@
 [![.github/workflows/package_test.yml](https://github.com/OxfordRSE/OpenBES-py/actions/workflows/package_test.yml/badge.svg)](https://github.com/OxfordRSE/OpenBES-py/actions/workflows/package_test.yml)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/openBES)
 ![PyPI - Version](https://img.shields.io/pypi/v/openBES)
-![GitHub Downloads (specific asset, all releases)](https://img.shields.io/github/downloads/OxfordRSE/OpenBES-py/OpenBES.schema.json)
 
 OpenBES-py is an open-source building energy simulation tool written in Python. It is designed to provide transparent, reproducible, and extensible energy modeling for buildings, supporting research, education, and practical analysis.
 

@@ -3,6 +3,8 @@ import unittest
 from importlib.resources import files
 from pathlib import Path
 
+import jsonschema
+
 from openbes import OpenBESSpecification
 from openbes.schemas.conversion import json_to_toml, toml_to_json
 from openbes.schemas import OpenBESSpecificationV2
@@ -46,6 +48,10 @@ class Conversions(unittest.TestCase):
         toml_spec = json_to_toml(self.json)
         json_spec = toml_to_json(toml_spec)
         self.assertIsInstance(OpenBESSpecificationV2(**json_spec), OpenBESSpecificationV2)
+
+    def test_self_schema(self):
+        spec = OpenBESSpecificationV2(**self.json)
+        jsonschema.validate(spec, self.json)
 
 if __name__ == '__main__':
     unittest.main()
