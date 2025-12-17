@@ -29,7 +29,7 @@ include = ["openbes*"]
 openbes = [
     "**/lighting_data/*.csv",
     "**/climate_data/*.epw",
-    "**/example_data/*.csv"
+    "**/example_data/*.json"
 ]
 
 [build-system]
