@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e .[dev]  # dev dependencies required for unit testing
           pip install pytest
       - name: Run tests
         run: pytest tests/unit

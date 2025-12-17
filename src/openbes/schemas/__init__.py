@@ -1,3 +1,6 @@
+import json
+from importlib.resources import files
+
 from .generated.models import (
     Ballast,
     Building,
@@ -22,6 +25,9 @@ from .generated.models import (
 )
 from .conversion import toml_to_json, json_to_toml
 
+with open(str(files("openbes.schemas") / "OpenBES.schema.json"), "r") as json_file:
+    SPECIFICATION = json.load(json_file)
+    SPECIFICATION_VERSION = SPECIFICATION["$version"]
 
 __all__ = [
     "Ballast",
@@ -46,4 +52,6 @@ __all__ = [
     "Zone",
     "toml_to_json",
     "json_to_toml",
+    "SPECIFICATION",
+    "SPECIFICATION_VERSION",
 ]
