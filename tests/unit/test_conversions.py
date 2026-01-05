@@ -74,5 +74,12 @@ class Conversions(unittest.TestCase):
             cls=jsonschema.validators.Draft202012Validator
         )
 
+    def test_mismatched_zone_numbers(self):
+        json_spec = self.json.copy()
+        json_spec["zones"].pop()
+        json_spec["zones"].pop()
+        spec = OpenBESSpecificationV2(**json_spec)
+        json_to_toml(spec)
+
 if __name__ == '__main__':
     unittest.main()

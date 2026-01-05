@@ -78,7 +78,7 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
 
     def get_zone_condition(idx: int) -> str | None:
         if 0 <= idx < len(zone_map):
-            zone = spec.zones[idx]
+            zone = zone_map[idx]["zone"]
             if zone is not None and zone.conditioned:
                 return "Conditioned"
         return "Unconditioned"
