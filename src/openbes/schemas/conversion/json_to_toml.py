@@ -413,6 +413,10 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         "d.view_factor_to_sky_facade": spec.parameters.view_factor_to_sky_facade or "",
         "d.view_factor_to_sky_roof": spec.parameters.view_factor_to_sky_roof or "",
         "d.window_correction_factor": spec.parameters.window_correction_factor or "",
+        **{
+            f"d.window_optical_c{idx + 1}": spec.parameters.window_angular_correction_factors[idx] or ""
+            for idx in range(5)
+        },
 
         # Specifications
         "i.appliances_load": spec.appliances_load or "",

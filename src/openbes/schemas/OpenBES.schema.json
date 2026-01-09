@@ -346,7 +346,15 @@
         "specific_heat_of_air": { "type": "number", "description": "Specific heat of air.", "default": 1.015 },
         "view_factor_to_sky_facade": { "type": "number", "description": "View factor to sky from facade.", "default": 0.5 },
         "view_factor_to_sky_roof": { "type": "number", "description": "View factor to sky from roof.", "default": 1.0 },
-        "window_correction_factor": { "type": "number", "description": "Window correction factor.", "default": 1.0 }
+        "window_correction_factor": { "type": "number", "description": "Window correction factor.", "default": 1.0 },
+        "window_angular_correction_factors": {
+          "type":  "array",
+          "items": { "type":  "number", "default": 0.0 },
+          "maxLength": 5,
+          "minLength": 5,
+          "description": "Angular correction factors for windows.",
+          "default": [1.0, -0.189, 0.644, -5.96, 0.0]
+        }
       }
     }
   },

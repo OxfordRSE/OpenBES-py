@@ -97,6 +97,11 @@ class OpenBESParameters:
     view_factor_to_sky_facade: Optional[float] = 0.5
     view_factor_to_sky_roof: Optional[float] = 1.0
     window_correction_factor: Optional[float] = 1.0
+    window_optical_c1: Optional[float] = 1.0
+    window_optical_c2: Optional[float] = -0.189
+    window_optical_c3: Optional[float] = 0.644
+    window_optical_c4: Optional[float] = -0.596
+    window_optical_c5: Optional[float] = 0.0
 
     def __post_init__(self):
         super().__init__()

@@ -146,6 +146,12 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
             parameters[f"include_{k}"] = val
     parameters["include_appliances"] = get("appliance_on_off")
 
+    window_angular_correction_factors = []
+    for i in range(1, 6):
+        key = f"window_optical_c{i}"
+        window_angular_correction_factors.append(get(key, 0.0))
+    parameters["window_angular_correction_factors"] = window_angular_correction_factors
+
     out: dict = {"parameters": parameters}
 
     for k in [
