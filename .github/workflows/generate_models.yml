@@ -1,6 +1,6 @@
 name: Generate Specification Models
 on:
-  push:
+  pull_request:
     paths: ["src/openbes/schemas/OpenBES.schema.json"]
   workflow_dispatch:
 
