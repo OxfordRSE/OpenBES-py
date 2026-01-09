@@ -344,7 +344,6 @@
         "roof_emissivity": { "type": "number", "description": "Roof emissivity.", "default": 0.9 },
         "shading_correction_factor": { "type": "number", "description": "Shading correction factor.", "default": 1.0 },
         "specific_heat_of_air": { "type": "number", "description": "Specific heat of air.", "default": 1.015 },
-        "temperature_tolerance": { "type": "number", "description": "Temperature tolerance for setpoints.", "default": 0.0 },
         "view_factor_to_sky_facade": { "type": "number", "description": "View factor to sky from facade.", "default": 0.5 },
         "view_factor_to_sky_roof": { "type": "number", "description": "View factor to sky from roof.", "default": 1.0 },
         "window_correction_factor": { "type": "number", "description": "Window correction factor.", "default": 1.0 }

@@ -134,7 +134,6 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         "roof_emissivity",
         "shading_correction_factor",
         "specific_heat_of_air",
-        "temperature_tolerance",
         "view_factor_to_sky_facade",
         "view_factor_to_sky_roof",
         "window_correction_factor",

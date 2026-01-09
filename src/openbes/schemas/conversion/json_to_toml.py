@@ -404,7 +404,6 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         "d.roof_emissivity": spec.parameters.roof_emissivity or "",
         "d.shading_correction_factor": spec.parameters.shading_correction_factor or "",
         "d.specific_heat_of_air": spec.parameters.specific_heat_of_air or "",
-        "d.temperature_tolerance": spec.parameters.temperature_tolerance or "",
 
         **ventilation_system_to_toml(
             spec.ventilation_systems[1] if _len(spec.ventilation_systems) > 1 else None,

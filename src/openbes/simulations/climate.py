@@ -2,7 +2,7 @@ from importlib.resources import files
 from math import atan
 from pathlib import Path
 from typing import Tuple
-from numpy import nan, select, outer, array, maximum, isnan
+from numpy import nan, select, outer, array, maximum, isnan, logical_not
 from pvlib.iotools import read_epw
 from pandas import DataFrame, Series
 import os
@@ -563,12 +563,13 @@ class ClimateSimulation(HourlySimulation):
         This is given by specified target temperatures with an optional tolerance.
         """
         if 'min_temp_set_point' not in self._hours.columns or 'max_temp_set_point' not in self._hours.columns:
-            tolerance = max(self.spec.parameters.temperature_tolerance or 0.0, 0.0)
-            self._hours['max_temp_set_point'] = self._hours['is_daytime'].apply(
-                lambda x: (self.spec.setpoint_winter_day - tolerance) if x else (self.spec.setpoint_winter_night - tolerance)
+            self._hours['max_temp_set_point'] = (
+                self._hours['is_daytime'] * self.spec.setpoint_winter_day +
+                logical_not(self._hours['is_daytime']) * self.spec.setpoint_winter_night
             )
-            self._hours['min_temp_set_point'] = self._hours['is_daytime'].apply(
-                lambda x: (self.spec.setpoint_summer_day + tolerance) if x else (self.spec.setpoint_summer_night + tolerance)
+            self._hours['min_temp_set_point'] = (
+                self._hours['is_daytime'] * self.spec.setpoint_summer_day +
+                logical_not(self._hours['is_daytime']) * self.spec.setpoint_summer_night
             )
         return self._hours[['min_temp_set_point', 'max_temp_set_point']]
 

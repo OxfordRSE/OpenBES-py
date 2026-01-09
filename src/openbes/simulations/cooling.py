@@ -129,7 +129,7 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         [HD102]
         """
         if self._Ts_int is None:
-            self._Ts_int = self.spec.setpoint_summer_day - self.spec.parameters.temperature_tolerance
+            self._Ts_int = self.spec.setpoint_summer_day
         return self._Ts_int
 
     @property

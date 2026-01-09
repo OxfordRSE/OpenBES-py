@@ -19,7 +19,6 @@
     "roof_emissivity": 0.9,
     "shading_correction_factor": 1,
     "specific_heat_of_air": 1.015,
-    "temperature_tolerance": 0,
     "view_factor_to_sky_facade": 0.5,
     "view_factor_to_sky_roof": 1,
     "window_correction_factor": 1,

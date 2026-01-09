@@ -86,7 +86,6 @@ class OpenBESParameters:
     roof_emissivity: Optional[float] = 0.9
     shading_correction_factor: Optional[float] = 1.0
     specific_heat_of_air: Optional[float] = 1.015
-    temperature_tolerance: Optional[float] = 0.0
     ventilation_system2_airflow: Optional[float] = None
     ventilation_system2_energy_source: Optional[float] = None
     ventilation_system2_heat_recovery_efficiency: Optional[float] = None
