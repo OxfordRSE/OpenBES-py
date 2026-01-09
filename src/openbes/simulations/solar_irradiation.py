@@ -11,7 +11,8 @@ class SolarIrradiationSimulation:
     """
     Simulation class for solar irradiation data from EPW files.
 
-    Uses pvlib but may have to fall back to copying Excel calculations.
+    Copies the Excel BES solar irradiation calculations.
+    Eventually this should be replaced with direct PVLib calls once parity is no longer required.
     """
     _hours: DataFrame
     location: pvlib.location.Location
@@ -77,40 +78,53 @@ class SolarIrradiationSimulation:
         return self._hours['diffuse_horizontal_irradiance']
 
     @property
+    def day_of_year(self):
+        """Day of year for each hour."""
+        return np.array(self._hours.index.get_level_values(self._hours.index.names.index('day')))
+
+    @property
+    def hour_offset(self):
+        """Hour offset from local standard time for each hour."""
+        return np.array(
+            self._hours.index.get_level_values(self._hours.index.names.index('hour'))
+        ) - 0.5
+
+    @property
     def _hour_angle(self):
         """Hour angle (h) in radians for each hour."""
         if self._hour_angle_ is None:
-            local_standard_time = np.array(
-                self._hours.index.get_level_values(self._hours.index.names.index('hour'))
-            )
-            day_of_year = np.array(self._hours.index.get_level_values(self._hours.index.names.index('day')))
             orbital_position = (
                     2 * np.pi *
-                    (day_of_year - 1) /
+                    (self.day_of_year - 1 + (self.hour_offset - 12) / 24) /
                     365
             )
-            equation_of_time = 2.2918 * (
-                    0.0075 +
-                    0.1868 * np.cos(orbital_position) -
-                    3.2077 * np.sin(orbital_position) -
-                    1.4615 * np.cos(2 * orbital_position) -
-                    4.089 * np.sin(2 * orbital_position)
+            equation_of_time = 229.18 * (
+                    0.000075 +
+                    0.001868 * np.cos(orbital_position) -
+                    0.032077 * np.sin(orbital_position) -
+                    0.014615 * np.cos(2 * orbital_position) -
+                    0.040849 * np.sin(2 * orbital_position)
             )
-            longitude_of_local_meridian = 15 * self.timezone
-            apparent_solar_time = (
-                    local_standard_time +
-                    equation_of_time / 60 +
-                    (self.lon - longitude_of_local_meridian) / 15
-            )
-            self._hour_angle_ = np.radians(15 * (apparent_solar_time - 12))
+            time_offset_min = equation_of_time + 4 * self.lon - (60 * self.timezone)
+            true_solar_time_min = self.hour_offset * 60 + time_offset_min
+            hour_angle_degrees = true_solar_time_min / 4 - 180
+            self._hour_angle_ = np.radians(hour_angle_degrees)
         return self._hour_angle_
 
     @property
     def _solar_declination(self):
         """Solar declination (delta) in radians for each hour."""
         if self._solar_declination_ is None:
-            day_of_year = np.array(self._hours.index.get_level_values(self._hours.index.names.index('day')))
-            self._solar_declination_ = np.radians(23.45 * np.sin(2 * np.pi * (284 + day_of_year) / 365))
+            gamma = 2 * np.pi / 365 * (self.day_of_year - 1 + (self.hour_offset - 12) / 24)
+            self._solar_declination_ = (
+                    0.006918
+                    - 0.399912 * np.cos(gamma)
+                    + 0.070257 * np.sin(gamma)
+                    - 0.006758 * np.cos(2 * gamma)
+                    + 0.000907 * np.sin(2 * gamma)
+                    - 0.002697 * np.cos(3 * gamma)
+                    + 0.00148 * np.sin(3 * gamma)
+            )
         return self._solar_declination_
 
     @property
@@ -121,8 +135,8 @@ class SolarIrradiationSimulation:
         if 'solar_altitude' not in self._hours.columns:
             latitude = np.radians(self.lat)
             sin_solar_altitude = (
-                np.cos(latitude) * np.cos(self._solar_declination) * np.cos(self._hour_angle) +
-                np.sin(latitude) * np.sin(self._solar_declination)
+                    np.cos(latitude) * np.cos(self._solar_declination) * np.cos(self._hour_angle) +
+                    np.sin(latitude) * np.sin(self._solar_declination)
             )
             self._hours['solar_altitude'] = np.degrees(np.asin(sin_solar_altitude))
         return self._hours['solar_altitude']
@@ -139,26 +153,16 @@ class SolarIrradiationSimulation:
         [Solar radiation column V]
         """
         if 'solar_azimuth_degrees' not in self._hours.columns:
-            altitude_rad = np.radians(self.solar_altitude)
-            lat_rad = np.radians(self.lat)
-            sin_phi = (
-                    np.sin(self._hour_angle) *
-                    np.cos(self._solar_declination)
-            ) / np.cos(altitude_rad)
-            cos_phi = (
-                np.cos(self._hour_angle) * np.cos(self._solar_declination) * np.sin(lat_rad) -
-                np.sin(self._solar_declination) * np.cos(lat_rad)
-            ) / np.cos(altitude_rad)
-            phi_from_sin = np.degrees(np.asin(sin_phi))
-            phi_from_cos = np.degrees(np.acos(cos_phi))
-            from_cos = sin_phi > 0
-            from_sin = cos_phi > 0
-            others = ~(from_cos | from_sin)
-            self._hours['solar_azimuth_degrees'] = (
-                phi_from_cos * from_cos +
-                phi_from_sin * (from_sin & ~from_cos) +
-                (-180 - phi_from_sin) * others
-            )
+            sin_phi = np.sin(np.radians(self.lat))
+            cos_phi = np.cos(np.radians(self.lat))
+            # NB: Excel ATAN2(y,x) is np.atan2(x,y)
+            solar_azimuth = np.degrees(np.atan2(
+                np.sin(self._hour_angle),
+                np.cos(self._hour_angle) * sin_phi - np.tan(self._solar_declination) * cos_phi
+            ))
+            solar_azimuth += 180.0
+            solar_azimuth %= 360.0
+            self._hours['solar_azimuth_degrees'] = solar_azimuth
         return self._hours['solar_azimuth_degrees']
 
     def get_solar_irradiation(self, compass_point: COMPASS_POINTS) -> 'Series[float]':
@@ -186,9 +190,9 @@ class SolarIrradiationSimulation:
             beam_component = np.logical_not((90 < gamma) & (gamma < 270)) * (aoi >= 0) * (self.dni * np.cos(np.radians(aoi)))
             # [Solar radiation columns BC:BJ]
             diffuse_component_ratio = (
-                0.55 +
-                0.437 * np.cos(np.radians(aoi)) +
-                0.313 * (np.cos(np.radians(aoi)) ** 2)
+                    0.55 +
+                    0.437 * np.cos(np.radians(aoi)) +
+                    0.313 * (np.cos(np.radians(aoi)) ** 2)
             )
             # [Solar radiation columns BK:BR; capping is actually done in the previous column set]
             diffuse_component = np.maximum(0.45, diffuse_component_ratio) * self.dhi

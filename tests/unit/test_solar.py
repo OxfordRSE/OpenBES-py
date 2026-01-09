@@ -1,5 +1,6 @@
 import os
 
+from pandas import Series
 from pvlib.iotools import read_epw
 import unittest
 
@@ -24,19 +25,40 @@ class SolarIrradiation(OpenBESTestCase):
         expected_ghi_start = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 15.0, 39.0, 64.0, 83.0, 75.0, 39.0, 10.0, 2.0]
         self.check_series_versus_values(self.sim.ghi[:16], expected_ghi_start)
 
-    def test_solar_altitude_degrees(self):
-        """
-        The solar altitude implementation uses PVLib, which may differ slightly from
-        the Excel calculations used in the original BES software.
+    def test_hour_angle(self):
+        expected_hour_angles = [
+            -3.041623, -2.779906, -2.518188, -2.256471, -1.994753, -1.733035, -1.471318, -1.209600, -0.947883,
+            -0.686165, -0.424447, -0.162729, 0.098988, 0.360706, 0.622424, 0.884142, 1.145860, 1.407578, 1.669296,
+            1.931014, 2.192732, 2.454450, 2.716168, 2.977886
+        ]
+        calculated = Series(self.sim._hour_angle)
+        self.check_series_versus_values(calculated, expected_hour_angles)
 
-        To compensate, we just check if the degrees are within tolerance.
-        """
+    def test_declination(self):
+        expected = [
+            -0.403065,-0.403012,-0.402960,-0.402907,-0.402854,-0.402801,-0.402747,-0.402694,-0.402640,
+            -0.402585,-0.402531,-0.402476,-0.402422,-0.402366,-0.402311,-0.402256,-0.402200,-0.402144,-0.402087,
+            -0.402031,-0.401974,-0.401917,-0.401860,-0.401803
+        ]
+        calculated = Series(self.sim._solar_declination)
+        self.check_series_versus_values(calculated, expected)
+
+    def test_solar_altitude_degrees(self):
         first_day = [
-            -59.640770, -54.115912, -46.319728, -37.430886, -28.155482, -18.944647, -10.148630, -2.098972, 4.850895,
-            10.317646, 13.919479, 15.351120, 14.476575, 11.379997, 6.333511, -0.291371, -8.107076, -16.752306,
-            -25.892695, -35.188169, -44.222961, -52.372301, -58.588631, -61.356930
+            -61.133654, -57.311922, -50.454100, -41.991545, -32.839732, -23.550200, -14.508486, -6.047391, 1.494438,
+            7.748209, 12.325474, 14.871928, 15.156871, 13.152798, 9.046038, 3.169558, -4.089719, -12.355446,
+            -21.282270, -30.539365, -39.761088, -48.450145, -55.800968, -60.500068
         ]
         calculated = self.sim.solar_altitude
+        self.check_series_versus_values(calculated, first_day)
+
+    def test_solar_azimuth_degrees(self):
+        first_day = [
+            10.962373, 37.064313, 57.509802, 73.332085, 86.366204, 97.956422, 108.986757, 120.064594, 131.626933,
+            143.964098, 157.179780, 171.127695, 185.405813, 199.481190, 212.902742, 225.457582, 237.193399,
+            248.360499, 259.360916, 270.754367, 283.342686, 298.338720, 317.486061, 342.265330
+        ]
+        calculated = self.sim.solar_azimuth
         self.check_series_versus_values(calculated, first_day)
 
     def test_solar_irradiation(self):
