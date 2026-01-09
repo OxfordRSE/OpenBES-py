@@ -859,7 +859,7 @@ class ClimateSimulation(HourlySimulation):
     @property
     def internal_heat_from_occupants(self) -> 'Series[float]':
         """Hourly internal heat gains from occupants in W/m2.
-        ϕint,oc [Hourly Simulation column KI]
+        qi,oc [Hourly Simulation column KK]
         """
         if 'internal_heat_from_occupants' not in self._hours.columns:
             self._hours['internal_heat_from_occupants'] = (
