@@ -1,6 +1,7 @@
 import unittest
 from pandas import Series
 
+from openbes.types import COMPASS_POINTS
 from src.openbes.simulations.base import HOURS_DF
 from src.openbes.simulations.climate import ClimateSimulation
 from tests.unit.utils import (
@@ -24,6 +25,34 @@ class Climate(OpenBESTestCase):
     def setUp(self):
         self.spec = self._spec
         self.sim = self._sim
+
+    def test_solar_radiation_glazing_adjustment(self):
+        def point_to_col(point: COMPASS_POINTS) -> str:
+            value = point.value
+            if value == COMPASS_POINTS.South.value:
+                return 's'
+            if value == COMPASS_POINTS.SouthEast.value:
+                return 'se'
+            if value == COMPASS_POINTS.East.value:
+                return 'e'
+            if value == COMPASS_POINTS.NorthEast.value:
+                return 'ne'
+            if value == COMPASS_POINTS.North.value:
+                return 'n'
+            if value == COMPASS_POINTS.NorthWest.value:
+                return 'nw'
+            if value == COMPASS_POINTS.West.value:
+                return 'w'
+            if value == COMPASS_POINTS.SouthWest.value:
+                return 'sw'
+            raise ValueError(f'Unknown column {point}')
+
+        csv = self.read_csv('fixtures/hh_solar_radiation_adjusted.csv')
+        for point in self.sim.solar_radiation_glazing_adjustment.columns:
+            with self.subTest(point=point):
+                expected = csv[point_to_col(point)]
+                calculated = self.sim.solar_radiation_glazing_adjustment[point]
+                self.check_series_versus_values(calculated, expected, tolerance=1e-13)
 
     def test_hourly_set_point(self):
         expected = HOURS_DF.copy()
@@ -178,11 +207,12 @@ class Climate(OpenBESTestCase):
         self.check_series_versus_values(
             self.sim.air_free_temp,
             [
-                17.16333945, 16.91038814, 16.66681436, 16.43051709, 16.22917626, 16.01903107, 15.81555818,
-                15.62293665, 15.40607045, 15.23568027, 15.10943157, 15.04594767, 14.95543820, 14.80794495,
-                14.63806472, 14.43366520, 14.22274308, 14.00786162, 13.78866631, 13.58781408, 13.35732166,
-                13.11426123, 12.83013053, 12.48728083
-            ]
+                17.1633394521, 16.9103881430, 16.6668143587, 16.4305170901, 16.2291762563, 16.0190310690,
+                15.8155581773, 15.6229366499, 15.4017164672, 15.2126790976, 15.0550056746, 14.9536418197,
+                14.8326666521, 14.6792307178, 14.5197734659, 14.3220464519, 14.1167802056, 13.9072677875,
+                13.6931694927, 13.4971561530, 13.2712573643, 13.0325578090, 12.7525669620, 12.4136473919
+            ],
+            decimal_places=15
         )
 
     def test_building_thermal_mass_hc_actual(self):
@@ -216,7 +246,8 @@ class Climate(OpenBESTestCase):
     def test_solar_heat_windows(self):
         self.check_series_versus_csv(
             self.sim.solar_heat_windows,
-            'fixtures/hh_solar_heat_windows.csv'
+            'fixtures/hh_solar_heat_windows.csv',
+            # tolerance=5000
         )
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@ from importlib.resources import files
 from math import atan
 from pathlib import Path
 from typing import Tuple
-from numpy import nan, select, outer, array, maximum, isnan, logical_not
+from numpy import nan, select, array, maximum, isnan, logical_not, radians, where, outer
 from pvlib.iotools import read_epw
 from pandas import DataFrame, Series
 import os
@@ -13,7 +13,7 @@ from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
 from .solar_irradiation import SolarIrradiationSimulation
 from .ventilation import VentilationSimulation
-from ..types import OpenBESSpecification, TERRAINS, ORIENTATIONS
+from ..types import OpenBESSpecification, TERRAINS, ORIENTATIONS, COMPASS_POINTS
 
 # Optional dependencies
 try:
@@ -56,7 +56,7 @@ def profile_or_jit(_fn=None, jit_kwargs: dict = None, profile_kwargs: dict = Non
         else:
             return fn
     return decorator if _fn is None else decorator(_fn)
-    
+
 
 RELATIVE_HUMIDITY = 55.0  # Percentage
 
@@ -151,6 +151,7 @@ class ClimateSimulation(HourlySimulation):
     _heat_transmission_by_infiltration: float
     _temp_change_demand: float
     _theta_st_partial: float
+    _solar_radiation: DataFrame = None
 
     def __init__(
             self,
@@ -192,49 +193,6 @@ class ClimateSimulation(HourlySimulation):
         """
         # Make sure min/max set points are calculated
         assert self.set_point_temperature is not None
-        # Window mask
-        compass_points = sorted([self.geometry.get_compass_point_for_orientation(o) for o in ORIENTATIONS])
-        window_mask = self.geometry.window_areas.index.get_level_values('compass_point').isin(compass_points)
-        # [Hourly simulation cells KY105:LF105]
-        window_area = self.geometry.window_areas[window_mask].groupby('compass_point').sum()
-        # Solar heat windows reduction precaculated for all rows
-        view_factor = self.spec.parameters.view_factor_to_sky_facade  # KY80:LF80
-        hr = 5 * 0.9  # [Hardcoded in KY81:LF81 via Inputs G230]
-        delta_theta_er = 11  # [Hardcoded in KY82: ISO 13790, 11.4.6]
-        solar_heat_windows_reduction = DataFrame(
-            outer(self.rse.values, window_area),
-            index=self.rse.index,
-            columns=window_area.index
-        ) * view_factor * self.spec.uvalue_window * hr * delta_theta_er
-        # Solar g_gl precalculated for all rows [Hourly simulation cell KX]
-        solar_altitude = self.solar_irradiation.solar_altitude
-        solar_g_gl = (
-                             (-0.000003 * solar_altitude**3 + 0.0002 * solar_altitude**2 - 0.0053 * solar_altitude + 0.9986) *
-                             self.spec.window_gvalue
-                     ) * (solar_altitude > 0) * (solar_altitude < 90)
-        # Asol for summer and winter [Hourly simulation cells KY107:LF108]
-        solar_a_sol_w_winter = (
-                (self.spec.solar_external_shading_winter * self.spec.parameters.shading_correction_factor) *
-                (1 - self.spec.window_frame_factor) *
-                window_area
-        )
-        solar_a_sol_w_summer = (
-                (self.spec.solar_external_shading_summer * self.spec.parameters.shading_correction_factor) *
-                (1 - self.spec.window_frame_factor) *
-                window_area
-        )
-        # Solar area differs for summer and winter because of shading
-        solar_area_summer = DataFrame(
-            outer(solar_g_gl.values, solar_a_sol_w_summer.values),
-            index=solar_heat_windows_reduction.index,
-            columns=solar_a_sol_w_summer.index
-        ) * 0.9  # [Hardcoded in KY:LF]
-        solar_area_winter = DataFrame(
-            outer(solar_g_gl.values, solar_a_sol_w_winter.values),
-            index=solar_heat_windows_reduction.index,
-            columns=solar_a_sol_w_winter.index
-        ) * 1.0  # [Hardcoded in KY100]
-        solar_radiation = self.solar_irradiation.solar_irradiation[compass_points]
         # Occupancy
         is_occupied = self.occupancy.occupancy['is_occupied']
 
@@ -247,10 +205,8 @@ class ClimateSimulation(HourlySimulation):
                     * self.spec.parameters.specific_heat_of_air
                     / 3.6
             ),
-            "solar_heat_windows_reduction": array(solar_heat_windows_reduction),
-            "solar_area_summer": array(solar_area_summer),
-            "solar_area_winter": array(solar_area_winter),
-            "solar_radiation": array(solar_radiation),
+            "solar_heat_windows_summer": array(self._solar_heat_windows['summer']),
+            "solar_heat_windows_winter": array(self._solar_heat_windows['winter']),
             # [Hourly simulation AR94]
             "Htr_em": 1 / (
                     (1 / self.geometry.heat_transfer_rate_opaque) -  # [AR93]
@@ -383,24 +339,10 @@ class ClimateSimulation(HourlySimulation):
         9. Solar heat windows [Hourly Simulation columns KY:LF]
         """
         kx116 = 22  # Hardcoded in Hourly Simulation cell KX116
-        Fsh_ob_overhand = 1.0  # LF87 [Hardcoded via 0 in Inputs N108:U108]
-        Fsh_ob_fin = 1.0  # LF90 [Hardcoded via 0 in Inputs N110:U110]
-        Fsh_ob_horizon = 1.0  # LF93 [Hardcoded via 0 in Inputs N112:U112]
-        solar_lost_through_windows = 0.0  # [Hardcoded in KY84]
-        # LF95: ISO 13790, 11.4.4
-        Fsh_ob_horizon = Fsh_ob_overhand * Fsh_ob_fin * Fsh_ob_horizon - solar_lost_through_windows
-        solar_radiation = self._cache["solar_radiation"][i]
         if prev_air_free_temp < kx116:
-            solar_area = self._cache["solar_area_winter"][i]
+            solar_heat_windows = self._cache["solar_heat_windows_winter"][i]
         else:
-            solar_area = self._cache["solar_area_summer"][i]
-
-        solar_heat_base = solar_area * solar_radiation
-        solar_heat_windows = (
-                (Fsh_ob_horizon * solar_heat_base) -
-                self._cache['solar_heat_windows_reduction'][i]
-        )
-        solar_heat_windows = solar_heat_windows * (solar_heat_windows > 0.0)
+            solar_heat_windows = self._cache["solar_heat_windows_summer"][i]
         solar_heat_windows = solar_heat_windows.sum()
 
         """
@@ -564,12 +506,12 @@ class ClimateSimulation(HourlySimulation):
         """
         if 'min_temp_set_point' not in self._hours.columns or 'max_temp_set_point' not in self._hours.columns:
             self._hours['max_temp_set_point'] = (
-                self._hours['is_daytime'] * self.spec.setpoint_winter_day +
-                logical_not(self._hours['is_daytime']) * self.spec.setpoint_winter_night
+                    self._hours['is_daytime'] * self.spec.setpoint_winter_day +
+                    logical_not(self._hours['is_daytime']) * self.spec.setpoint_winter_night
             )
             self._hours['min_temp_set_point'] = (
-                self._hours['is_daytime'] * self.spec.setpoint_summer_day +
-                logical_not(self._hours['is_daytime']) * self.spec.setpoint_summer_night
+                    self._hours['is_daytime'] * self.spec.setpoint_summer_day +
+                    logical_not(self._hours['is_daytime']) * self.spec.setpoint_summer_night
             )
         return self._hours[['min_temp_set_point', 'max_temp_set_point']]
 
@@ -999,6 +941,106 @@ class ClimateSimulation(HourlySimulation):
         return self._hours['rse']
 
     @property
+    def solar_radiation_glazing_adjustment(self) -> 'Series[float]':
+        """This adapts the basic solar radiation calculations from EPW data to accommodate
+        angular dependant glazing properties.
+        """
+        if self._solar_radiation is None:
+            self._solar_radiation = DataFrame()
+            self._solar_radiation.index = self._hours.index
+            gl_value = self.spec.window_gvalue # Hourly simulation KY102
+            hemispheric_integration = 0.92 if gl_value >= 0.8 else 0.8
+            for point in COMPASS_POINTS:
+                aoi = radians(self.solar_irradiation.get_aoi_degrees(point))
+                beam = where(
+                    self.solar_irradiation.get_aoi_degrees(point) > 90,
+                    0,
+                    gl_value * (
+                            self.spec.parameters.window_optical_c1 +
+                            self.spec.parameters.window_optical_c2 * aoi +
+                            self.spec.parameters.window_optical_c3 * aoi**2 +
+                            self.spec.parameters.window_optical_c4 * aoi**3 +
+                            self.spec.parameters.window_optical_c5 * aoi**4
+                    )
+                ) * self.solar_irradiation.get_beam_component(point)
+                diffuse = gl_value * hemispheric_integration * self.solar_irradiation.get_diffuse_component(point)
+                ground = gl_value * hemispheric_integration * self.solar_irradiation.ground_reflected_component
+                numerator = beam + diffuse + ground
+                self._solar_radiation[point] = numerator / self.solar_irradiation.solar_irradiation[point]
+            self._solar_radiation.fillna(0.0, inplace=True)
+
+        return self._solar_radiation
+
+    @property
+    def _solar_heat_windows(self) -> 'Series[float]':
+        """Hourly simulation cells KY:LF
+        Excel equation:
+        =MAX(
+            0,
+            IF(
+                $AY125<$KX$116,  # Summer/winter determined by air free temp < hardcoded threshold
+                (KY$95*(KY$107*('3_Solar Radiation'!CM19*$KY$100))*M126)-(KY$80*($KU126*KY$104*KY$105*KY$81*$KY$82)),
+                (KY$95*(KY$108*('3_Solar Radiation'!CM19*$KY$100))*M126)-(KY$80*($KU126*KY$104*KY$105*KY$81*$KY$82))
+            )
+        )
+        The only difference in summer/winter cases is a different solar area (KY107 vs KY108):
+        We thus refactor to:
+        season_area * shading_factor * solar_radiation_glazing * g_value * solar_radiation - window_heat_loss
+        Of these, only season_area, solar_radiation, solar_radiation_glazing, and RSE (part of heat loss) depend on hour i.
+        Because they're simply multiplications, we can pre-calculate summer and winter for everything and select here.
+        """
+        compass_points = sorted([self.geometry.get_compass_point_for_orientation(o) for o in ORIENTATIONS])
+        window_mask = self.geometry.window_areas.index.get_level_values('compass_point').isin(compass_points)
+        window_areas = self.geometry.window_areas[window_mask].groupby('compass_point').sum()
+        adjusted_area = (1 - self.spec.window_frame_factor) * window_areas
+        area_summer = (
+                adjusted_area * self.spec.solar_external_shading_summer * self.spec.parameters.shading_correction_factor
+        )
+        area_winter = (
+                adjusted_area * self.spec.solar_external_shading_winter * self.spec.parameters.shading_correction_factor
+        )
+        Fsh_ob_overhand = 1.0  # LF87 [Hardcoded via 0 in Inputs N108:U108]
+        Fsh_ob_fin = 1.0  # LF90 [Hardcoded via 0 in Inputs N110:U110]
+        Fsh_ob_horizon = 1.0  # LF93 [Hardcoded via 0 in Inputs N112:U112]
+        solar_lost_through_windows = 0.035  # [Hardcoded in KY84]
+        # LF95: ISO 13790, 11.4.4
+        Fsh_ob_total = Fsh_ob_overhand * Fsh_ob_fin * Fsh_ob_horizon - solar_lost_through_windows
+
+        incoming_radiation_summer = (
+                Fsh_ob_total *
+                area_summer *
+                self.solar_radiation_glazing_adjustment[compass_points] *
+                self.solar_irradiation.solar_irradiation[compass_points]
+        )
+        incoming_radiation_winter = (
+                Fsh_ob_total *
+                area_winter *
+                self.solar_radiation_glazing_adjustment[compass_points] *
+                self.solar_irradiation.solar_irradiation[compass_points]
+        )
+        epsilon_5 = 5 * 0.9  # KY81:LF81 via Inputs G230
+        delta_theta_er = 11  # Hardcoded in KY82: ISO 13790, 11.4.6
+        reduction = DataFrame(outer(self.rse, window_areas), columns=window_areas.index, index=self.rse.index)
+        reduction = (
+            reduction *
+            self.spec.parameters.view_factor_to_sky_facade *
+            self.spec.uvalue_window *
+            epsilon_5 *
+            delta_theta_er
+        )
+
+        return {
+            'summer': maximum(
+                incoming_radiation_summer - reduction,
+                0.0
+            ),
+            'winter': maximum(
+                incoming_radiation_winter - reduction,
+                0.0
+            )
+        }
+
+    @property
     def solar_heat_windows(self) -> 'Series[float]':
         """Hourly solar heat gains through windows in W/m2.
         ϕsol,w [Hourly Simulation column LH]
@@ -1014,7 +1056,7 @@ class ClimateSimulation(HourlySimulation):
         [Hourly Simulation columns LK:LR]
         """
         compass_point = row.name
-        solar_radiation = self.solar_irradiation.get_solar_irradiation(compass_point)  # M:T
+        solar_radiation = self.solar_radiation_glazing_adjustment[compass_point]  # M:T
 
         absorption = self.spec.parameters.facade_absorption_coefficient  # LK78:LR78
         view_factor = self.spec.parameters.view_factor_to_sky_facade  # LK80:LR80

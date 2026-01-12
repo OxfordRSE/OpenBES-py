@@ -21,6 +21,7 @@ class SolarIrradiationSimulation:
     _solar_irradiation: DataFrame
     _solar_declination_: np.array = None
     _hour_angle_: np.array = None
+    _aoi: DataFrame = None
 
     def __init__(self, epw_data: DataFrame, epw_metadata: dict):
         self._hours = HOURS_DF.copy()
@@ -148,6 +149,18 @@ class SolarIrradiationSimulation:
         return 90.0 - self.solar_altitude
 
     @property
+    def cos_zenith(self) -> 'Series[float]':
+        if 'cos_zenith' not in self._hours.columns:
+            sin_phi = np.sin(np.radians(self.lat))
+            cos_phi = np.cos(np.radians(self.lat))
+            self._hours['cos_zenith'] = (
+                    sin_phi * np.sin(self._solar_declination) +
+                    cos_phi * np.cos(self._solar_declination) * np.cos(self._hour_angle)
+            )
+        return self._hours['cos_zenith']
+
+
+    @property
     def solar_azimuth(self) -> 'Series[float]':
         """Solar azimuth angle (phi) in degrees for each hour.
         [Solar radiation column V]
@@ -165,41 +178,238 @@ class SolarIrradiationSimulation:
             self._hours['solar_azimuth_degrees'] = solar_azimuth
         return self._hours['solar_azimuth_degrees']
 
-    def get_solar_irradiation(self, compass_point: COMPASS_POINTS) -> 'Series[float]':
-        """Get the hourly solar irradiation on a vertical surface facing the given compass point in Wh/m2.
-        [Hourly simulation columns M:T, Solar radiation BT:CA]
+    @property
+    def surface_azimuths(self) -> dict[COMPASS_POINTS, float]:
+        """Surface azimuth angles in degrees for each compass point."""
+        return {
+            COMPASS_POINTS.South: 180,
+            COMPASS_POINTS.SouthEast: 135,
+            COMPASS_POINTS.East: 90,
+            COMPASS_POINTS.NorthEast: 45,
+            COMPASS_POINTS.North: 0,
+            COMPASS_POINTS.NorthWest: -45,
+            COMPASS_POINTS.West: -90,
+            COMPASS_POINTS.SouthWest: -135,
+        }
+
+    def get_aoi(self, compass_point: COMPASS_POINTS) -> 'Series[float]':
+        """Get the hourly angle of incidence on a vertical surface facing the given compass point in radians.
         """
-        if compass_point not in self._solar_irradiation.columns:
-            # These values in Hourly simulation M114:T114 are used in the map, then adjusted to PVLib convention
-            surface_azimuth = {
-                COMPASS_POINTS.North: 180,
-                COMPASS_POINTS.NorthEast: 360 - 135,
-                COMPASS_POINTS.East: 360 - 90,
-                COMPASS_POINTS.SouthEast: 360 - 45,
-                COMPASS_POINTS.South: 0,
-                COMPASS_POINTS.SouthWest: 45,
-                COMPASS_POINTS.West: 90,
-                COMPASS_POINTS.NorthWest: 135,
-            }[compass_point]
-            solar_azimuth = self.solar_azimuth
-            gamma = abs(solar_azimuth - surface_azimuth)  # [Solar radiation columns W:AD]
-            solar_altitude_rad = np.radians(self.solar_altitude)
-            aoi = np.cos(solar_altitude_rad) * np.cos(np.radians(gamma))  # [Solar radiation columns AE:AL]
-            aoi = np.degrees(np.arccos(aoi))  # [Solar radiation columns AM:AT]
-            # [Solar radiation columns AU:BB]
-            beam_component = np.logical_not((90 < gamma) & (gamma < 270)) * (aoi >= 0) * (self.dni * np.cos(np.radians(aoi)))
-            # [Solar radiation columns BC:BJ]
-            diffuse_component_ratio = (
-                    0.55 +
-                    0.437 * np.cos(np.radians(aoi)) +
-                    0.313 * (np.cos(np.radians(aoi)) ** 2)
+        if self._aoi is None:
+            self._aoi = DataFrame()
+            self._aoi.index = self._hours.index
+            r90 = np.radians(90)
+            for point in list(COMPASS_POINTS):
+                azimuth_component = np.radians(self.solar_azimuth - self.surface_azimuths[point])
+                self._aoi[point] = (
+                        np.cos(r90) * self.cos_zenith +
+                        np.sin(r90) * np.sin(np.radians(self.solar_zenith)) * np.cos(azimuth_component)
+                )
+        return self._aoi[compass_point]
+
+    def get_aoi_degrees(self, compass_point: COMPASS_POINTS) -> 'Series[float]':
+        """Get the hourly angle of incidence on a vertical surface facing the given compass point in degrees.
+        """
+        return np.degrees(np.acos(np.minimum(np.maximum(self.get_aoi(compass_point), -1), 1)))
+
+    @property
+    def dni_extra(self) -> 'Series[float]':
+        """Get the hourly extraterrestrial direct normal irradiance in Wh/m2.
+        """
+        if 'dni_extra' not in self._hours.columns:
+            dni_extra = (
+                    1367 *
+                    (1 + 0.033 * np.cos(2 * np.pi * self.day_of_year / 365))
             )
-            # [Solar radiation columns BK:BR; capping is actually done in the previous column set]
-            diffuse_component = np.maximum(0.45, diffuse_component_ratio) * self.dhi
-            # [Solar radiation column BS]
-            ground_component = (self.dni * np.sin(solar_altitude_rad) + self.dhi) * 0.14 / 2
-            self._solar_irradiation[compass_point] = beam_component + diffuse_component + ground_component
-        return self._solar_irradiation[compass_point]
+            self._hours['dni_extra'] = dni_extra
+        return self._hours['dni_extra']
+
+    @property
+    def relative_air_mass(self) -> 'Series[float]':
+        """Get the hourly relative air mass (Kasten & Young).
+        """
+        if 'relative_air_mass' not in self._hours.columns:
+            ram = 1 / (np.cos(np.radians(self.solar_zenith)) + 0.50572 * ((96.07995 - self.solar_zenith) ** -1.6364))
+            ram = np.minimum(ram, 40)
+            ram = ram * np.where(self.solar_zenith < 90, 1, 0)
+            ram = np.where(np.isnan(ram), 0, ram)
+            self._hours['relative_air_mass'] = ram
+        return self._hours['relative_air_mass']
+
+    @property
+    def brightness_delta(self) -> 'Series[float]':
+        """Get the hourly brightness.
+        """
+        if 'brightness_delta' not in self._hours.columns:
+            self._hours['brightness_delta'] = (
+                    self.dhi * self.relative_air_mass / self.dni_extra
+            )
+        return self._hours['brightness_delta']
+
+    @property
+    def clearness(self) -> 'Series[float]':
+        """Get the hourly clearness index.
+        """
+        if 'clearness' not in self._hours.columns:
+            self._hours['clearness'] = np.where(
+                self.dhi <= 0,
+                99.0,
+                (
+                        ((self.dhi + self.dni) / self.dhi + 1.041 * np.radians(self.solar_zenith)**3) /
+                        (1 + 1.041 * np.radians(self.solar_zenith)**3)
+                )
+            )
+        return self._hours['clearness']
+
+    @property
+    def perez_bins(self) -> DataFrame:
+        return DataFrame(
+            {
+                "bin": [1, 2, 3, 4, 5, 6, 7],
+                "eps_lo": [1.0, 1.065, 1.230, 1.500, 1.950, 2.800, 4.500],
+                "eps_hi": [1.065, 1.230, 1.500, 1.950, 2.800, 4.500, 6.200],
+                "perez_f11": [-0.008312, 0.129946, 0.329696, 0.568205, 0.873028, 1.132608, 1.060159],
+                "perez_f12": [0.587729,0.682595,0.486874,0.187453,-0.392040,-1.236728,-1.599914],
+                "perez_f13": [-0.062064, -0.151375, -0.221096, -0.295129, -0.361615, -0.411849, -0.358922],
+                "perez_f21": [-0.059601, -0.018933, 0.055414, 0.108863, 0.225565, 0.287781, 0.264212],
+                "perez_f22": [0.072125, 0.065965, -0.063959, -0.151923, -0.462044, -0.823036, -1.127234],
+                "perez_f23": [-0.022022,-0.028875,-0.026054,-0.013975,0.001245,0.055865,0.131069]
+            }
+        )
+
+    def get_perez_coefficient(self, coefficient: str) -> 'Series[float]':
+        """Get the hourly Perez coefficient by name.
+        """
+        if coefficient not in self._hours.columns:
+            idx = np.clip(
+                np.searchsorted(
+                    self.perez_bins['eps_lo'],
+                    self.clearness,
+                    side='right'
+                ) - 1,
+                0,
+                len(self.perez_bins) - 1
+            )
+            self._hours[coefficient] = self.perez_bins[coefficient].iloc[idx].values
+        return self._hours[coefficient]
+
+    @property
+    def perez_f11(self) -> 'Series[float]':
+        """Get the hourly Perez f11 coefficient.
+        """
+        if 'perez_f11' not in self._hours.columns:
+            self.get_perez_coefficient('perez_f11')
+        return self._hours['perez_f11']
+
+    @property
+    def perez_f12(self) -> 'Series[float]':
+        """Get the hourly Perez f12 coefficient.
+        """
+        if 'perez_f12' not in self._hours.columns:
+            self.get_perez_coefficient('perez_f12')
+        return self._hours['perez_f12']
+
+    @property
+    def perez_f13(self) -> 'Series[float]':
+        """Get the hourly Perez f13 coefficient.
+        """
+        if 'perez_f13' not in self._hours.columns:
+            self.get_perez_coefficient('perez_f13')
+        return self._hours['perez_f13']
+
+    @property
+    def perez_f21(self) -> 'Series[float]':
+        """Get the hourly Perez f21 coefficient.
+        """
+        if 'perez_f21' not in self._hours.columns:
+            self.get_perez_coefficient('perez_f21')
+        return self._hours['perez_f21']
+
+    @property
+    def perez_f22(self) -> 'Series[float]':
+        """Get the hourly Perez f22 coefficient.
+        """
+        if 'perez_f22' not in self._hours.columns:
+            self.get_perez_coefficient('perez_f22')
+        return self._hours['perez_f22']
+
+    @property
+    def perez_f23(self) -> 'Series[float]':
+        """Get the hourly Perez f23 coefficient.
+        """
+        if 'perez_f23' not in self._hours.columns:
+            self.get_perez_coefficient('perez_f23')
+        return self._hours['perez_f23']
+
+    @property
+    def perez_F1(self) -> 'Series[float]':
+        """Get the hourly Perez F1 coefficient.
+        """
+        if 'perez_F1' not in self._hours.columns:
+            self._hours['perez_F1'] = np.maximum(
+                0,
+                (
+                        self.perez_f11 +
+                        self.perez_f12 * self.brightness_delta +
+                        (np.pi * self.solar_zenith / 180) * self.perez_f13
+                )
+            )
+        return self._hours['perez_F1']
+
+    @property
+    def perez_F2(self) -> 'Series[float]':
+        """Get the hourly Perez F2 coefficient.
+        """
+        if 'perez_F2' not in self._hours.columns:
+            self._hours['perez_F2'] = (
+                    self.perez_f21 +
+                    self.perez_f22 * self.brightness_delta +
+                    (np.pi * self.solar_zenith / 180) * self.perez_f23
+            )
+        return self._hours['perez_F2']
+
+    def get_perez_a(self, point: COMPASS_POINTS) -> 'Series[float]':
+        """Get the hourly Perez auxiliary variable A.
+        """
+        return np.maximum(self.get_aoi(point), 0)
+
+    @property
+    def perez_b(self) -> 'Series[float]':
+        """Get the hourly Perez auxiliary variable B.
+        """
+        if 'perez_b' not in self._hours.columns:
+            self._hours['perez_b'] = np.maximum(np.cos(np.radians(85)), self.cos_zenith)
+        return self._hours['perez_b']
+
+    def get_beam_component(self, point: COMPASS_POINTS) -> 'Series[float]':
+        """Get the hourly beam component on a vertical surface facing the given compass point in Wh/m2.
+        """
+        return np.maximum(0, self.dni * self.get_aoi(point))
+
+    def get_diffuse_component(self, point: COMPASS_POINTS) -> 'Series[float]':
+        """Get the hourly diffuse component on a vertical surface facing the given compass point in Wh/m2.
+        """
+        f1_a = (1 - self.perez_F1) * (1 + np.cos(np.radians(90))) / 2
+        f1_b = self.perez_F1 * (self.get_perez_a(point) / self.perez_b)
+        f2 = self.perez_F2 * np.sin(np.radians(90))
+        return np.maximum(0, self.dhi * (f1_a + f1_b + f2))
+
+    @property
+    def ground_reflected_component(self) -> 'Series[float]':
+        """Get the hourly ground reflected component on a vertical surface in Wh/m2.
+        """
+        if 'ground_reflected_component' not in self._hours.columns:
+            self._hours['ground_reflected_component'] = self.ghi * 0.2 * (1 - np.cos(np.radians(90))) / 2
+        return self._hours['ground_reflected_component']
+
+    def get_solar_irradiation(self, point: COMPASS_POINTS) -> 'Series[float]':
+        """Get the hourly solar irradiation on a vertical surface facing the given compass point in Wh/m2.
+        """
+        if point not in self._solar_irradiation.columns:
+            self._solar_irradiation[point] = (
+                    self.get_diffuse_component(point) + self.get_beam_component(point) + self.ground_reflected_component
+            )
+        return self._solar_irradiation[point]
 
     @property
     def solar_irradiation(self) -> DataFrame:

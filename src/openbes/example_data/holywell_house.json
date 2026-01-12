@@ -22,7 +22,7 @@
     "view_factor_to_sky_facade": 0.5,
     "view_factor_to_sky_roof": 1,
     "window_correction_factor": 1,
-    "window_angular_correction_factors": [1.0, -0.189, 0.644, -5.96, 0.0],
+    "window_angular_correction_factors": [1.0, -0.189, 0.644, -0.596, 0.0],
     "include_lighting": 1,
     "include_occupancy": 1,
     "include_appliances": 1

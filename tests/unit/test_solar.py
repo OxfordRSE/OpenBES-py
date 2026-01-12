@@ -1,6 +1,6 @@
 import os
 
-from pandas import Series
+from pandas import Series, IndexSlice
 from pvlib.iotools import read_epw
 import unittest
 
@@ -59,6 +59,119 @@ class SolarIrradiation(OpenBESTestCase):
             248.360499, 259.360916, 270.754367, 283.342686, 298.338720, 317.486061, 342.265330
         ]
         calculated = self.sim.solar_azimuth
+        self.check_series_versus_values(calculated, first_day)
+
+    def test_aoi(self):
+        expected = {
+            COMPASS_POINTS.South: [-0.473959, -0.430950, -0.342005, -0.213180, -0.053251, 0.126891],
+            COMPASS_POINTS.SouthEast: [-0.270223, -0.074562, 0.137913, 0.352729, 0.555256, 0.731698],
+            COMPASS_POINTS.East: [0.091805, 0.325503, 0.537043, 0.712015, 0.838502, 0.907886],
+            COMPASS_POINTS.NorthEast: [0.400055, 0.534893, 0.621580, 0.654212, 0.630564, 0.552247],
+            COMPASS_POINTS.North: [0.473959, 0.430950, 0.342005, 0.213180, 0.053251, -0.126891],
+            COMPASS_POINTS.NorthWest: [0.270223, 0.074562, -0.137913, -0.352729, -0.555256, -0.731698],
+            COMPASS_POINTS.West: [-0.091805, -0.325503, -0.537043, -0.712015, -0.838502, -0.907886],
+            COMPASS_POINTS.SouthWest: [-0.400055, -0.534893, -0.621580, -0.654212, -0.630564, -0.552247]
+        }
+        for point, expected_values in expected.items():
+            with self.subTest(point):
+                calculated_aoi = self.sim.get_aoi(point)
+                self.check_series_versus_values(calculated_aoi[:6], expected_values)
+
+    def test_relative_air_mass(self):
+        first_day = [
+            0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 22.479324, 7.057500,
+            4.592010, 3.844061, 3.775454, 4.318635, 6.128844, 14.585011, 0.000000, 0.000000, 0.000000, 0.000000,
+            0.000000, 0.000000, 0.000000, 0.000000
+        ]
+        calculated = self.sim.relative_air_mass
+        self.check_series_versus_values(calculated, first_day)
+
+    def test_brightness_delta(self):
+        first_day = [
+            0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.238785, 0.194917,
+            0.204869, 0.220500, 0.197849, 0.119274, 0.043402, 0.020657, 0.000000, 0.000000, 0.000000, 0.000000,
+            0.000000, 0.000000, 0.000000, 0.000000
+        ]
+        calculated = self.sim.brightness_delta
+        self.check_series_versus_values(calculated, first_day)
+
+    def test_clearness(self):
+        first_day = [
+            99.000000, 99.000000, 99.000000, 99.000000, 99.000000, 99.000000, 99.000000, 99.000000,
+            1.000000, 1.000000, 1.017668, 1.025821, 1.016280, 1.007302, 1.000000, 1.000000,
+            99.000000, 99.000000, 99.000000, 99.000000, 99.000000, 99.000000, 99.000000, 99.000000
+        ]
+        calculated = self.sim.clearness
+        self.check_series_versus_values(calculated, first_day)
+
+    def test_perez(self):
+        coefficients = {
+            'perez_f11': [1.060159, -0.008312],
+            'perez_f12': [-1.599914, 0.587729],
+            'perez_f13': [-0.358922, -0.062064],
+            'perez_f21': [0.264212, -0.059601],
+            'perez_f22': [-1.127234, 0.072125],
+            'perez_f23': [0.131069, -0.022022],
+            'perez_F1': [0.4584824770, 0.0361587908],
+            'perez_F2': [0.483930, -0.076396],
+        }
+        test_idx = IndexSlice[(1, 1, slice(8, 9))]
+        for coef, expected_values in coefficients.items():
+            with self.subTest(coef):
+                values = getattr(self.sim, coef)
+                calculated = values.loc[test_idx].values
+                self.check_series_versus_values(Series(calculated), expected_values)
+
+        with self.subTest('perez_b'):
+            first_day = [
+                0.087156, 0.087156, 0.087156, 0.087156, 0.087156, 0.087156, 0.087156, 0.087156, 0.087156, 0.134820,
+                0.213465, 0.256659, 0.261463, 0.227549, 0.157228, 0.087156, 0.087156, 0.087156, 0.087156, 0.087156,
+                0.087156, 0.087156, 0.087156, 0.087156
+            ]
+            calculated = self.sim.perez_b
+            self.check_series_versus_values(calculated, first_day)
+
+    def test_beam_component(self):
+        expected = {
+            COMPASS_POINTS.South: [0.000000, 3.601925],
+            COMPASS_POINTS.SouthEast: [0.000000, 3.618641],
+            COMPASS_POINTS.East: [0.000000, 1.515606],
+            COMPASS_POINTS.NorthEast: [0.0, 0.0],
+            COMPASS_POINTS.North: [0.0, 0.0],
+            COMPASS_POINTS.NorthWest: [0.0, 0.0],
+            COMPASS_POINTS.West: [0.0, 0.0],
+            COMPASS_POINTS.SouthWest: [0.000000, 1.475250]
+        }
+        test_idx = IndexSlice[(1, 1, slice(10, 11))]
+        for point, expected_values in expected.items():
+            with self.subTest(point):
+                calculated_beam = self.sim.get_beam_component(point)
+                self.check_series_versus_values(calculated_beam.loc[test_idx], expected_values)
+
+    def test_diffuse_component(self):
+        expected = {
+            COMPASS_POINTS.South: [0.000000, 10.215353],
+            COMPASS_POINTS.SouthEast: [0.000000, 12.293111],
+            COMPASS_POINTS.East: [0.000000, 10.732993],
+            COMPASS_POINTS.NorthEast: [0.000000, 6.448897],
+            COMPASS_POINTS.North: [0.000000, 6.082871],
+            COMPASS_POINTS.NorthWest: [0.000000, 6.082871],
+            COMPASS_POINTS.West: [0.000000, 6.082871],
+            COMPASS_POINTS.SouthWest: [0.000000, 6.082871]
+        }
+        test_idx = IndexSlice[(1, 1, slice(8, 9))]
+        for point, expected_values in expected.items():
+            with self.subTest(point):
+                calculated = self.sim.get_diffuse_component(point)
+                self.check_series_versus_values(calculated.loc[test_idx], expected_values)
+
+    def test_ground_reflected_component(self):
+        first_day = [
+            0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.500000, 3.900000,
+            6.400000, 8.300000, 7.500000, 3.900000, 1.000000, 0.200000, 0.000000, 0.000000, 0.000000, 0.000000,
+            0.000000, 0.000000, 0.000000, 0.000000
+        ]
+        calculated = self.sim.ground_reflected_component
         self.check_series_versus_values(calculated, first_day)
 
     def test_solar_irradiation(self):
