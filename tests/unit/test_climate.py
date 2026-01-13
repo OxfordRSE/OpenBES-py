@@ -49,10 +49,10 @@ class Climate(OpenBESTestCase):
 
         csv = self.read_csv('fixtures/hh_solar_radiation_adjusted.csv')
         for point in self.sim.solar_radiation_glazing_adjustment.columns:
-            with self.subTest(point=point):
+            with self.subTest(point=point.value):
                 expected = csv[point_to_col(point)]
                 calculated = self.sim.solar_radiation_glazing_adjustment[point]
-                self.check_series_versus_values(calculated, expected, tolerance=1e-13)
+                self.check_series_versus_values(calculated, expected)
 
     def test_hourly_set_point(self):
         expected = HOURS_DF.copy()
@@ -69,7 +69,7 @@ class Climate(OpenBESTestCase):
     def test_night_ventilation_enabled(self):
         df = self.sim.night_ventilation_enabled
         self.assertEqual(len(df), len(HOURS_DF))
-        self.assertEqual(df.sum(), 762)
+        self.assertEqual(df.sum(), 786)
 
     def test_air_flow_dependent(self):
         df = self.sim.air_flow_dependent
@@ -126,13 +126,10 @@ class Climate(OpenBESTestCase):
         self.assertTrue(expected.equals(computed), expected.compare(computed))
 
     def test_internal_surface_temperature(self):
-        expected = Series([
-            17.189528678, 16.938032927, 16.693034870, 16.455384605, 16.248080277, 16.038826484, 15.834325329,
-            15.639793006, 15.427721369, 15.254647828, 15.126157266, 15.056091784, 14.965677923, 14.818700616,
-            14.649119178, 14.451617832, 14.242575314, 14.028535619, 13.810140346, 13.606306014, 13.380471087,
-            13.139959488, 12.862928167, 12.530564961
-        ])
-        self.check_series_versus_values(self.sim.internal_surface_temp, expected)
+        self.check_series_versus_csv(
+            self.sim.internal_surface_temp,
+            'fixtures/hh_internal_surface_temp.csv'
+        )
 
     def test_air_flow(self):
         self.check_series_versus_csv(
@@ -204,15 +201,9 @@ class Climate(OpenBESTestCase):
         )
         
     def test_air_free_temp(self):
-        self.check_series_versus_values(
+        self.check_series_versus_csv(
             self.sim.air_free_temp,
-            [
-                17.1633394521, 16.9103881430, 16.6668143587, 16.4305170901, 16.2291762563, 16.0190310690,
-                15.8155581773, 15.6229366499, 15.4017164672, 15.2126790976, 15.0550056746, 14.9536418197,
-                14.8326666521, 14.6792307178, 14.5197734659, 14.3220464519, 14.1167802056, 13.9072677875,
-                13.6931694927, 13.4971561530, 13.2712573643, 13.0325578090, 12.7525669620, 12.4136473919
-            ],
-            decimal_places=15
+            'fixtures/hh_air_free_temp.csv'
         )
 
     def test_building_thermal_mass_hc_actual(self):

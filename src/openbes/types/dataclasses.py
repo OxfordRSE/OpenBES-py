@@ -48,7 +48,7 @@ class OpenBESParameters:
     heat_capacity_correction_factor: Optional[float] = 1.0
     heat_capacity_joule: Optional[float] = None
     heating_load_factor: Optional[float] = 1.0
-    heating_system1_min_demand: Optional[float] = 35
+    heating_system1_min_demand: Optional[float] = 37
     heating_system2_efficiency_cop: Optional[float] = None
     heating_system2_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
     heating_system2_min_demand: Optional[float] = None

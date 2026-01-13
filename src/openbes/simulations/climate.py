@@ -1056,7 +1056,7 @@ class ClimateSimulation(HourlySimulation):
         [Hourly Simulation columns LK:LR]
         """
         compass_point = row.name
-        solar_radiation = self.solar_radiation_glazing_adjustment[compass_point]  # M:T
+        solar_radiation = self.solar_irradiation.solar_irradiation[compass_point]  # M:T
 
         absorption = self.spec.parameters.facade_absorption_coefficient  # LK78:LR78
         view_factor = self.spec.parameters.view_factor_to_sky_facade  # LK80:LR80

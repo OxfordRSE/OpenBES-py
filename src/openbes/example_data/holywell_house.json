@@ -322,7 +322,7 @@
       "type": "Condensing boiler",
       "energy_source": "Natural gas",
       "efficiency_cop": 0.86,
-      "min_demand": 35,
+      "min_demand": 37,
       "nominal_capacity": 48.0,
       "count": 2,
       "active_hours": {

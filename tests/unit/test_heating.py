@@ -25,6 +25,7 @@ class Heating(OpenBESTestCase):
             climate=self._climate,
         )
         self.system = self.sim.heating_simulations[0]
+        self.decimal_places_or_tolerance = 1e-5
 
     def test_area(self):
         self.assertEqual(

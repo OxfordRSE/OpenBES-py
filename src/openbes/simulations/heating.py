@@ -117,7 +117,7 @@ class HeatingSystemSimulation(EnergyUseSimulation):
     @property
     def demand(self) -> 'Series[float]':
         """Hourly heating demand in kW.
-        [Hourly simulation column HA]
+        [Hourly simulation column ES]
         """
         if 'demand' not in self._hours.columns:
             self._hours['demand'] = (self.phi_h_nd_ac * self.area) / 1000  # W -> kW
