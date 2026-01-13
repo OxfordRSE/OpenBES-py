@@ -3,7 +3,7 @@
 "d.altitude" = 1650
 "d.appliance_on_off" = 1
 "d.cooling_load_factor" = 1
-"d.cooling_system1_min_demand" = 10
+"d.cooling_system1_min_demand" = 15
 "d.cooling_system2_energy_efficifiency_ratio" = ""
 "d.cooling_system2_energy_source" = "Electricity"
 "d.cooling_system2_min_demand" = ""
@@ -27,7 +27,7 @@
 "d.facade_emissivity" = 0.9
 "d.floor_correction_factor" = 1
 "d.heat_capacity_correction_factor" = 1
-"d.heat_capacity_joule" = 48379.166666666664
+"d.heat_capacity_joule" = 42166.666666666664
 "d.heating_load_factor" = 1
 "d.heating_system1_min_demand" = 35
 "d.heating_system2_efficiency_cop" = ""
@@ -60,7 +60,6 @@
 "d.open_courtyard_number_b1" = 0
 "d.open_courtyard_number_c1" = 0
 "d.open_courtyard_number_d1" = 0
-"d.pressure_of_air" = 83460
 "d.roof_absorption_coefficient" = 0.6
 "d.roof_correction_factor" = 1
 "d.roof_emissivity" = 0.9
@@ -77,6 +76,11 @@
 "d.view_factor_to_sky_facade" = 0.5
 "d.view_factor_to_sky_roof" = 1
 "d.window_correction_factor" = 1
+"d.window_optical_c1" = 1.006
+"d.window_optical_c2" = 0.135
+"d.window_optical_c3" = -0.736
+"d.window_optical_c4" = 1.205
+"d.window_optical_c5" = -0.665
 "i.appliances_load" = 4.16666666666667
 "i.biomass_annual" = ""
 "i.biomass_pellets_annual" = ""
@@ -230,12 +234,12 @@
 "i.meteorological_file" = "725650_Denver"
 "i.natural_gas_annual" = ""
 "i.natural_ventilation_night" = 0
-"i.occupancy_close_canteen" = 24
+"i.occupancy_close_canteen" = 12
 "i.occupancy_close_office" = 24
-"i.occupancy_close_teaching" = 24
-"i.occupancy_open_canteen" = 1
+"i.occupancy_close_teaching" = 12
+"i.occupancy_open_canteen" = 12
 "i.occupancy_open_office" = 1
-"i.occupancy_open_teaching" = 1
+"i.occupancy_open_teaching" = 12
 "i.orientation_angle" = 0
 "i.other_electricity_usage" = ""
 "i.other_gas_usage" = 0
@@ -284,9 +288,9 @@
 "i.third_floor_area_z5" = ""
 "i.typical_occupation" = 1
 "i.uvalue_facade" = 0.51
-"i.uvalue_floor" = 0.039
-"i.uvalue_roof" = 0.319
-"i.uvalue_window" = 5.7
+"i.uvalue_floor" = 0.04
+"i.uvalue_roof" = 0.32
+"i.uvalue_window" = 5.78
 "i.ventilation_system1_airflow" = ""
 "i.ventilation_system1_energy_source" = "Electricity"
 "i.ventilation_system1_heat_recovery_efficiency" = 0
@@ -303,7 +307,7 @@
 "i.water_system_nominal_capacity" = 0
 "i.water_system_type" = "Electric boiler"
 "i.window_frame_factor" = 0
-"i.window_gvalue" = 0.944
+"i.window_gvalue" = 0.864
 "i.window_height" = 2
 "i.window_length" = 3
 "i.window_number_first_a1" = 0
