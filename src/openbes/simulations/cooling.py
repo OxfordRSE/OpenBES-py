@@ -5,7 +5,7 @@ from typing import List
 import numpy as np
 from pandas import Series
 
-from .base import EnergyUseSimulation
+from .base import EnergyUseSimulation, EnergyUseSimulationInitError
 from .climate import ClimateSimulation, RELATIVE_HUMIDITY
 from .geometry import BuildingGeometry
 from .lighting import LightingSimulation
@@ -41,12 +41,25 @@ class CoolingSystemSimulation(EnergyUseSimulation):
     ):
         super().__init__(spec)
         self.system_number = system_number
+        for attr in [
+            "energy_source", "energy_efficifiency_ratio", "nominal_capacity", "sensible_nominal_capacity"
+        ]:
+            try:
+                v = self._attr(attr)
+            except AttributeError:
+                raise EnergyUseSimulationInitError(
+                    f"Cooling system {system_number} missing required specification attribute: {attr}"
+                )
+            if v is None:
+                raise EnergyUseSimulationInitError(
+                    f"Cooling system {system_number} has None for required specification attribute: {attr}"
+                )
         self.climate = climate or ClimateSimulation(spec)
         self.geometry = climate.geometry
         self.occupancy = climate.occupancy
 
     def _attr(self, attr_name: str):
-        return getattr(self.spec, f"cooling_system{self.system_number}_{attr_name}")
+        return self.get_param_or_spec(f"cooling_system{self.system_number}_{attr_name}")
 
     @property
     def area(self) -> float:
@@ -298,20 +311,22 @@ class CoolingSimulation(EnergyUseSimulation):
         self.cooling_simulations = []
         while True:
             system_number = len(self.cooling_simulations) + 1
-            attr_name = f"cooling_system{system_number}_type"
-            if not hasattr(spec, attr_name):
-                break
-            self.cooling_simulations.append(
-                CoolingSystemSimulation(
-                    spec=spec,
-                    system_number=system_number,
-                    climate=self.climate_simulation
+            try:
+                self.cooling_simulations.append(
+                    CoolingSystemSimulation(
+                        spec=spec,
+                        system_number=system_number,
+                        climate=self.climate_simulation
+                    )
                 )
-            )
+            except EnergyUseSimulationInitError:
+                break
     
     @property
     def energy_use(self) -> 'Series[float]':
         """Cooling energy use in kWh for each hour of the year for each ENERGY_SOURCES.
         [Hourly outputs column Q], disaggregated
         """
+        if len(self.cooling_simulations) == 0:
+            return self._energy_use.fillna(0.0)
         return sum([x.energy_use for x in self.cooling_simulations])

@@ -193,8 +193,6 @@ class ClimateSimulation(HourlySimulation):
         """
         # Make sure min/max set points are calculated
         assert self.set_point_temperature is not None
-        # Occupancy
-        is_occupied = self.occupancy.occupancy['is_occupied']
 
         static = {
             "infiltration": (
@@ -231,7 +229,6 @@ class ClimateSimulation(HourlySimulation):
             "internal_heat": array(self.internal_heat.values),
             "internal_heat_adjusted": array(self.internal_heat_adjusted.values),
             "supply_air_temp": array(self.supply_air_temp.values),
-            "is_occupied": array(is_occupied),
         }
         return static
 
@@ -447,10 +444,9 @@ class ClimateSimulation(HourlySimulation):
         22. Heating/cooling need [Hourly Simulation column DB]
         """
         # [Hourly simulation column CK]
-        is_occupied = self._cache['is_occupied'][i]
         needs_heating = air_free_temp_hc_0 < max_temp
         needs_cooling = air_free_temp_hc_0 > min_temp
-        if is_occupied and (needs_heating or needs_cooling):
+        if needs_heating or needs_cooling:
             heating_cooling_demand = (
                     10 * (air_set_temp - air_free_temp_hc_0) / (air_free_temp_hc_10 - air_free_temp_hc_0)
             )
@@ -1022,11 +1018,11 @@ class ClimateSimulation(HourlySimulation):
         delta_theta_er = 11  # Hardcoded in KY82: ISO 13790, 11.4.6
         reduction = DataFrame(outer(self.rse, window_areas), columns=window_areas.index, index=self.rse.index)
         reduction = (
-            reduction *
-            self.spec.parameters.view_factor_to_sky_facade *
-            self.spec.uvalue_window *
-            epsilon_5 *
-            delta_theta_er
+                reduction *
+                self.spec.parameters.view_factor_to_sky_facade *
+                self.spec.uvalue_window *
+                epsilon_5 *
+                delta_theta_er
         )
 
         return {

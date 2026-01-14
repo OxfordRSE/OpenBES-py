@@ -170,7 +170,7 @@ class LightingPipeline(OpenBESTestCase):
         output = self.sim.get_kwh_per_day_per_zone().round(self.decimal_places)
         expected = DataFrame(
             {"kWh/day": [15.680, 12.320, 0, 0, 0, 0]},
-            index=[f"Zone type {i}" for i in range(1, 7)],
+            index=[f"Lighting system {i}" for i in range(1, 7)],
         ).round(self.decimal_places)
         self.assertTrue(expected.equals(output), expected.compare(output))
 
@@ -192,7 +192,7 @@ class LightingPipeline(OpenBESTestCase):
                 [235.20000000, 184.80000000, 0.0, 0.0, 0.0, 0.0],
             ],
             index=list(MONTHS),
-            columns=[f"Zone type {i}" for i in range(1, 7)],
+            columns=[f"Lighting system {i}" for i in range(1, 7)],
         ).transpose().round(self.decimal_places)
         self.assertTrue(expected.equals(output), expected.compare(output))
 

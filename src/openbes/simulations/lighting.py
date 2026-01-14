@@ -80,7 +80,7 @@ class LightingSimulation(EnergyUseSimulation):
         Returns:
             DataFrame: A DataFrame containing kWh per day per zone.
         """
-        zones = [f"Zone type {i}" for i in range(1, 7)]
+        zones = [f"Lighting system {i}" for i in range(1, 7)]
         return DataFrame(
             [self.get_kwh_per_day_for_zone(i) for i in range(1, 7)],
             index=zones,

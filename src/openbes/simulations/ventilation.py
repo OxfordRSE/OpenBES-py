@@ -4,7 +4,7 @@ from pandas import Series
 import logging
 from pandas import DataFrame
 
-from .base import EnergyUseSimulation
+from .base import EnergyUseSimulation, EnergyUseSimulationInitError
 from .geometry import BuildingGeometry
 from .occupancy import OccupationSimulation
 from ..types import OpenBESSpecification
@@ -25,11 +25,22 @@ class VentilationSystemSimulation(EnergyUseSimulation):
     ):
         super().__init__(spec=spec)
         self.system_number = system_number
+        for attr in ['energy_source', 'airflow']:
+            try:
+                v = self._attr(attr)
+            except AttributeError:
+                raise EnergyUseSimulationInitError(
+                    f"Ventilation system {system_number} missing required specification attribute: {attr}"
+                )
+            if v is None:
+                raise EnergyUseSimulationInitError(
+                    f"Ventilation system {system_number} has None for required specification attribute: {attr}"
+                )
         self.geometry = geometry or BuildingGeometry(spec=self.spec)
-        self.occupancy = occupancy or OccupationSimulation(spec=spec)
+        self.occupancy = occupancy or OccupationSimulation(spec=self.spec)
 
     def _attr(self, attr_name: str):
-        return getattr(self.spec, f"ventilation_system{self.system_number}_{attr_name}")
+        return self.get_param_or_spec(f"ventilation_system{self.system_number}_{attr_name}")
 
     @property
     def air_supply_rate_adjusted(self) -> float:
@@ -59,7 +70,7 @@ class VentilationSystemSimulation(EnergyUseSimulation):
             self._hours['ventilation_on'] = list(
                 map(lambda x: on_time <= x <= off_time, self._hours.index.get_level_values('hour').values)
             )
-            self._hours['ventilation_on'] = self._hours['ventilation_on'] * self.occupancy.occupancy['is_occupied']
+            self._hours['ventilation_on'] = self._hours['ventilation_on'] * self.occupancy.occupancy['is_occupied_day']
         return self._hours['ventilation_on']
 
     @property
@@ -85,7 +96,7 @@ class VentilationSystemSimulation(EnergyUseSimulation):
         """
         if self._energy_use[self._attr('energy_source')].hasnans:
             self._energy_use[self._attr('energy_source')] = (
-                self.ventilation_on.astype(float) * self._attr('rated_input_power')
+                    self.ventilation_on.astype(float) * self._attr('rated_input_power')
             )
         return self._energy_use
 
@@ -105,16 +116,17 @@ class VentilationSimulation(EnergyUseSimulation):
         self.ventilation_simulations = []
         while True:
             system_number = len(self.ventilation_simulations) + 1
-            if not hasattr(spec, f"ventilation_system{system_number}_rated_input_power"):
-                break
-            self.ventilation_simulations.append(
-                VentilationSystemSimulation(
-                    spec=spec,
-                    system_number=system_number,
-                    occupancy=self.occupancy,
-                    geometry=self.geometry
+            try:
+                self.ventilation_simulations.append(
+                    VentilationSystemSimulation(
+                        spec=spec,
+                        system_number=system_number,
+                        occupancy=self.occupancy,
+                        geometry=self.geometry
+                    )
                 )
-            )
+            except EnergyUseSimulationInitError:
+                break
 
     @property
     def air_supply_rate(self) -> 'Series[float]':
@@ -132,4 +144,6 @@ class VentilationSimulation(EnergyUseSimulation):
     def energy_use(self) -> 'Series[float]':
         """Ventilation energy use in kWh for each hour of the year for each ENERGY_SOURCES.
         """
+        if len(self.ventilation_simulations) == 0:
+            return self._energy_use.fillna(0.0)
         return sum([x.energy_use for x in self.ventilation_simulations])
