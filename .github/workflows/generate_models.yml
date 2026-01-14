@@ -109,7 +109,7 @@ jobs:
           git add "$GENERATED"
           if ! git diff --cached --quiet; then
             git commit -m "ci: Auto-generate models from schemas"
-            git push origin HEAD:${{ github.ref }}
+            git push origin HEAD:${{ github.base_ref || github.ref }}
           else
             echo "No changes to commit"
           fi
