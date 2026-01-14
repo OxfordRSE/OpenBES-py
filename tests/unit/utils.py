@@ -1,5 +1,5 @@
 import unittest
-from typing import Union
+from typing import Union, Optional
 
 import pandas as pd
 import os
@@ -7,8 +7,48 @@ import os
 from src.openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
+def describe_differences(
+        expected: pd.Series,
+        calculated: pd.Series,
+        tolerance: float = 0.0
+) -> str:
+    differences = expected.compare(calculated, result_names=('expected', 'calculated'))
+    if differences.empty:
+        return "No differences found."
+    differences['ex_minus_calc'] = differences['expected'] - differences['calculated']
+    percent = len(differences) / len(expected) * 100
+    max_diff = max(abs(differences['expected'] - differences['calculated']))
+    max_loc = calculated.index[abs(calculated - expected) == max_diff].tolist()
+    max_loc = [{'index': x, 'rownum': calculated.index.get_loc(x)} for x in max_loc]
+    mean_diff = sum(abs(differences['expected'] - differences['calculated'])) / len(differences)
+    if tolerance == 0.0:
+        return (
+            f"{len(differences)} rows differ ({percent:.2f}% of all rows):\n"
+            f"Max difference: {max_diff} {max_loc}\n"
+            f"Mean difference: {mean_diff}\n"
+            f"{differences}"
+        )
+    def big_diffs(t):
+        mask = abs(differences['expected'] - differences['calculated']) > t
+        return differences[mask]
+    return (
+            f"{len(differences)} rows differ ({percent:.2f}% of all rows):\n"
+            f"Max difference: {max_diff} {max_loc}\n"
+            f"Mean difference: {mean_diff}\n"
+        f"{len(big_diffs(tolerance))} rows outside of tolerable difference +/- {tolerance}:\n"
+        f"% of differences outside tolerance: {len(big_diffs(tolerance)) / len(expected) * 100:.2f}%\n"
+        f"% of differences outside 2 x tolerance ({tolerance * 2}): {len(big_diffs(2 * tolerance)) / len(expected) * 100:.2f}%\n"
+        f"% of differences outside 10 x tolerance ({tolerance * 10}): {len(big_diffs(10 * tolerance)) / len(expected) * 100:.2f}%\n"
+        f"{big_diffs(tolerance)}"
+    )
+
+
 class OpenBESTestCase(unittest.TestCase):
-    decimal_places: int = 6
+    # If a float is provided, it is treated as a tolerance value, otherwise as decimal places.
+    # Values are rounded to the specified decimal places before comparison,
+    # or compared within the specified tolerance.
+    decimal_places_or_tolerance: Union[int, float] = 6
+    decimal_places = 6  # Legacy test methods below use decimal_places
 
     def setUp(self):
         self.spec = HOLYWELL_HOUSE_SPEC
@@ -38,72 +78,51 @@ class OpenBESTestCase(unittest.TestCase):
         series = series.iloc[:len(expected_values)]
         return series
 
-    def _describe_differences(
+    def get_decimal_places_and_tolerance(
             self,
-            expected: pd.Series,
-            calculated: pd.Series,
-            tolerance: float = 0.0
-    ) -> str:
-        differences = expected.compare(calculated)
-        if differences.empty:
-            return "No differences found."
-        percent = len(differences) / len(expected) * 100
-        max_diff = max(abs(differences['self'] - differences['other']))
-        max_loc = calculated.index[abs(calculated - expected) == max_diff].tolist()
-        max_loc = [{'index': x, 'rownum': calculated.index.get_loc(x)} for x in max_loc]
-        mean_diff = sum(abs(differences['self'] - differences['other'])) / len(differences)
-        if tolerance == 0.0:
-            return (
-                f"{len(differences)} rows differ ({percent:.2f}% of all rows):\n"
-                f"Max difference: {max_diff} {max_loc}\n"
-                f"Mean difference: {mean_diff}\n"
-                f"{differences}"
-            )
-        def big_diffs(t):
-            mask = abs(differences['self'] - differences['other']) > t
-            return differences[mask]
-        return (
-                f"{len(differences)} rows differ ({percent:.2f}% of all rows):\n"
-                f"Max difference: {max_diff} {max_loc}\n"
-                f"Mean difference: {mean_diff}\n"
-            f"{len(big_diffs(tolerance))} rows outside of tolerable difference +/- {tolerance}:\n"
-            f"% of differences outside tolerance: {len(big_diffs(tolerance)) / len(expected) * 100:.2f}%\n"
-            f"% of differences outside 2 x tolerance ({tolerance * 2}): {len(big_diffs(2 * tolerance)) / len(expected) * 100:.2f}%\n"
-            f"% of differences outside 10 x tolerance ({tolerance * 10}): {len(big_diffs(10 * tolerance)) / len(expected) * 100:.2f}%\n"
-            f"{big_diffs(tolerance)}"
-        )
+            decimal_places_or_tolerance: Union[int, float] = None
+    ) -> tuple[Optional[int], Optional[float]]:
+        if decimal_places_or_tolerance is None:
+            decimal_places_or_tolerance = self.decimal_places_or_tolerance
+        decimal_places = None
+        tolerance = None
+        if isinstance(decimal_places_or_tolerance, int):
+            decimal_places = decimal_places_or_tolerance
+        elif isinstance(decimal_places_or_tolerance, float):
+            tolerance = decimal_places_or_tolerance
+        return decimal_places, tolerance
 
     def check_series_versus_values(
             self,
             series: pd.Series,
             expected_values: Union[list, pd.Series],
-            decimal_places: int = None,
-            tolerance: float = None
+            decimal_places_or_tolerance: Union[int, float] = None
     ) -> None:
-        if decimal_places is None:
-            decimal_places = self.decimal_places
-        calculated = self.get_expectation_for_series(series, expected_values).round(decimal_places)
+        decimal_places, tolerance = self.get_decimal_places_and_tolerance(decimal_places_or_tolerance)
+
+        calculated = self.get_expectation_for_series(series, expected_values)
+        if decimal_places is not None:
+            calculated = calculated.round(decimal_places)
         if not isinstance(expected_values, pd.Series):
             expected_values = pd.Series(expected_values)
-        expected = expected_values.round(decimal_places)
+        expected = expected_values.round(decimal_places) if decimal_places is not None else expected_values
         expected.index = calculated.index
         if tolerance is None:
-            self.assertTrue(expected.equals(calculated), self._describe_differences(expected, calculated, 0.0))
+            self.assertTrue(expected.equals(calculated), describe_differences(expected, calculated, 0.0))
         else:
             differences = expected.compare(calculated)
             mask = abs(differences['self'] - differences['other']) > tolerance
             self.assertTrue(
                 differences[mask].empty,
-                self._describe_differences(expected, calculated, tolerance)
+                describe_differences(expected, calculated, tolerance)
             )
 
     def check_series_versus_csv(
             self,
             series: pd.Series,
             csv_file_relative_path: str,
-            decimal_places: int = None,
-            tolerance: float = None
+            decimal_places_or_tolerance: Union[int, float] = None
     ) -> None:
         expected = self.read_single_col_csv_to_series(csv_file_relative_path)
-        self.check_series_versus_values(series, expected, decimal_places, tolerance)
+        self.check_series_versus_values(series, expected, decimal_places_or_tolerance)
 

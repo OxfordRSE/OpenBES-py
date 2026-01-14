@@ -19,10 +19,10 @@
     "roof_emissivity": 0.9,
     "shading_correction_factor": 1,
     "specific_heat_of_air": 1.015,
-    "temperature_tolerance": 0,
     "view_factor_to_sky_facade": 0.5,
     "view_factor_to_sky_roof": 1,
     "window_correction_factor": 1,
+    "window_angular_correction_factors": [1.0, -0.189, 0.644, -0.596, 0.0],
     "include_lighting": 1,
     "include_occupancy": 1,
     "include_appliances": 1
@@ -322,7 +322,7 @@
       "type": "Condensing boiler",
       "energy_source": "Natural gas",
       "efficiency_cop": 0.86,
-      "min_demand": 35,
+      "min_demand": 37,
       "nominal_capacity": 48.0,
       "count": 2,
       "active_hours": {

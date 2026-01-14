@@ -15,6 +15,10 @@ OpenBES-py is an open-source building energy simulation tool written in Python. 
 - **Standardized test cases**: Planned integration with ASHRAE Standard 140 test cases (see `cases_ashrae_std140_...` directory).
 - **Modern dependency management**: Uses [UV](https://github.com/astral-sh/uv) for fast, reliable Python environment setup (`uv.lock` included).
 
+[Version 0.1.9](https://github.com/OxfordRSE/OpenBES-py/releases/tag/v0.1.9) implements the core functionality of OpenBES with parity to Excel version 32.
+
+[Version 0.2.0](https://github.com/OxfordRSE/OpenBES-py/releases/tag/v0.2.0) implements the core functionality of OpenBES with parity to Excel version 34.
+
 ## Installation
 
 You can install OpenBES-py via pip:

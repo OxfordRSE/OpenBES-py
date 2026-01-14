@@ -1,6 +1,7 @@
 import unittest
 from pandas import Series
 
+from openbes.types import COMPASS_POINTS
 from src.openbes.simulations.base import HOURS_DF
 from src.openbes.simulations.climate import ClimateSimulation
 from tests.unit.utils import (
@@ -25,6 +26,34 @@ class Climate(OpenBESTestCase):
         self.spec = self._spec
         self.sim = self._sim
 
+    def test_solar_radiation_glazing_adjustment(self):
+        def point_to_col(point: COMPASS_POINTS) -> str:
+            value = point.value
+            if value == COMPASS_POINTS.South.value:
+                return 's'
+            if value == COMPASS_POINTS.SouthEast.value:
+                return 'se'
+            if value == COMPASS_POINTS.East.value:
+                return 'e'
+            if value == COMPASS_POINTS.NorthEast.value:
+                return 'ne'
+            if value == COMPASS_POINTS.North.value:
+                return 'n'
+            if value == COMPASS_POINTS.NorthWest.value:
+                return 'nw'
+            if value == COMPASS_POINTS.West.value:
+                return 'w'
+            if value == COMPASS_POINTS.SouthWest.value:
+                return 'sw'
+            raise ValueError(f'Unknown column {point}')
+
+        csv = self.read_csv('fixtures/hh_solar_radiation_adjusted.csv')
+        for point in self.sim.solar_radiation_glazing_adjustment.columns:
+            with self.subTest(point=point.value):
+                expected = csv[point_to_col(point)]
+                calculated = self.sim.solar_radiation_glazing_adjustment[point]
+                self.check_series_versus_values(calculated, expected)
+
     def test_hourly_set_point(self):
         expected = HOURS_DF.copy()
         expected['max_temp_set_point'] = expected['is_daytime'].apply(lambda x: 22.0 if x else 18.0)
@@ -40,7 +69,7 @@ class Climate(OpenBESTestCase):
     def test_night_ventilation_enabled(self):
         df = self.sim.night_ventilation_enabled
         self.assertEqual(len(df), len(HOURS_DF))
-        self.assertEqual(df.sum(), 762)
+        self.assertEqual(df.sum(), 786)
 
     def test_air_flow_dependent(self):
         df = self.sim.air_flow_dependent
@@ -97,13 +126,10 @@ class Climate(OpenBESTestCase):
         self.assertTrue(expected.equals(computed), expected.compare(computed))
 
     def test_internal_surface_temperature(self):
-        expected = Series([
-            17.189528678, 16.938032927, 16.693034870, 16.455384605, 16.248080277, 16.038826484, 15.834325329,
-            15.639793006, 15.427721369, 15.254647828, 15.126157266, 15.056091784, 14.965677923, 14.818700616,
-            14.649119178, 14.451617832, 14.242575314, 14.028535619, 13.810140346, 13.606306014, 13.380471087,
-            13.139959488, 12.862928167, 12.530564961
-        ])
-        self.check_series_versus_values(self.sim.internal_surface_temp, expected)
+        self.check_series_versus_csv(
+            self.sim.internal_surface_temp,
+            'fixtures/hh_internal_surface_temp.csv'
+        )
 
     def test_air_flow(self):
         self.check_series_versus_csv(
@@ -175,14 +201,9 @@ class Climate(OpenBESTestCase):
         )
         
     def test_air_free_temp(self):
-        self.check_series_versus_values(
+        self.check_series_versus_csv(
             self.sim.air_free_temp,
-            [
-                17.16333945, 16.91038814, 16.66681436, 16.43051709, 16.22917626, 16.01903107, 15.81555818,
-                15.62293665, 15.40607045, 15.23568027, 15.10943157, 15.04594767, 14.95543820, 14.80794495,
-                14.63806472, 14.43366520, 14.22274308, 14.00786162, 13.78866631, 13.58781408, 13.35732166,
-                13.11426123, 12.83013053, 12.48728083
-            ]
+            'fixtures/hh_air_free_temp.csv'
         )
 
     def test_building_thermal_mass_hc_actual(self):
@@ -216,7 +237,8 @@ class Climate(OpenBESTestCase):
     def test_solar_heat_windows(self):
         self.check_series_versus_csv(
             self.sim.solar_heat_windows,
-            'fixtures/hh_solar_heat_windows.csv'
+            'fixtures/hh_solar_heat_windows.csv',
+            # tolerance=5000
         )
 
 if __name__ == '__main__':

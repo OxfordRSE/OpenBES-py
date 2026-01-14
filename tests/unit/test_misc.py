@@ -130,8 +130,7 @@ class MiscellaneousUtilities(unittest.TestCase):
                 "lighting_on_off": True,
                 "occupancy_on_off": True,
                 "appliance_on_off": True,
-                "advanced_heat_capacity_am": None,
-                "temperature_tolerance": 0
+                "advanced_heat_capacity_am": None
             }
         }
         spec = OpenBESSpecification(**obj)

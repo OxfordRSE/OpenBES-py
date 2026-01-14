@@ -66,6 +66,10 @@ class HourlySimulation:
         self._hours = HOURS_DF.copy()
 
 
+class EnergyUseSimulationInitError(ValueError):
+    pass
+
+
 class EnergyUseSimulation(HourlySimulation):
     """
     Base class for hourly energy use simulations.
@@ -79,6 +83,12 @@ class EnergyUseSimulation(HourlySimulation):
     def __init__(self, spec: OpenBESSpecification):
         super().__init__(spec)
         self._energy_use = DataFrame(index=self._hours.index, columns=list(ENERGY_SOURCES)).astype(float)
+
+    def get_param_or_spec(self, key: str):
+        try:
+            return getattr(self.spec.parameters, key)
+        except AttributeError:
+            return getattr(self.spec, key)
 
     @property
     def energy_use(self) -> DataFrame:

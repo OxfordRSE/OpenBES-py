@@ -48,7 +48,7 @@ class OpenBESParameters:
     heat_capacity_correction_factor: Optional[float] = 1.0
     heat_capacity_joule: Optional[float] = None
     heating_load_factor: Optional[float] = 1.0
-    heating_system1_min_demand: Optional[float] = 35
+    heating_system1_min_demand: Optional[float] = 37
     heating_system2_efficiency_cop: Optional[float] = None
     heating_system2_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
     heating_system2_min_demand: Optional[float] = None
@@ -86,7 +86,6 @@ class OpenBESParameters:
     roof_emissivity: Optional[float] = 0.9
     shading_correction_factor: Optional[float] = 1.0
     specific_heat_of_air: Optional[float] = 1.015
-    temperature_tolerance: Optional[float] = 0.0
     ventilation_system2_airflow: Optional[float] = None
     ventilation_system2_energy_source: Optional[float] = None
     ventilation_system2_heat_recovery_efficiency: Optional[float] = None
@@ -98,6 +97,11 @@ class OpenBESParameters:
     view_factor_to_sky_facade: Optional[float] = 0.5
     view_factor_to_sky_roof: Optional[float] = 1.0
     window_correction_factor: Optional[float] = 1.0
+    window_optical_c1: Optional[float] = 1.0
+    window_optical_c2: Optional[float] = -0.189
+    window_optical_c3: Optional[float] = 0.644
+    window_optical_c4: Optional[float] = -0.596
+    window_optical_c5: Optional[float] = 0.0
 
     def __post_init__(self):
         super().__init__()

@@ -70,8 +70,16 @@ class Occupancy(OpenBESTestCase):
             'fixtures/hh_occupancy_ratio.csv').to_frame('occupancy_ratio')
         expected.index = HOURS_DF.index
         expected['is_occupied'] = expected['occupancy_ratio'].apply(lambda x: x > 0)
-        calculated = self.sim.occupancy[['occupancy_ratio', 'is_occupied']]
-        self.assertTrue(expected.equals(calculated), expected.compare(calculated))
+        calculated = self.sim.occupancy[['occupancy_ratio', 'is_occupied', 'is_occupied_day']]
+        with self.subTest(column="is_occupied"):
+            tmp = self.sim.occupancy[['occupancy_ratio', 'is_occupied']]
+            self.assertTrue(expected.equals(tmp), expected.compare(tmp))
+        with self.subTest(column="is_occupied_day"):
+            expected = expected.groupby(level='day')['is_occupied'].transform('max')
+            self.assertTrue(
+                expected.equals(calculated['is_occupied_day']),
+                expected.compare(calculated['is_occupied_day'])
+            )
 
     def test_occupation_m2_per_person(self):
         expected = round(4.86522963366, self.decimal_places)

@@ -164,7 +164,11 @@ class OccupationSimulation(HourlySimulation):
 
         DataFrame: with is_occupied and occupancy_ratio (0.0-1.0) for each hour of the year.
         """
-        if 'is_occupied' not in self._hours.columns or 'occupancy_ratio' not in self._hours.columns:
+        if (
+                'is_occupied' not in self._hours.columns or
+                'occupancy_ratio' not in self._hours.columns or
+                'is_occupied_day' not in self._hours.columns
+        ):
             open_times = [self.spec.occupancy_open_office, self.spec.occupancy_open_canteen, self.spec.occupancy_open_teaching]
             close_times = [self.spec.occupancy_close_office, self.spec.occupancy_close_canteen, self.spec.occupancy_close_teaching]
             if all(ot is None for ot in open_times) or all(ct is None for ct in close_times):
@@ -174,6 +178,7 @@ class OccupationSimulation(HourlySimulation):
 
             self._hours['is_occupied'] = False
             self._hours['occupancy_ratio'] = 0.0
+            self._hours['is_occupied_day'] = False
             # Get a mask for occupied hours in occupied days in occupied months that aren't public holidays
             index_df = self._hours.index.to_frame()
             month_mask = index_df['month'].apply(lambda m: self.is_occupied_month(m))
@@ -182,8 +187,9 @@ class OccupationSimulation(HourlySimulation):
             mask = month_mask & day_mask & hour_mask
             self._hours.loc[mask, 'is_occupied'] = True
             self._hours.loc[mask, 'occupancy_ratio'] = self.occupation_ratio
+            self._hours['is_occupied_day'] = self._hours.groupby("day")['is_occupied'].transform('any')
 
-        return self._hours[['is_occupied', 'occupancy_ratio']]
+        return self._hours[['is_occupied', 'occupancy_ratio', 'is_occupied_day']]
 
     @property
     def occupied_days_per_month(self) -> Series:
