@@ -12,7 +12,7 @@ from src.openbes.types import (
     OpenBESSpecification,
     MONTHS,
 )
-
+from tests.unit.utils import describe_differences, OpenBESTestCase
 
 m_index = HOURS_DF.index.names.index('month')
 d_index = HOURS_DF.index.names.index('day')
@@ -122,6 +122,26 @@ class ASHRAE140_2023(unittest.TestCase):
             simulation = BuildingEnergySimulation(spec=spec)
             self.simulations[name] = simulation
         return self.simulations[name]
+
+    @unittest.skip("Debug only")
+    def test_debug_case(self, case: str = None, debug_values: Series = None):
+        if case is None:
+            case = input('Enter case name: ')
+        name = case[:-1]
+        category = case[-1]
+        simulation = self._load_sim(name)
+        calculated_values = simulation.climate.heating_demand if category == "H" else simulation.climate.cooling_demand
+        if debug_values is None:
+            debug_file = "../../.dbg/case.csv"
+            debug_values = calculated_values.copy()
+            debug_values[:] = OpenBESTestCase.read_single_col_csv_to_series(debug_file).tolist()
+        if any(debug_values < 0) and not any(calculated_values < 0):
+            debug_values = debug_values.abs()
+        print(describe_differences(
+            debug_values,
+            calculated_values,
+            tolerance=1e-6
+        ))
 
     def test_cases(self):
         # cases = ['900C']

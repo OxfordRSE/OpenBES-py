@@ -229,6 +229,7 @@ class ClimateSimulation(HourlySimulation):
             "internal_heat": array(self.internal_heat.values),
             "internal_heat_adjusted": array(self.internal_heat_adjusted.values),
             "supply_air_temp": array(self.supply_air_temp.values),
+            "is_occupied": array(self.occupancy.occupancy['is_occupied'])
         }
         return static
 
@@ -424,12 +425,12 @@ class ClimateSimulation(HourlySimulation):
         """
         18. Air set temp [Hourly Simulation column CE]
         """
-        if air_free_temp_hc_0 < max_temp:
-            air_set_temp = max_temp
-        elif air_free_temp_hc_0 > min_temp:
-            air_set_temp = min_temp
-        else:
-            air_set_temp = air_free_temp_hc_0
+        air_set_temp = air_free_temp_hc_0
+        if self._cache['is_occupied'][i]:
+            if air_free_temp_hc_0 < max_temp:
+                air_set_temp = max_temp
+            elif air_free_temp_hc_0 > min_temp:
+                air_set_temp = min_temp
 
         """
         19. Air temp with heating/cooling need = 10W/m2 [Hourly Simulation column BY]

@@ -7,6 +7,42 @@ import os
 from src.openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
+def describe_differences(
+        expected: pd.Series,
+        calculated: pd.Series,
+        tolerance: float = 0.0
+) -> str:
+    differences = expected.compare(calculated, result_names=('expected', 'calculated'))
+    if differences.empty:
+        return "No differences found."
+    differences['ex_minus_calc'] = differences['expected'] - differences['calculated']
+    percent = len(differences) / len(expected) * 100
+    max_diff = max(abs(differences['expected'] - differences['calculated']))
+    max_loc = calculated.index[abs(calculated - expected) == max_diff].tolist()
+    max_loc = [{'index': x, 'rownum': calculated.index.get_loc(x)} for x in max_loc]
+    mean_diff = sum(abs(differences['expected'] - differences['calculated'])) / len(differences)
+    if tolerance == 0.0:
+        return (
+            f"{len(differences)} rows differ ({percent:.2f}% of all rows):\n"
+            f"Max difference: {max_diff} {max_loc}\n"
+            f"Mean difference: {mean_diff}\n"
+            f"{differences}"
+        )
+    def big_diffs(t):
+        mask = abs(differences['expected'] - differences['calculated']) > t
+        return differences[mask]
+    return (
+            f"{len(differences)} rows differ ({percent:.2f}% of all rows):\n"
+            f"Max difference: {max_diff} {max_loc}\n"
+            f"Mean difference: {mean_diff}\n"
+        f"{len(big_diffs(tolerance))} rows outside of tolerable difference +/- {tolerance}:\n"
+        f"% of differences outside tolerance: {len(big_diffs(tolerance)) / len(expected) * 100:.2f}%\n"
+        f"% of differences outside 2 x tolerance ({tolerance * 2}): {len(big_diffs(2 * tolerance)) / len(expected) * 100:.2f}%\n"
+        f"% of differences outside 10 x tolerance ({tolerance * 10}): {len(big_diffs(10 * tolerance)) / len(expected) * 100:.2f}%\n"
+        f"{big_diffs(tolerance)}"
+    )
+
+
 class OpenBESTestCase(unittest.TestCase):
     # If a float is provided, it is treated as a tolerance value, otherwise as decimal places.
     # Values are rounded to the specified decimal places before comparison,
@@ -42,42 +78,6 @@ class OpenBESTestCase(unittest.TestCase):
         series = series.iloc[:len(expected_values)]
         return series
 
-    def _describe_differences(
-            self,
-            expected: pd.Series,
-            calculated: pd.Series,
-            tolerance: float = 0.0
-    ) -> str:
-        differences = expected.compare(calculated, result_names=('expected', 'calculated'))
-        if differences.empty:
-            return "No differences found."
-        differences['ex_minus_calc'] = differences['expected'] - differences['calculated']
-        percent = len(differences) / len(expected) * 100
-        max_diff = max(abs(differences['expected'] - differences['calculated']))
-        max_loc = calculated.index[abs(calculated - expected) == max_diff].tolist()
-        max_loc = [{'index': x, 'rownum': calculated.index.get_loc(x)} for x in max_loc]
-        mean_diff = sum(abs(differences['expected'] - differences['calculated'])) / len(differences)
-        if tolerance == 0.0:
-            return (
-                f"{len(differences)} rows differ ({percent:.2f}% of all rows):\n"
-                f"Max difference: {max_diff} {max_loc}\n"
-                f"Mean difference: {mean_diff}\n"
-                f"{differences}"
-            )
-        def big_diffs(t):
-            mask = abs(differences['expected'] - differences['calculated']) > t
-            return differences[mask]
-        return (
-                f"{len(differences)} rows differ ({percent:.2f}% of all rows):\n"
-                f"Max difference: {max_diff} {max_loc}\n"
-                f"Mean difference: {mean_diff}\n"
-            f"{len(big_diffs(tolerance))} rows outside of tolerable difference +/- {tolerance}:\n"
-            f"% of differences outside tolerance: {len(big_diffs(tolerance)) / len(expected) * 100:.2f}%\n"
-            f"% of differences outside 2 x tolerance ({tolerance * 2}): {len(big_diffs(2 * tolerance)) / len(expected) * 100:.2f}%\n"
-            f"% of differences outside 10 x tolerance ({tolerance * 10}): {len(big_diffs(10 * tolerance)) / len(expected) * 100:.2f}%\n"
-            f"{big_diffs(tolerance)}"
-        )
-
     def get_decimal_places_and_tolerance(
             self,
             decimal_places_or_tolerance: Union[int, float] = None
@@ -108,13 +108,13 @@ class OpenBESTestCase(unittest.TestCase):
         expected = expected_values.round(decimal_places) if decimal_places is not None else expected_values
         expected.index = calculated.index
         if tolerance is None:
-            self.assertTrue(expected.equals(calculated), self._describe_differences(expected, calculated, 0.0))
+            self.assertTrue(expected.equals(calculated), describe_differences(expected, calculated, 0.0))
         else:
             differences = expected.compare(calculated)
             mask = abs(differences['self'] - differences['other']) > tolerance
             self.assertTrue(
                 differences[mask].empty,
-                self._describe_differences(expected, calculated, tolerance)
+                describe_differences(expected, calculated, tolerance)
             )
 
     def check_series_versus_csv(
