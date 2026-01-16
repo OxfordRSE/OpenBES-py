@@ -1,0 +1,31 @@
+Country,Energy source,PEC/kWh FEC,PECnr/kWh FEC,kgCO2/kWh FEC
+Spain,Electricity,2.403,2.007,0.357
+Spain,Diesel,1.273,1.268,0.311
+Spain,LPG,1.168,1.166,0.254
+Spain,Natural gas,1.161,1.159,0.239
+Spain,Biomass,1.037,0.034,0.018
+Spain,Pellets,1.542,0.082,0.044
+USA,Electricity,2.75,2.35,0.679
+USA,Diesel,1.273,1.268,0.311
+USA,LPG,1.168,1.166,0.254
+USA,Natural gas,1.161,1.159,0.239
+USA,Biomass,1.037,0.034,0.018
+USA,Pellets,1.542,0.082,0.044
+France,Electricity,3.605,3.358,0.059
+France,Diesel,1.273,1.268,0.311
+France,LPG,1.168,1.166,0.254
+France,Natural gas,1.161,1.159,0.239
+France,Biomass,1.037,0.034,0.018
+France,Pellets,1.542,0.082,0.044
+UK,Electricity,1.501,1.134756,0.136
+UK,Diesel,1.273,1.268,0.311
+UK,LPG,1.168,1.166,0.254
+UK,Natural gas,1.161,1.159,0.239
+UK,Biomass,1.037,0.034,0.018
+UK,Pellets,1.542,0.082,0.044
+Other,Electricity,1.5,1.15,0.1
+Other,Diesel,1.273,1.268,0.311
+Other,LPG,1.168,1.166,0.254
+Other,Natural gas,1.161,1.159,0.239
+Other,Biomass,1.037,0.034,0.018
+Other,Pellets,1.542,0.082,0.044

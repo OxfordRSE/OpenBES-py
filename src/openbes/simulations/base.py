@@ -99,3 +99,7 @@ class EnergyUseSimulation(HourlySimulation):
     @property
     def annual_energy_use(self) -> DataFrame:
         return self.energy_use.sum().sum()
+
+    @property
+    def report(self) -> dict:
+        raise NotImplementedError("Child classes must implement the report property.")

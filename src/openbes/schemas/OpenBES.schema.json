@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.1.6/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.1.1",
+  "$version": "0.2.0",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -35,6 +35,17 @@
       "type": "string",
       "description": "Terrain class (placeholder).",
       "enum": ["Open terrain", "Country", "Urban"]
+    },
+    "SUPPORTED_COUNTRIES": {
+      "type": "string",
+      "description": "Country in which the building is.",
+      "enum": [
+        "Spain",
+        "USA",
+        "France",
+        "UK",
+        "Other"
+      ]
     },
 
     "Building": {
@@ -422,7 +433,7 @@
     "other_gas_consumption": { "$ref":  "#/definitions/Consumption", "description": "Amount of other gas consumed by the building. [UNUSED]"},
     "LPG_consumption": { "$ref":  "#/definitions/Consumption", "description": "Amount of LPG consumed by the building. [UNUSED]"},
     "natural_gas_consumption": { "$ref":  "#/definitions/Consumption", "description": "Amount of natural gas consumed by the building. [UNUSED]", "$comment":  "In the TOML spec, this appears as both monthly breakdown and an annual value. The JSON always translates this to monthly values, and, if given, the monthly values in the TOML take precedence."},
-    "country": { "type":  "string", "description": "Country the building is in. [UNUSED]"},
+    "country": { "$ref": "#/definitions/SUPPORTED_COUNTRIES" },
     "heat_capacity": { "$ref": "#/definitions/HeatCapacity", "description": "Heat capacity properties of the building." },
     "holiday": { "type":  "boolean", "description": "Whether the building is open on public holidays."},
     "leakage_air_flow": { "type": "number", "description": "Leakage air flow rate (m3/s)." },

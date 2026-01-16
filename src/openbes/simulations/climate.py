@@ -1133,7 +1133,7 @@ class ClimateSimulation(HourlySimulation):
 
     @property
     def heating_cooling_demand(self) -> 'Series[float]':
-        """Hourly temperature change demand based in W.
+        """Hourly temperature change demand based in W/m2.
         ϕHC,nd W [Hourly simulation column DB * zone area]
 
         Has columns for heating and cooling demand because they need to be weighted by their scaling factors.
