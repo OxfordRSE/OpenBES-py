@@ -1,6 +1,6 @@
 import unittest
 
-from pandas import DataFrame
+from pandas import DataFrame, Series
 
 from openbes import BuildingEnergySimulation
 from openbes.examples import HOLYWELL_HOUSE_SPEC
@@ -51,6 +51,32 @@ class TestOpenBESReport(OpenBESTestCase):
             expected = [6.4, 48.0, 43.7]
             calculated = self.report.space_cooling_demand.loc[self.sim.building_name].astype(float)
             self.check_series_versus_values(calculated, expected, 1)
+
+    def test_passive_survivability(self):
+        expected = 0.09
+        calculated = self.report.passive_survivability[self.sim.building_name]
+        self.assertAlmostEquals(expected, calculated, 2)
+
+    def test_retrofit_report(self):
+        expected = Series(
+            {
+                "Summer discomfort hours (%)": 9.090909,
+                "Peak heating load (kW)": 126.058460,
+                "Peak cooling load (kW)": 36.589545,
+                "Annual heating demand (kWh/m2)": 69.853243,
+                "Annual cooling demand (kWh/m2)": 6.429513,
+                "Final energy consumption (kWh/m2)": 98.307640,
+                "Non-renewable primary energy consumption (kWh/m2)": 112.738357,
+                "CO2 equivalent emissions kg CO2 eq/m2": 18.396515,
+            },
+            name="baseline",
+        )
+        calculated = self.sim.sim_to_retrofit_report('baseline')
+        self.check_series_versus_values(calculated, expected)
+
+    def test_adaptations(self):
+        adaptations = self.sim.retrofit_report
+        self.assertEqual(len(adaptations), 7)
 
 if __name__ == '__main__':
     unittest.main()

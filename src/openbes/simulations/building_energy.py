@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from importlib.resources import files
 from typing import Dict
 
@@ -19,6 +20,7 @@ from ..types import (
     OpenBESSpecification,
     ENERGY_USE_CATEGORIES,
     ENERGY_SOURCES,
+    get_zone_number, LIGHTING_CONTROL, HEATING_SYSTEM_TYPES,
 )
 
 logger = logging.getLogger(__name__)
@@ -29,7 +31,7 @@ class OpenBESReport(BaseModel):
     final_energy_consumption_distribution: DataFrame
     space_heating_demand: DataFrame
     space_cooling_demand: DataFrame
-    passive_survivability: DataFrame
+    passive_survivability: Series
 
 class BuildingEnergySimulation(EnergyUseSimulation):
     """
@@ -207,56 +209,72 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         out.loc[('Heating', 'Passivehaus standard')] = ["<15", None, "<10"]
         out.loc[('Cooling', 'Passivehaus standard')] = ["<15", None, "<10"]
         zonal_occupancy = self.occupancy.occupancy[['is_occupied']].copy()
-        heating_demand = 0
-        cooling_demand = 0
+        heating_demand = Series(name="Heating")
+        cooling_demand = Series(name="Cooling")
         areas = self.geometry.conditioned_floor_areas.copy()
         areas = areas.reset_index()
         for zz in self.geometry.conditioned_floor_areas.index.get_level_values('zone'):
             z = zz.value
-            if z == "common_areas":
-                z = "common"
+            if not getattr(self.spec, f"condition_z{get_zone_number(zz)}"):
+                continue
+
             area = areas.loc[areas['zone'] == zz, 'conditioned_floor_area'].sum()
-            try:
+
+            if z not in ["common_areas", "other"]:
+                # common and other inherit from office; see below
                 opens = getattr(self.spec, f"occupancy_open_{z}") or 24
                 closes = getattr(self.spec, f"occupancy_close_{z}") or 0
-            except AttributeError:
-                opens = getattr(self.spec.parameters, f"occupancy_open_{z}") or 24
-                closes = getattr(self.spec.parameters, f"occupancy_close_{z}") or 0
-            z_open = [x for x in map(
-                lambda x: opens <= x <= closes,
-                zonal_occupancy.index.get_level_values("hour")
-            )]
-            zonal_occupancy[z] = logical_and(zonal_occupancy['is_occupied'], z_open)
+                z_open = [x for x in map(
+                    lambda x: opens <= x <= closes,
+                    zonal_occupancy.index.get_level_values("hour")
+                )]
+                zonal_occupancy[z] = logical_and(zonal_occupancy['is_occupied'], z_open)
+                occupancy = zonal_occupancy[z]
+            else:
+                # Excel uses the Office occupancy for calculating common conditioning
+                # [DX/DY inherit from DC/DD]
+                occupancy = zonal_occupancy["office"]
+
+            raw_demand = self.climate.heating_cooling_demand * occupancy  # need HVAC when zone is occupied; W/m2
             zonal_demand = (
-                self.climate.heating_cooling_demand * self.geometry.conditioned_floor_area / 1000  # W/m2 -> kW
-                / area  # kW -> kW/m2 for zone
-                * zonal_occupancy[z]  # only when zone is occupied
+                raw_demand / 1000 # W/m2 -> kW/m2
+                * area  # kW/m2 -> kW for zone
             )
-            h = zonal_demand.clip(0).sum()
-            c = (zonal_demand * -1).clip(0).sum()
-            heating_demand += h
-            cooling_demand += c
+            heating_demand[zz] = zonal_demand.clip(0).sum()
+            cooling_demand[zz] = (zonal_demand * -1).clip(0).sum()
 
         peak_heating_demand = max(self.climate.heating_demand * self.geometry.conditioned_floor_area / 1000)
         peak_cooling_demand = max(self.climate.cooling_demand * self.geometry.conditioned_floor_area / 1000)
 
         out.loc[('Heating', self.building_name)] = [
-            heating_demand,
+            heating_demand.sum() / self.geometry.conditioned_floor_area,
             peak_heating_demand,
-            peak_heating_demand / self.geometry.conditioned_floor_area
+            peak_heating_demand / self.geometry.conditioned_floor_area * 1000
         ]
         out.loc[('Cooling', self.building_name)] = [
-            cooling_demand,
+            cooling_demand.sum() / self.geometry.conditioned_floor_area,
             peak_cooling_demand,
-            peak_cooling_demand / self.geometry.conditioned_floor_area
+            peak_cooling_demand / self.geometry.conditioned_floor_area * 1000
         ]
         return out
 
 
     @property
-    def passive_survivability(self) -> DataFrame:
-        """The proportion of the time the building is in an acceptable comfort range if HVAC is not running."""
-        return DataFrame()
+    def passive_survivability(self) -> Series:
+        """The proportion of the time the building is in an acceptable comfort range if HVAC is not running.
+
+        Acceptable comfort range means the temperature is < 26C. [Hardcoded in Inputs cell J212]
+
+        The proportion is discomfort hours / occupied hours.
+        """
+        mask = self.climate.air_free_temp.index.get_level_values("month").isin([6, 7, 8])
+        occupation = self.occupancy.occupancy.loc[mask, 'is_occupied']
+        temp = self.climate.air_free_temp.loc[mask]
+        temp_gt_26 = (temp * occupation) >= 26.0
+        return Series({
+            self.building_name: temp_gt_26.sum() / occupation.sum(),
+            "Passivehaus > 26C": "<0.10"
+        }, name="Passive survivability")
 
 
     @property
@@ -270,3 +288,91 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             space_cooling_demand=self.space_hvac_demand.loc['Cooling'],
             passive_survivability=self.passive_survivability,
         )
+
+    @property
+    def kg_co2_eq(self) -> Series:
+        """Kilograms C02 equivalent emissions."""
+        energy_use = self.energy_use.sum()
+        energy_use.index = [s.value for s in energy_use.index]
+        pec_coefficients = self.per_FEC_coefficients["kgCO2/kWh FEC"].copy()
+        return pec_coefficients * energy_use
+
+    def sim_to_retrofit_report(self, name: str) -> Series:
+        """Output a simulation as a retrofit report row.
+        """
+        return Series(
+            {
+                "Summer discomfort hours (%)": self.passive_survivability[self.building_name] * 100,
+                "Peak heating load (kW)":
+                    (self.climate.heating_demand * self.geometry.conditioned_floor_area / 1000).quantile(0.996),
+                "Peak cooling load (kW)":
+                    (self.climate.cooling_demand * self.geometry.conditioned_floor_area / 1000).quantile(0.996),
+                "Annual heating demand (kWh/m2)":
+                    self.report.space_heating_demand.loc[self.building_name, 'Demand (kWh/m2)'],
+                "Annual cooling demand (kWh/m2)":
+                    self.report.space_cooling_demand.loc[self.building_name, 'Demand (kWh/m2)'],
+                "Final energy consumption (kWh/m2)":
+                    self.report.final_energy_consumption_distribution['kWh/m2'].sum(),
+                "Non-renewable primary energy consumption (kWh/m2)":
+                    self.report.primary_energy_consumption.loc[self.building_name, 'Non-renewable'].sum(),
+                "CO2 equivalent emissions kg CO2 eq/m2": self.kg_co2_eq.sum() / self.geometry.conditioned_floor_area,
+            },
+            name=name,
+        )
+
+    @property
+    def retrofit_report(self) -> DataFrame:
+        """Retrofit suggestions and their simulated impact.
+        """
+        simulations = [self.sim_to_retrofit_report('baseline')]
+        combined_spec = deepcopy(self.spec)
+        if self.spec.setpoint_winter_day >= 19.0:
+            new_spec = deepcopy(self.spec)
+            new_spec.setpoint_winter_day = self.spec.setpoint_winter_day - 1.0
+            combined_spec.setpoint_winter_day = new_spec.setpoint_winter_day
+            simulations.append(BuildingEnergySimulation(spec=new_spec).sim_to_retrofit_report(
+                f"Reduce winter setpoint from {self.spec.setpoint_winter_day} to {new_spec.setpoint_winter_day}"
+            ))
+        if self.spec.lighting_control != LIGHTING_CONTROL.Automatic:
+            new_spec = deepcopy(self.spec)
+            new_spec.lighting_control = LIGHTING_CONTROL.Automatic
+            combined_spec.lighting_control = new_spec.lighting_control
+            simulations.append(BuildingEnergySimulation(spec=new_spec).sim_to_retrofit_report(
+                "Smart lighting controls"
+            ))
+        if self.spec.uvalue_window > 1:
+            new_spec = deepcopy(self.spec)
+            new_spec.uvalue_window = 0.9
+            combined_spec.uvalue_window = new_spec.uvalue_window
+            simulations.append(BuildingEnergySimulation(spec=new_spec).sim_to_retrofit_report(
+                'Triple-galzed windows with PVC frames'
+            ))
+        if self.spec.uvalue_roof > 0.5:
+            new_spec = deepcopy(self.spec)
+            new_spec.uvalue_roof = 0.5
+            combined_spec.uvalue_roof = new_spec.uvalue_roof
+            simulations.append(BuildingEnergySimulation(spec=new_spec).sim_to_retrofit_report(
+                'Insulate roof to 0.5W/m2 K'
+            ))
+        if self.spec.heating_system1_type != HEATING_SYSTEM_TYPES.Heat_pump:
+            new_spec = deepcopy(self.spec)
+            new_spec.heating_system1_type = HEATING_SYSTEM_TYPES.Heat_pump
+            new_spec.heating_system1_energy_source = ENERGY_SOURCES.Electricity
+            new_spec.heating_system1_efficiency_cop = 3.0
+            combined_spec.heating_system1_type = new_spec.heating_system1_type
+            combined_spec.heating_system1_energy_source = new_spec.heating_system1_energy_source
+            combined_spec.heating_system1_efficiency_cop = new_spec.heating_system1_efficiency_cop
+            simulations.append(BuildingEnergySimulation(spec=new_spec).sim_to_retrofit_report(
+                f'Replace {self.spec.heating_system1_type} heating with Heat pump'
+            ))
+
+        if len(simulations) > 2:
+            simulations.append(BuildingEnergySimulation(spec=combined_spec).sim_to_retrofit_report(
+                'Implement all suggestions'
+            ))
+
+
+        out = DataFrame(simulations)
+        baseline_fec = out.loc["baseline", "Final energy consumption (kWh/m2)"]
+        out['Energy savings (%)'] = (baseline_fec - out["Final energy consumption (kWh/m2)"]) / baseline_fec * 100
+        return out
