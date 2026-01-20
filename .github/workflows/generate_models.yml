@@ -23,6 +23,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .[dev]
 
+      - name: Validate schema
+        run: |
+          python -m openbes.schemas.validate_schema ./src/openbes/schemas/OpenBES.schema.json
+
       - name: Generate models from schemas
         run: |
           # Create custom header file
@@ -51,24 +55,8 @@ jobs:
           
           cat .header.tmp.txt
           
-          # One-line version for copy-paste if running manually (won't include the custom header):
-          datamodel-codegen --input src/openbes/schemas/OpenBES.schema.json --input-file-type jsonschema --output src/openbes/schemas/generated/models.py --output-model-type pydantic_v2.BaseModel --class-name OpenBESSpecificationV2 --use-standard-collections --formatters isort --formatters ruff-check --formatters ruff-format --use-default-kwarg --keyword-only --target-python-version 3.11 --use-double-quotes --custom-file-header-path .header.tmp.txt 
-          
-          # datamodel-codegen \
-          #   --input src/openbes/schemas/OpenBES.schema.json \ 
-          #   --input-file-type jsonschema \ 
-          #   --output src/openbes/schemas/generated/models.py \ 
-          #   --output-model-type pydantic_v2.BaseModel \ 
-          #   --class-name OpenBESSpecificationV2 \
-          #   --use-standard-collections \ 
-          #   --formatters isort \
-          #   --formatters ruff-check \
-          #   --formatters ruff-format \
-          #   --use-default-kwarg \
-          #   --keyword-only \
-          #   --target-python-version 3.11 \
-          #   --use-double-quotes \
-          #   --custom-file-header-path .header.tmp.txt
+          # The heavy lifting is done in the pyproject.toml [tool.datamodel-codegen] section
+          datamodel-codegen --custom-file-header-path .header.tmp.txt
           
           rm .header.tmp.txt
             

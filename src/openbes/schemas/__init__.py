@@ -4,6 +4,7 @@ from importlib.resources import files
 from .generated.models import (
     Ballast,
     Building,
+    Consumption,
     COOLINGSYSTEMTYPES,
     CoolingSystem,
     Duration,
@@ -15,13 +16,17 @@ from .generated.models import (
     LightingSystem,
     LightingSystemTech,
     METEOROLOGICALFILE,
+    OpenBESCase,
+    OpenBESMetaData,
+    OpenBESOutput,
     OpenBESParameters as OpenBESParametersV2,
-    OpenBESSpecificationV2,
+    OpenBESSpecification as OpenBESSpecificationV2,
     OccupationSchedule,
     Range,
     TERRAINCLASS,
     VentilationSystem,
     Zone,
+    ZoneSimultaneity,
 )
 from .conversion import toml_to_json, json_to_toml
 
@@ -32,6 +37,7 @@ with open(str(files("openbes.schemas") / "OpenBES.schema.json"), "r") as json_fi
 __all__ = [
     "Ballast",
     "Building",
+    "Consumption",
     "COOLINGSYSTEMTYPES",
     "CoolingSystem",
     "Duration",
@@ -43,6 +49,9 @@ __all__ = [
     "LightingSystem",
     "LightingSystemTech",
     "METEOROLOGICALFILE",
+    "OpenBESCase",
+    "OpenBESMetaData",
+    "OpenBESOutput",
     "OpenBESParametersV2",
     "OpenBESSpecificationV2",
     "OccupationSchedule",
@@ -50,6 +59,7 @@ __all__ = [
     "TERRAINCLASS",
     "VentilationSystem",
     "Zone",
+    "ZoneSimultaneity",
     "toml_to_json",
     "json_to_toml",
     "SPECIFICATION",

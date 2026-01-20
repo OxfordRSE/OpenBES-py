@@ -13,7 +13,7 @@ import tomllib
 from pathlib import Path
 from typing import Any, Dict, Optional, List
 
-from openbes.schemas.generated.models import OpenBESSpecificationV2
+from openbes.schemas import OpenBESSpecificationV2
 from openbes.types import get_meteorological_file
 
 
@@ -21,17 +21,28 @@ def monthly_average_to_consumption(value: float = None) -> Optional[Dict[str, fl
     if value is None:
         return None
     return {
-        "January": value, "February": value, "March": value, "April": value,
-        "May": value, "June": value, "July": value, "August": value,
-        "September": value, "October": value, "November": value, "December": value
+        "January": value,
+        "February": value,
+        "March": value,
+        "April": value,
+        "May": value,
+        "June": value,
+        "July": value,
+        "August": value,
+        "September": value,
+        "October": value,
+        "November": value,
+        "December": value,
     }
+
 
 def annual_to_consumption(value: float) -> Optional[Dict[str, float]]:
     if value is None:
         return None
     return {k: v / 12.0 for k, v in monthly_average_to_consumption(value).items()}
 
-def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
+
+def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
     """Convert a TOML dictionary to an OpenBES.schema.json dictionary.
 
     Args:
@@ -51,7 +62,7 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
     content = toml
     if isinstance(toml, (Path, str)):
         if Path(toml).is_file():
-            with open(toml, 'r') as f:
+            with open(toml, "r") as f:
                 content = tomllib.loads(f.read())
         else:
             content = tomllib.loads(toml)
@@ -88,7 +99,9 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         end = get(end_key)
         if start is None or end is None:
             if start is not None or end is not None:
-                warnings.append(f"Ignoring range because {start_key if start is None else end_key} is not set.")
+                warnings.append(
+                    f"Ignoring range because {start_key if start is None else end_key} is not set."
+                )
             return None
         return {"min": start, "max": end}
 
@@ -97,7 +110,9 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         end = get(end_key)
         if start is None or end is None:
             if start is not None or end is not None:
-                warnings.append(f"Ignoring duration because {start_key if start is None else end_key} is not set.")
+                warnings.append(
+                    f"Ignoring duration because {start_key if start is None else end_key} is not set."
+                )
             return None
         return {"start": start, "end": end}
 
@@ -107,7 +122,8 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
             warnings.append(
                 f"Skipping incomplete {context} definition.\n"
                 f"\tSpecified keys: {', '.join([r for r in required_keys if r not in missing_keys])};\n"
-                f"\tMissing missing keys: {', '.join(missing_keys)}.")
+                f"\tMissing missing keys: {', '.join(missing_keys)}."
+            )
             return False
         return not any(missing_keys)
 
@@ -170,24 +186,44 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         out[k] = get(k)
 
     for k in [
-        "biomass", "biomass_pellets", "diesel", "electricity", "LPG", "natural_gas",
+        "biomass",
+        "biomass_pellets",
+        "diesel",
+        "electricity",
+        "LPG",
+        "natural_gas",
     ]:
         annual_value = get(f"{k}_annual")
         if annual_value is not None:
             out[f"{k}_consumption"] = annual_to_consumption(annual_value)
     # Overwrite electricity and gas if monthly values are provided
-    monthly_electricity = {k: get(f"electricity_{k.lower()}") for k in monthly_average_to_consumption(0).keys()}
-    if any(v is not None for v in monthly_electricity.values()) and sum(v or 0 for v in monthly_electricity.values()) > 0:
+    monthly_electricity = {
+        k: get(f"electricity_{k.lower()}")
+        for k in monthly_average_to_consumption(0).keys()
+    }
+    if (
+        any(v is not None for v in monthly_electricity.values())
+        and sum(v or 0 for v in monthly_electricity.values()) > 0
+    ):
         out["electricity_consumption"] = monthly_electricity
-    monthly_gas = {k: get(f"gas_{k.lower()}") for k in monthly_average_to_consumption(0).keys()}
-    if any(v is not None for v in monthly_gas.values()) and sum(v or 0 for v in monthly_gas.values()) > 0:
+    monthly_gas = {
+        k: get(f"gas_{k.lower()}") for k in monthly_average_to_consumption(0).keys()
+    }
+    if (
+        any(v is not None for v in monthly_gas.values())
+        and sum(v or 0 for v in monthly_gas.values()) > 0
+    ):
         out["natural_gas_consumption"] = monthly_gas
 
     for k in ["other_electricity_usage", "other_gas_usage"]:
         monthly_value = get(f"{k}")
         if monthly_value is not None:
-            out[f"{k.replace('_usage', '')}_consumption"] = monthly_average_to_consumption(monthly_value)
-    out["building_standby_electricity_consumption"] = monthly_average_to_consumption(get("building_standby_load", 0))
+            out[f"{k.replace('_usage', '')}_consumption"] = (
+                monthly_average_to_consumption(monthly_value)
+            )
+    out["building_standby_electricity_consumption"] = monthly_average_to_consumption(
+        get("building_standby_load", 0)
+    )
     for k in ["energy_generated", "energy_used"]:
         monthly_value = get(f"{k}")
         if monthly_value is not None:
@@ -205,10 +241,7 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
     elif heat_capacity == "Very heavy":
         out["heat_capacity"] = {"Am": 3.5, "Cm": 370_000.0}
     else:
-        out["heat_capacity"] = {
-            "Am": heat_capacity,
-            "Cm": None
-        }
+        out["heat_capacity"] = {"Am": heat_capacity, "Cm": None}
 
     out["lighting_active_hours"] = to_duration("lighting_on_time", "lighting_off_time")
 
@@ -217,7 +250,9 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         out["meteorological_file"] = get_meteorological_file(mf)
 
     for k in ["day", "night"]:
-        out[f"setpoint_temperature_{k}"] = to_range(f"setpoint_summer_{k}", f"setpoint_winter_{k}")
+        out[f"setpoint_temperature_{k}"] = to_range(
+            f"setpoint_summer_{k}", f"setpoint_winter_{k}"
+        )
 
     building = {}
     for k in [
@@ -254,7 +289,12 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         building[k] = get(k)
 
     building["window_counts"] = {}
-    for o_code, o_name in [("a", "front"), ("b", "right"), ("c", "back"), ("d", "left")]:
+    for o_code, o_name in [
+        ("a", "front"),
+        ("b", "right"),
+        ("c", "back"),
+        ("d", "left"),
+    ]:
         building["window_counts"][o_name] = []
         for n, f in enumerate(["ground", "first", "second", "third", "fourth"]):
             key = f"window_number_{f}_{o_code}1"
@@ -279,10 +319,27 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
     out["zones"] = zones
 
     out["occupation_schedule"] = {
-        k: bool(get(f"schedule_{k.lower()}")) for k in [
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December",
-            "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+        k: bool(get(f"schedule_{k.lower()}"))
+        for k in [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
         ]
     }
 
@@ -296,16 +353,20 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
             "min_demand": get(f"heating_system{i}_min_demand"),
             "nominal_capacity": get(f"heating_system{i}_nominal_capacity"),
             "count": get(f"heating_system{i}_number"),
-            "active_hours": to_duration(f"heating_system{i}_on_time", f"heating_system{i}_off_time"),
+            "active_hours": to_duration(
+                f"heating_system{i}_on_time", f"heating_system{i}_off_time"
+            ),
             "simultaneity": {
-                z["name"]: get(f"heating_system{i}_simultaneity_factor_{zone_map[idx]}", 0.0)
+                z["name"]: get(
+                    f"heating_system{i}_simultaneity_factor_{zone_map[idx]}", 0.0
+                )
                 for idx, z in enumerate(zones)
-            }
+            },
         }
         if has_required_keys(
-                system,
-                ["energy_source", "efficiency_cop", "nominal_capacity"],
-                f"heating system {i}"
+            system,
+            ["energy_source", "efficiency_cop", "nominal_capacity"],
+            f"heating system {i}",
         ):
             out["heating_systems"].append(system)
 
@@ -315,21 +376,34 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         system = {
             "type": get(f"cooling_system{i}_type"),
             "energy_source": get(f"cooling_system{i}_energy_source"),
-            "efficiency_ratio": get(f"cooling_system{i}_energy_efficifiency_ratio"),  # note: typo in TOML key
+            "efficiency_ratio": get(
+                f"cooling_system{i}_energy_efficifiency_ratio"
+            ),  # note: typo in TOML key
             "min_demand": get(f"cooling_system{i}_min_demand"),
             "nominal_capacity": get(f"cooling_system{i}_nominal_capacity"),
-            "sensible_nominal_capacity": get(f"cooling_system{i}_sensible_nominal_capacity"),
+            "sensible_nominal_capacity": get(
+                f"cooling_system{i}_sensible_nominal_capacity"
+            ),
             "count": get(f"cooling_system{i}_number"),
-            "active_hours": to_duration(f"cooling_system{i}_on_time", f"cooling_system{i}_off_time"),
+            "active_hours": to_duration(
+                f"cooling_system{i}_on_time", f"cooling_system{i}_off_time"
+            ),
             "simultaneity": {
-                z["name"]: get(f"cooling_system{i}_simultaneity_factor_{zone_map[idx]}", 0.0)
+                z["name"]: get(
+                    f"cooling_system{i}_simultaneity_factor_{zone_map[idx]}", 0.0
+                )
                 for idx, z in enumerate(zones)
-            }
+            },
         }
         if has_required_keys(
-                system,
-                ["energy_source", "efficiency_ratio", "nominal_capacity", "sensible_nominal_capacity"],
-                f"cooling system {i}"
+            system,
+            [
+                "energy_source",
+                "efficiency_ratio",
+                "nominal_capacity",
+                "sensible_nominal_capacity",
+            ],
+            f"cooling system {i}",
         ):
             out["cooling_systems"].append(system)
 
@@ -339,16 +413,18 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         system = {
             "airflow": get(f"ventilation_system{i}_airflow"),
             "energy_source": get(f"ventilation_system{i}_energy_source"),
-            "heat_recovery_efficiency": get(f"ventilation_system{i}_heat_recovery_efficiency"),
-            "active_hours": to_duration(f"ventilation_system{i}_on_time", f"ventilation_system{i}_off_time"),
+            "heat_recovery_efficiency": get(
+                f"ventilation_system{i}_heat_recovery_efficiency"
+            ),
+            "active_hours": to_duration(
+                f"ventilation_system{i}_on_time", f"ventilation_system{i}_off_time"
+            ),
             "rated_input_power": get(f"ventilation_system{i}_rated_input_power"),
             "type": get(f"ventilation_system{i}_type"),
             "ventilated_area": get(f"ventilation_system{i}_ventilated_area"),
         }
         if has_required_keys(
-                system,
-                ["energy_source", "airflow"],
-                f"ventilation system {i}"
+            system, ["energy_source", "airflow"], f"ventilation system {i}"
         ):
             out["ventilation_systems"].append(system)
 
@@ -362,14 +438,23 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
             "lamp_power": get(f"lighting_system_lamp_power_z{i}"),
             "luminary_number": get(f"lighting_system_luminary_number_z{i}"),
             "name": get(f"lighting_system_name_z{i}"),
-            "active_hours": {"start": 0, "end": get(f"lighting_system_operating_hours_z{i}", 0)},
+            "active_hours": {
+                "start": 0,
+                "end": get(f"lighting_system_operating_hours_z{i}", 0),
+            },
             "count": get(f"lighting_system_similar_zone_number_z{i}"),
             "simultaneity_factor": get(f"lighting_system_simultaneity_factor_z{i}"),
         }
         if has_required_keys(
-                system,
-                ["tech", "lamp_number", "lamp_power", "luminary_number", "simultaneity_factor"],
-                f"lighting system {i}"
+            system,
+            [
+                "tech",
+                "lamp_number",
+                "lamp_power",
+                "luminary_number",
+                "simultaneity_factor",
+            ],
+            f"lighting system {i}",
         ):
             out["lighting_systems"].append(system)
 
@@ -385,9 +470,16 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         "type": get("water_type"),
     }
     if has_required_keys(
-            hot_water_system,
-            ["demand", "reference_temperature", "supply_temperature", "energy_source", "efficiency_cop", "nominal_capacity"],
-            "hot water system"
+        hot_water_system,
+        [
+            "demand",
+            "reference_temperature",
+            "supply_temperature",
+            "energy_source",
+            "efficiency_cop",
+            "nominal_capacity",
+        ],
+        "hot water system",
     ):
         out["hot_water_systems"].append(hot_water_system)
 
@@ -398,22 +490,35 @@ def toml_to_json(toml: dict|Path|str, allow_warnings: bool = True) -> dict:
         "width": get("courtyard_width"),
         "count": get("courtyard_number"),
     }
-    if has_required_keys(courtyard, ["length", "width", "count"], "courtyard") and courtyard["count"] > 0:
+    if (
+        has_required_keys(courtyard, ["length", "width", "count"], "courtyard")
+        and courtyard["count"] > 0
+    ):
         out["courtyards"].append(courtyard)
 
     out["open_courtyards"] = {}
 
-    for o_code, o_name in [("a", "front"), ("b", "right"), ("c", "back"), ("d", "left")]:
+    for o_code, o_name in [
+        ("a", "front"),
+        ("b", "right"),
+        ("c", "back"),
+        ("d", "left"),
+    ]:
         open_courtyard = {
             "depth": get(f"open_courtyard_depth_{o_code}1"),
             "count": get(f"open_courtyard_number_{o_code}", 0),
         }
-        if has_required_keys(open_courtyard, ['depth'], f"open courtyard {o_name}") and open_courtyard["count"] > 0:
+        if (
+            has_required_keys(open_courtyard, ["depth"], f"open courtyard {o_name}")
+            and open_courtyard["count"] > 0
+        ):
             out["open_courtyards"][o_name] = open_courtyard
 
     OpenBESSpecificationV2.model_validate_json(json.dumps(out))
 
     if not allow_warnings and len(warnings) > 0:
-        raise ValueError("Warnings during TOML to JSON conversion:\n" + "\n".join(warnings))
+        raise ValueError(
+            "Warnings during TOML to JSON conversion:\n" + "\n".join(warnings)
+        )
 
     return out

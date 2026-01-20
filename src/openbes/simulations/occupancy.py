@@ -1,7 +1,8 @@
 """
 Helper functions to simulate occupancy patterns in buildings.
 """
-import logging
+
+from .. import logging
 
 from pandas import DataFrame, Series
 
@@ -18,13 +19,15 @@ from ..types import (
 logger = logging.getLogger(__name__)
 
 # Occupation m2 per person for different zones (CTE DB-SI Table 2.1, Database cells R42:S46)
-M2_PER_PERSON = DataFrame([
-    {"zone": OCCUPATION_ZONES.Office, "m2_per_person": 5},
-    {"zone": OCCUPATION_ZONES.Teaching, "m2_per_person": 1.5},
-    {"zone": OCCUPATION_ZONES.Canteen, "m2_per_person": 5},
-    {"zone": OCCUPATION_ZONES.Common_areas, "m2_per_person": 5},
-    {"zone": OCCUPATION_ZONES.Other, "m2_per_person": 5},
-]).set_index("zone")
+M2_PER_PERSON = DataFrame(
+    [
+        {"zone": OCCUPATION_ZONES.Office, "m2_per_person": 5},
+        {"zone": OCCUPATION_ZONES.Teaching, "m2_per_person": 1.5},
+        {"zone": OCCUPATION_ZONES.Canteen, "m2_per_person": 5},
+        {"zone": OCCUPATION_ZONES.Common_areas, "m2_per_person": 5},
+        {"zone": OCCUPATION_ZONES.Other, "m2_per_person": 5},
+    ]
+).set_index("zone")
 
 
 def day_of_the_week(day_number_in_year: int) -> DAYS:
@@ -62,8 +65,7 @@ class OccupationSimulation(HourlySimulation):
         self.geometry = geometry or BuildingGeometry(spec=self.spec)
 
     def is_occupied_month(self, month: int) -> bool:
-        """Determine if a given month is an occupied month.
-        """
+        """Determine if a given month is an occupied month."""
         if month == 1:
             return self.spec.schedule_january
         if month == 2:
@@ -116,7 +118,9 @@ class OccupationSimulation(HourlySimulation):
             return self.spec.schedule_sunday
         raise ValueError("Invalid day number in year")
 
-    def get_zone_total_area(self, zone: OCCUPATION_ZONES, floor: FLOORS = None) -> float:
+    def get_zone_total_area(
+        self, zone: OCCUPATION_ZONES, floor: FLOORS = None
+    ) -> float:
         """Get the total area for a given occupation zone.
         Args:
             zone (OCCUPATION_ZONES): The occupation zone.
@@ -124,10 +128,10 @@ class OccupationSimulation(HourlySimulation):
         Returns:
             float: The total area of the zone in m².
         """
-        if not hasattr(self, 'geometry') or self.geometry is None:
+        if not hasattr(self, "geometry") or self.geometry is None:
             self.geometry = BuildingGeometry(spec=self.spec)
         if floor is None:
-            return self.geometry.gross_floor_areas.groupby(level='zone').sum().loc[zone]
+            return self.geometry.gross_floor_areas.groupby(level="zone").sum().loc[zone]
         return self.geometry.gross_floor_areas.loc[(floor, zone)].sum()
 
     @property
@@ -137,7 +141,7 @@ class OccupationSimulation(HourlySimulation):
         Returns:
             float: The occupation ratio (0.0 to 1.0).
         """
-        if not hasattr(self, '_occupation_ratio') or self._occupation_ratio is None:
+        if not hasattr(self, "_occupation_ratio") or self._occupation_ratio is None:
             capacity = self.spec.max_building_occupation
             current_occupation = self.spec.typical_occupation
             if current_occupation is None or current_occupation < 0:
@@ -165,31 +169,47 @@ class OccupationSimulation(HourlySimulation):
         DataFrame: with is_occupied and occupancy_ratio (0.0-1.0) for each hour of the year.
         """
         if (
-                'is_occupied' not in self._hours.columns or
-                'occupancy_ratio' not in self._hours.columns or
-                'is_occupied_day' not in self._hours.columns
+            "is_occupied" not in self._hours.columns
+            or "occupancy_ratio" not in self._hours.columns
+            or "is_occupied_day" not in self._hours.columns
         ):
-            open_times = [self.spec.occupancy_open_office, self.spec.occupancy_open_canteen, self.spec.occupancy_open_teaching]
-            close_times = [self.spec.occupancy_close_office, self.spec.occupancy_close_canteen, self.spec.occupancy_close_teaching]
-            if all(ot is None for ot in open_times) or all(ct is None for ct in close_times):
-                raise ValueError("Occupancy open and close times must be self.specified in the building specification.")
+            open_times = [
+                self.spec.occupancy_open_office,
+                self.spec.occupancy_open_canteen,
+                self.spec.occupancy_open_teaching,
+            ]
+            close_times = [
+                self.spec.occupancy_close_office,
+                self.spec.occupancy_close_canteen,
+                self.spec.occupancy_close_teaching,
+            ]
+            if all(ot is None for ot in open_times) or all(
+                ct is None for ct in close_times
+            ):
+                raise ValueError(
+                    "Occupancy open and close times must be self.specified in the building specification."
+                )
             open_time = min(ot for ot in open_times if ot is not None)
             close_time = max(ct for ct in close_times if ct is not None)
 
-            self._hours['is_occupied'] = False
-            self._hours['occupancy_ratio'] = 0.0
-            self._hours['is_occupied_day'] = False
+            self._hours["is_occupied"] = False
+            self._hours["occupancy_ratio"] = 0.0
+            self._hours["is_occupied_day"] = False
             # Get a mask for occupied hours in occupied days in occupied months that aren't public holidays
             index_df = self._hours.index.to_frame()
-            month_mask = index_df['month'].apply(lambda m: self.is_occupied_month(m))
-            day_mask = index_df['day'].apply(lambda d: self.is_occupied_day(d))
-            hour_mask = (index_df['hour'] >= open_time) & (index_df['hour'] <= close_time)
+            month_mask = index_df["month"].apply(lambda m: self.is_occupied_month(m))
+            day_mask = index_df["day"].apply(lambda d: self.is_occupied_day(d))
+            hour_mask = (index_df["hour"] >= open_time) & (
+                index_df["hour"] <= close_time
+            )
             mask = month_mask & day_mask & hour_mask
-            self._hours.loc[mask, 'is_occupied'] = True
-            self._hours.loc[mask, 'occupancy_ratio'] = self.occupation_ratio
-            self._hours['is_occupied_day'] = self._hours.groupby("day")['is_occupied'].transform('any')
+            self._hours.loc[mask, "is_occupied"] = True
+            self._hours.loc[mask, "occupancy_ratio"] = self.occupation_ratio
+            self._hours["is_occupied_day"] = self._hours.groupby("day")[
+                "is_occupied"
+            ].transform("any")
 
-        return self._hours[['is_occupied', 'occupancy_ratio', 'is_occupied_day']]
+        return self._hours[["is_occupied", "occupancy_ratio", "is_occupied_day"]]
 
     @property
     def occupied_days_per_month(self) -> Series:
@@ -197,9 +217,16 @@ class OccupationSimulation(HourlySimulation):
         Returns:
             Series: A Series with the number of occupied days for each month.
         """
-        if not hasattr(self, '_occupied_days_per_month') or self._occupied_days_per_month is None:
+        if (
+            not hasattr(self, "_occupied_days_per_month")
+            or self._occupied_days_per_month is None
+        ):
             self._occupied_days_per_month = (
-                self.occupancy['is_occupied'].groupby(level=['day', 'month']).any().groupby(level='month').sum()
+                self.occupancy["is_occupied"]
+                .groupby(level=["day", "month"])
+                .any()
+                .groupby(level="month")
+                .sum()
             )
             self._occupied_days_per_month.index = list(MONTHS)
         return self._occupied_days_per_month
@@ -220,24 +247,34 @@ class OccupationSimulation(HourlySimulation):
         Returns:
             float: The occupation area per person in m2/person.
         """
-        if not hasattr(self, '_occupation_m2_per_person') or self._occupation_m2_per_person is None:
+        if (
+            not hasattr(self, "_occupation_m2_per_person")
+            or self._occupation_m2_per_person is None
+        ):
             occupied_zone_areas = (
-                    self.get_zone_total_area(zone=OCCUPATION_ZONES.Office) +
-                    self.get_zone_total_area(zone=OCCUPATION_ZONES.Teaching)
-            ) * self.spec.parameters.nia_gba_ratio  # scale by net inhabitable area ratio
+                (
+                    self.get_zone_total_area(zone=OCCUPATION_ZONES.Office)
+                    + self.get_zone_total_area(zone=OCCUPATION_ZONES.Teaching)
+                )
+                * self.spec.parameters.nia_gba_ratio
+            )  # scale by net inhabitable area ratio
             office_population = (
-                    self.get_zone_total_area(zone=OCCUPATION_ZONES.Office) /
-                    M2_PER_PERSON.loc[OCCUPATION_ZONES.Office, "m2_per_person"] *
-                    self.spec.parameters.nia_gba_ratio
+                self.get_zone_total_area(zone=OCCUPATION_ZONES.Office)
+                / M2_PER_PERSON.loc[OCCUPATION_ZONES.Office, "m2_per_person"]
+                * self.spec.parameters.nia_gba_ratio
             )
             teaching_population = (
-                    self.get_zone_total_area(zone=OCCUPATION_ZONES.Teaching) /
-                    M2_PER_PERSON.loc[OCCUPATION_ZONES.Teaching, "m2_per_person"] *
-                    self.spec.parameters.nia_gba_ratio
+                self.get_zone_total_area(zone=OCCUPATION_ZONES.Teaching)
+                / M2_PER_PERSON.loc[OCCUPATION_ZONES.Teaching, "m2_per_person"]
+                * self.spec.parameters.nia_gba_ratio
             )
             simultaneity_factor = 0.75  # [Inputs cell F137]
-            simultaneity_adjusted_population = (office_population + teaching_population) * simultaneity_factor
-            self._occupation_m2_per_person = occupied_zone_areas / simultaneity_adjusted_population
+            simultaneity_adjusted_population = (
+                office_population + teaching_population
+            ) * simultaneity_factor
+            self._occupation_m2_per_person = (
+                occupied_zone_areas / simultaneity_adjusted_population
+            )
         return self._occupation_m2_per_person
 
     @property
@@ -253,23 +290,39 @@ class OccupationSimulation(HourlySimulation):
         Returns:
             float: The metabolic rate per square meter in W/m2.
         """
-        if not hasattr(self, '_metabolic_rate_per_m2') or self._metabolic_rate_per_m2 is None:
-            if self.spec.parameters.occupancy_on_off is not None and not self.spec.parameters.occupancy_on_off:
+        if (
+            not hasattr(self, "_metabolic_rate_per_m2")
+            or self._metabolic_rate_per_m2 is None
+        ):
+            if (
+                self.spec.parameters.occupancy_on_off is not None
+                and not self.spec.parameters.occupancy_on_off
+            ):
                 self._metabolic_rate_per_m2 = 0.0
             else:
                 occupation_density = self.occupation_m2_per_person
                 occupation_density_thresholds = [
-                    {'threshold_m2_per_person': 1, 'metabolic_rate_W_per_m2': 15.0},
-                    {'threshold_m2_per_person': 2, 'metabolic_rate_W_per_m2': 10.0},
-                    {'threshold_m2_per_person': 5.5, 'metabolic_rate_W_per_m2': 5.0},
-                    {'threshold_m2_per_person': 14, 'metabolic_rate_W_per_m2': 3.0},
-                    {'threshold_m2_per_person': 20, 'metabolic_rate_W_per_m2': 2.0},
+                    {"threshold_m2_per_person": 1, "metabolic_rate_W_per_m2": 15.0},
+                    {"threshold_m2_per_person": 2, "metabolic_rate_W_per_m2": 10.0},
+                    {"threshold_m2_per_person": 5.5, "metabolic_rate_W_per_m2": 5.0},
+                    {"threshold_m2_per_person": 14, "metabolic_rate_W_per_m2": 3.0},
+                    {"threshold_m2_per_person": 20, "metabolic_rate_W_per_m2": 2.0},
                 ]
                 for i in range(len(occupation_density_thresholds)):
-                    if occupation_density < occupation_density_thresholds[i]['threshold_m2_per_person']:
-                        self._metabolic_rate_per_m2 = occupation_density_thresholds[i]['metabolic_rate_W_per_m2']
+                    if (
+                        occupation_density
+                        < occupation_density_thresholds[i]["threshold_m2_per_person"]
+                    ):
+                        self._metabolic_rate_per_m2 = occupation_density_thresholds[i][
+                            "metabolic_rate_W_per_m2"
+                        ]
                         break
-            if not hasattr(self, '_metabolic_rate_per_m2') or self._metabolic_rate_per_m2 is None:
-                logger.warning("Occupation density lower than 0.05 person/m2. Using minimum metabolic rate of 2 W/m2.")
+            if (
+                not hasattr(self, "_metabolic_rate_per_m2")
+                or self._metabolic_rate_per_m2 is None
+            ):
+                logger.warning(
+                    "Occupation density lower than 0.05 person/m2. Using minimum metabolic rate of 2 W/m2."
+                )
                 self._metabolic_rate_per_m2 = 2.0
         return self._metabolic_rate_per_m2

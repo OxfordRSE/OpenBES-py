@@ -36,3 +36,16 @@ openbes = [
 [build-system]
 requires = ["setuptools>=61", "wheel", "build"]
 build-backend = "setuptools.build_meta"
+
+[tool.datamodel-codegen]
+class-name = "OpenBESCase"
+formatters = ["ruff-format"]
+input = "src/openbes/schemas/OpenBES.schema.json"
+input-file-type = "jsonschema"
+keyword-only = true
+output = "src/openbes/schemas/generated/models.py"
+output-model-type = "pydantic_v2.BaseModel"
+target-python-version = "3.11"
+use-default-kwarg = true
+use-double-quotes = true
+use-standard-collections = true
