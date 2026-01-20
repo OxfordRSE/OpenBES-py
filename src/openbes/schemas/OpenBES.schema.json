@@ -866,6 +866,11 @@
           "description": "Whether occupancy schedules are modelled.",
           "default": true
         },
+        "output_csv_precision": {
+          "type": "integer",
+          "description": "Number of decimal places in CSV output.",
+          "default": 2
+        },
         "pressure_of_air": {
           "type": "number",
           "description": "Air pressure. [UNUSED]"
@@ -1133,7 +1138,11 @@
           "description": "Energy required for heating/cooling in kWh/m2."
         },
         "load_csv": {
-          "type": "number",
+          "type": "string",
+          "description": "Load in kWh/m2 by calendar month."
+        },
+        "load_duraction_csv": {
+          "type": "string",
           "description": "Load in kW by annual percentile."
         }
       }
@@ -1270,17 +1279,13 @@
           "type": "number",
           "description": "Total building area in m2."
         },
-        "net_internal_area": {
-          "type": "number",
-          "description": "Net internal building area in m2 (minus exterior walls, etc.)."
-        },
         "conditioned_floor_area": {
           "type": "number",
           "description": "Floor area subject to HVAC systems. Used as the divisor in most /m2 statistics."
         },
         "indoor_air_volume": {
           "type": "number",
-          "description": "Volume of air in the building in m3."
+          "description": "Volume of air in the building's conditioned areas in m3."
         },
         "indoor_air_heat_capacity": {
           "type": "number",
@@ -1295,16 +1300,16 @@
           "description": "Internal (HVAC) and external temperatures for each hour of the year."
         },
         "max_outdoor_temperature": {
-          "type": "number"
+          "$ref": "#/definitions/HourPeak"
         },
         "min_outdoor_temperature": {
-          "type": "number"
+          "$ref": "#/definitions/HourPeak"
         },
         "max_indoor_temperature": {
-          "type": "number"
+          "$ref": "#/definitions/HourPeak"
         },
         "min_indoor_temperature": {
-          "type": "number"
+          "$ref": "#/definitions/HourPeak"
         },
         "discomfort_hours_percent": {
           "type": "number",

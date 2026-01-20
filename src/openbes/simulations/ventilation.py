@@ -46,6 +46,11 @@ class VentilationSystemSimulation(EnergyUseSimulation):
         )
 
     @property
+    def airflow(self) -> float:
+        """Rated airflow (m3/h) of the ventilation system."""
+        return self._attr("airflow")
+
+    @property
     def air_supply_rate_adjusted(self) -> float:
         """Air supply rate (m3/h/m2) adjusted for system efficiency.
         [Hourly simulation cells IV99, JB99]
@@ -54,9 +59,7 @@ class VentilationSystemSimulation(EnergyUseSimulation):
             not hasattr(self, "_air_supply_rate_adjusted")
             or self._air_supply_rate_adjusted is None
         ):
-            rated_flow_rate = self._attr("airflow") / self._attr(
-                "ventilated_area"
-            )  # m3/h/m2
+            rated_flow_rate = self.airflow / self._attr("ventilated_area")  # m3/h/m2
             efficiency = self._attr("heat_recovery_efficiency")
             if rated_flow_rate is None or efficiency is None:
                 self._air_supply_rate_adjusted = 0.0

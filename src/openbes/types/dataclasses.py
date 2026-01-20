@@ -9,14 +9,16 @@ from .enums import (
     LIGHTING_BALLASTS,
     ENERGY_SOURCES,
     HEAT_CAPACITY_CLASSES,
-    TERRAINS
+    TERRAINS,
 )
+
 
 @dataclass
 class OpenBESParameters:
     """
     Data class for OpenBES simulation parameters.
     """
+
     advanced_heat_capacity_am: Optional[float] = None
     air_heat_capacity: Optional[float] = None
     altitude: Optional[float] = None
@@ -24,7 +26,9 @@ class OpenBESParameters:
     cooling_load_factor: Optional[float] = 1.0
     cooling_system1_min_demand: Optional[float] = 15.0
     cooling_system2_energy_efficifiency_ratio: Optional[float] = None
-    cooling_system2_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
+    cooling_system2_energy_source: Optional[ENERGY_SOURCES] = field(
+        default=None, metadata={"cls": ENERGY_SOURCES}
+    )
     cooling_system2_min_demand: Optional[float] = None
     cooling_system2_nominal_capacity: Optional[float] = None
     cooling_system2_number: Optional[int] = 0
@@ -36,7 +40,9 @@ class OpenBESParameters:
     cooling_system2_simultaneity_factor_office: Optional[float] = 0.0
     cooling_system2_simultaneity_factor_other: Optional[float] = 0.0
     cooling_system2_simultaneity_factor_teaching: Optional[float] = 0.0
-    cooling_system2_type: Optional[COOLING_SYSTEM_TYPES] = field(default=None, metadata={'cls': COOLING_SYSTEM_TYPES})
+    cooling_system2_type: Optional[COOLING_SYSTEM_TYPES] = field(
+        default=None, metadata={"cls": COOLING_SYSTEM_TYPES}
+    )
     courtyard_length: Optional[float] = None
     courtyard_number: Optional[int] = 0
     courtyard_width: Optional[float] = None
@@ -50,7 +56,9 @@ class OpenBESParameters:
     heating_load_factor: Optional[float] = 1.0
     heating_system1_min_demand: Optional[float] = 37
     heating_system2_efficiency_cop: Optional[float] = None
-    heating_system2_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
+    heating_system2_energy_source: Optional[ENERGY_SOURCES] = field(
+        default=None, metadata={"cls": ENERGY_SOURCES}
+    )
     heating_system2_min_demand: Optional[float] = None
     heating_system2_nominal_capacity: Optional[float] = None
     heating_system2_number: Optional[int] = 0
@@ -61,7 +69,9 @@ class OpenBESParameters:
     heating_system2_simultaneity_factor_office: Optional[float] = 0.0
     heating_system2_simultaneity_factor_other: Optional[float] = 0.0
     heating_system2_simultaneity_factor_teaching: Optional[float] = 0.0
-    heating_system2_type: Optional[HEATING_SYSTEM_TYPES] = field(default=None, metadata={'cls': HEATING_SYSTEM_TYPES})
+    heating_system2_type: Optional[HEATING_SYSTEM_TYPES] = field(
+        default=None, metadata={"cls": HEATING_SYSTEM_TYPES}
+    )
     infiltration_correction_factor: Optional[float] = 1.0
     leakage_air_flow_dependent: Optional[float] = 0.0001
     lighting_on_off: Optional[bool] = True
@@ -80,6 +90,7 @@ class OpenBESParameters:
     open_courtyard_number_b1: Optional[int] = 0
     open_courtyard_number_c1: Optional[int] = 0
     open_courtyard_number_d1: Optional[int] = 0
+    output_csv_precision: Optional[int] = 2
     pressure_of_air: Optional[float] = None
     roof_absorption_coefficient: Optional[float] = 0.8
     roof_correction_factor: Optional[float] = 1.0
@@ -107,39 +118,42 @@ class OpenBESParameters:
         super().__init__()
         for f in self.__dataclass_fields__.values():
             value = getattr(self, f.name)
-            cls = f.metadata.get('cls', None)
+            cls = f.metadata.get("cls", None)
             if isinstance(cls, ListableEnum) and not isinstance(value, cls):
                 if isinstance(value, str):
                     setattr(self, f.name, cls.get_by_value(value))
 
 
 def get_meteorological_file(filename: str) -> str:
-    if 'Denver' in filename:
-        return 'USA_Denver_725650TYCST.epw'
-    if 'Oxford' in filename:
-        return 'UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw'
-    if 'Sevilla' in filename:
-        return 'SPAIN_Sevilla.083910_SWEC.epw'
-    if 'Madrid' in filename:
-        return 'SPAIN_Madrid.082210_SWEC.epw'
+    if "Denver" in filename:
+        return "USA_Denver_725650TYCST.epw"
+    if "Oxford" in filename:
+        return "UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw"
+    if "Sevilla" in filename:
+        return "SPAIN_Sevilla.083910_SWEC.epw"
+    if "Madrid" in filename:
+        return "SPAIN_Madrid.082210_SWEC.epw"
     raise ValueError(f"Unknown meteorological file: {filename}")
 
+
 def get_meteorological_name(epw_filename: str) -> str:
-    if 'Denver' in epw_filename:
-        return '725650_Denver'
-    if 'Oxford' in epw_filename:
-        return 'Oxford'
-    if 'Sevilla' in epw_filename:
-        return 'Sevilla'
-    if 'Madrid' in epw_filename:
-        return 'Madrid'
+    if "Denver" in epw_filename:
+        return "725650_Denver"
+    if "Oxford" in epw_filename:
+        return "Oxford"
+    if "Sevilla" in epw_filename:
+        return "Sevilla"
+    if "Madrid" in epw_filename:
+        return "Madrid"
     return epw_filename
+
 
 @dataclass
 class OpenBESSpecification:
     """
     Data class for OpenBES spec parameters.
     """
+
     parameters: Optional[OpenBESParameters] = field(default_factory=OpenBESParameters)
     appliances_load: Optional[float] = None
     biomass_annual: Optional[float] = None
@@ -162,7 +176,9 @@ class OpenBESSpecification:
     # Conditioned=True, Unconditioned=False
     condition_z5: Optional[bool] = None
     cooling_system1_energy_efficifiency_ratio: Optional[float] = None
-    cooling_system1_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
+    cooling_system1_energy_source: Optional[ENERGY_SOURCES] = field(
+        default=None, metadata={"cls": ENERGY_SOURCES}
+    )
     cooling_system1_nominal_capacity: Optional[float] = None
     cooling_system1_number: Optional[int] = 0
     cooling_system1_off_time: Optional[int] = None
@@ -173,7 +189,9 @@ class OpenBESSpecification:
     cooling_system1_simultaneity_factor_office: Optional[float] = 0.0
     cooling_system1_simultaneity_factor_other: Optional[float] = 0.0
     cooling_system1_simultaneity_factor_teaching: Optional[float] = 0.0
-    cooling_system1_type: Optional[COOLING_SYSTEM_TYPES] = field(default=None, metadata={'cls': COOLING_SYSTEM_TYPES})
+    cooling_system1_type: Optional[COOLING_SYSTEM_TYPES] = field(
+        default=None, metadata={"cls": COOLING_SYSTEM_TYPES}
+    )
     country: Optional[str] = None
     diesel_annual: Optional[float] = None
     electricity_annual: Optional[float] = None
@@ -219,9 +237,13 @@ class OpenBESSpecification:
     ground_floor_area_z3: Optional[float] = None
     ground_floor_area_z4: Optional[float] = None
     ground_floor_area_z5: Optional[float] = None
-    heat_capacity: Optional[HEAT_CAPACITY_CLASSES] = field(default=None, metadata={'cls': HEAT_CAPACITY_CLASSES})
+    heat_capacity: Optional[HEAT_CAPACITY_CLASSES] = field(
+        default=None, metadata={"cls": HEAT_CAPACITY_CLASSES}
+    )
     heating_system1_efficiency_cop: Optional[float] = None
-    heating_system1_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
+    heating_system1_energy_source: Optional[ENERGY_SOURCES] = field(
+        default=None, metadata={"cls": ENERGY_SOURCES}
+    )
     heating_system1_nominal_capacity: Optional[float] = None
     heating_system1_number: Optional[int] = 0
     heating_system1_off_time: Optional[float] = None
@@ -231,20 +253,36 @@ class OpenBESSpecification:
     heating_system1_simultaneity_factor_office: Optional[float] = 0.0
     heating_system1_simultaneity_factor_other: Optional[float] = 0.0
     heating_system1_simultaneity_factor_teaching: Optional[float] = 0.0
-    heating_system1_type: Optional[HEATING_SYSTEM_TYPES] = field(default=None, metadata={'cls': HEATING_SYSTEM_TYPES})
+    heating_system1_type: Optional[HEATING_SYSTEM_TYPES] = field(
+        default=None, metadata={"cls": HEATING_SYSTEM_TYPES}
+    )
     holiday: Optional[bool] = None
     leakage_air_flow: Optional[float] = None
     leakage_air_flow_independent: Optional[float] = None
-    lighting_control: Optional[LIGHTING_CONTROL] = field(default=None, metadata={'cls': LIGHTING_CONTROL})
+    lighting_control: Optional[LIGHTING_CONTROL] = field(
+        default=None, metadata={"cls": LIGHTING_CONTROL}
+    )
     lighting_off_time: Optional[float] = None
     lighting_on_time: Optional[float] = None
     lighting_simultaneity_factor: Optional[float] = 0.2
-    lighting_system_ballast_z1: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
-    lighting_system_ballast_z2: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
-    lighting_system_ballast_z3: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
-    lighting_system_ballast_z4: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
-    lighting_system_ballast_z5: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
-    lighting_system_ballast_z6: Optional[LIGHTING_BALLASTS] = field(default=None, metadata={'cls': LIGHTING_BALLASTS})
+    lighting_system_ballast_z1: Optional[LIGHTING_BALLASTS] = field(
+        default=None, metadata={"cls": LIGHTING_BALLASTS}
+    )
+    lighting_system_ballast_z2: Optional[LIGHTING_BALLASTS] = field(
+        default=None, metadata={"cls": LIGHTING_BALLASTS}
+    )
+    lighting_system_ballast_z3: Optional[LIGHTING_BALLASTS] = field(
+        default=None, metadata={"cls": LIGHTING_BALLASTS}
+    )
+    lighting_system_ballast_z4: Optional[LIGHTING_BALLASTS] = field(
+        default=None, metadata={"cls": LIGHTING_BALLASTS}
+    )
+    lighting_system_ballast_z5: Optional[LIGHTING_BALLASTS] = field(
+        default=None, metadata={"cls": LIGHTING_BALLASTS}
+    )
+    lighting_system_ballast_z6: Optional[LIGHTING_BALLASTS] = field(
+        default=None, metadata={"cls": LIGHTING_BALLASTS}
+    )
     lighting_system_lamp_number_z1: Optional[int] = None
     lighting_system_lamp_number_z2: Optional[int] = None
     lighting_system_lamp_number_z3: Optional[int] = None
@@ -287,12 +325,24 @@ class OpenBESSpecification:
     lighting_system_simultaneity_factor_z4: Optional[float] = 0.0
     lighting_system_simultaneity_factor_z5: Optional[float] = 0.0
     lighting_system_simultaneity_factor_z6: Optional[float] = 0.0
-    lighting_system_tech_z1: Optional[LIGHTING_TECHNOLOGIES] = field(default=None, metadata={'cls': LIGHTING_TECHNOLOGIES})
-    lighting_system_tech_z2: Optional[LIGHTING_TECHNOLOGIES] = field(default=None, metadata={'cls': LIGHTING_TECHNOLOGIES})
-    lighting_system_tech_z3: Optional[LIGHTING_TECHNOLOGIES] = field(default=None, metadata={'cls': LIGHTING_TECHNOLOGIES})
-    lighting_system_tech_z4: Optional[LIGHTING_TECHNOLOGIES] = field(default=None, metadata={'cls': LIGHTING_TECHNOLOGIES})
-    lighting_system_tech_z5: Optional[LIGHTING_TECHNOLOGIES] = field(default=None, metadata={'cls': LIGHTING_TECHNOLOGIES})
-    lighting_system_tech_z6: Optional[LIGHTING_TECHNOLOGIES] = field(default=None, metadata={'cls': LIGHTING_TECHNOLOGIES})
+    lighting_system_tech_z1: Optional[LIGHTING_TECHNOLOGIES] = field(
+        default=None, metadata={"cls": LIGHTING_TECHNOLOGIES}
+    )
+    lighting_system_tech_z2: Optional[LIGHTING_TECHNOLOGIES] = field(
+        default=None, metadata={"cls": LIGHTING_TECHNOLOGIES}
+    )
+    lighting_system_tech_z3: Optional[LIGHTING_TECHNOLOGIES] = field(
+        default=None, metadata={"cls": LIGHTING_TECHNOLOGIES}
+    )
+    lighting_system_tech_z4: Optional[LIGHTING_TECHNOLOGIES] = field(
+        default=None, metadata={"cls": LIGHTING_TECHNOLOGIES}
+    )
+    lighting_system_tech_z5: Optional[LIGHTING_TECHNOLOGIES] = field(
+        default=None, metadata={"cls": LIGHTING_TECHNOLOGIES}
+    )
+    lighting_system_tech_z6: Optional[LIGHTING_TECHNOLOGIES] = field(
+        default=None, metadata={"cls": LIGHTING_TECHNOLOGIES}
+    )
     location: Optional[float] = None
     LPG_annual: Optional[float] = None
     max_building_occupation: Optional[float] = None
@@ -344,7 +394,7 @@ class OpenBESSpecification:
     slab_thickness: Optional[float] = None
     solar_external_shading_summer: Optional[float] = None
     solar_external_shading_winter: Optional[float] = None
-    terrain_class: Optional[TERRAINS] = field(default=None, metadata={'cls': TERRAINS})
+    terrain_class: Optional[TERRAINS] = field(default=None, metadata={"cls": TERRAINS})
     thermal_bridge_facade_ground: Optional[bool] = None
     thermal_bridge_facade_intermediate: Optional[bool] = None
     thermal_bridge_facade_roof: Optional[bool] = None
@@ -361,7 +411,9 @@ class OpenBESSpecification:
     uvalue_roof: Optional[float] = None
     uvalue_window: Optional[float] = None
     ventilation_system1_airflow: Optional[float] = 0.0
-    ventilation_system1_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
+    ventilation_system1_energy_source: Optional[ENERGY_SOURCES] = field(
+        default=None, metadata={"cls": ENERGY_SOURCES}
+    )
     ventilation_system1_heat_recovery_efficiency: Optional[float] = 0.0
     ventilation_system1_off_time: Optional[int] = 1
     ventilation_system1_on_time: Optional[int] = 24
@@ -372,7 +424,9 @@ class OpenBESSpecification:
     water_reference_temperature: Optional[float] = None
     water_supply_temperature: Optional[float] = None
     water_system_efficiency_cop: Optional[float] = None
-    water_system_energy_source: Optional[ENERGY_SOURCES] = field(default=None, metadata={'cls': ENERGY_SOURCES})
+    water_system_energy_source: Optional[ENERGY_SOURCES] = field(
+        default=None, metadata={"cls": ENERGY_SOURCES}
+    )
     water_system_nominal_capacity: Optional[float] = None
     water_system_type: Optional[float] = None
     window_frame_factor: Optional[float] = None
@@ -407,11 +461,13 @@ class OpenBESSpecification:
 
     def __post_init__(self):
         super().__init__()
-        if self.parameters is not None and not isinstance(self.parameters, OpenBESParameters):
+        if self.parameters is not None and not isinstance(
+            self.parameters, OpenBESParameters
+        ):
             self.parameters = OpenBESParameters(**self.parameters)
         for f in self.__dataclass_fields__.values():
             value = getattr(self, f.name)
-            cls = f.metadata.get('cls', None)
+            cls = f.metadata.get("cls", None)
             if cls and issubclass(cls, ListableEnum) and not isinstance(value, cls):
                 if isinstance(value, str):
                     setattr(self, f.name, cls.get_by_value(value))
@@ -423,17 +479,17 @@ class OpenBESSpecification:
                 toml_content = tomllib.load(f)
         else:
             toml_content = toml_file
-            
+
         filtered = {k: v for k, v in toml_content.items() if v is not None and v != ""}
         typed = filtered
         for k, v in typed.items():
-            if k == 'i.meteorological_file':
+            if k == "i.meteorological_file":
                 typed[k] = get_meteorological_file(v)
-            elif isinstance(v, str) and v.lower() in ['false', 'no']:
+            elif isinstance(v, str) and v.lower() in ["false", "no"]:
                 typed[k] = False
-            elif isinstance(v, str) and v.lower() in ['true', 'yes']:
+            elif isinstance(v, str) and v.lower() in ["true", "yes"]:
                 typed[k] = True
-            elif k.startswith(('i.condition_z', 'd.condition_z')):
+            elif k.startswith(("i.condition_z", "d.condition_z")):
                 typed[k] = v.lower() == "conditioned"
 
         parameters = {k[2:]: v for k, v in filtered.items() if k.startswith("d")}
