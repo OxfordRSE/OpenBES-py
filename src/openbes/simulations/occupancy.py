@@ -2,11 +2,13 @@
 Helper functions to simulate occupancy patterns in buildings.
 """
 
+from typing import Optional
+
 from .. import logging
 
 from pandas import DataFrame, Series
 
-from .base import HourlySimulation
+from .base import HourlySimulation, HOURS_DF
 from .geometry import BuildingGeometry
 from ..types import (
     DAYS,
@@ -59,6 +61,7 @@ class OccupationSimulation(HourlySimulation):
     _occupation_m2_per_person: float
     _metabolic_rate_per_m2: float
     _occupied_days_per_month: Series
+    _zonal_occupation: Optional[DataFrame] = None
 
     def __init__(self, spec: OpenBESSpecification, geometry: BuildingGeometry = None):
         super().__init__(spec)
@@ -162,17 +165,27 @@ class OccupationSimulation(HourlySimulation):
         return self._occupation_ratio
 
     @property
-    def occupancy(self) -> DataFrame:
-        """Generate an occupancy schedule by hour for the entire year.
-        [Hourly Simulation column KH]
+    def occupied_days(self) -> "Series[float]":
+        """Hourly report of whether the building is open on a given day."""
+        if "is_occupied_day" not in self._hours.columns:
+            self._hours["is_occupied_day"] = self._hours.index.get_level_values(
+                "day"
+            ).map(self.is_occupied_day)
+        return self._hours["is_occupied_day"]
 
-        DataFrame: with is_occupied and occupancy_ratio (0.0-1.0) for each hour of the year.
-        """
-        if (
-            "is_occupied" not in self._hours.columns
-            or "occupancy_ratio" not in self._hours.columns
-            or "is_occupied_day" not in self._hours.columns
-        ):
+    @property
+    def occupied_months(self) -> "Series[float]":
+        """Hourly report of whether the building is open in a given month."""
+        if "is_occupied_month" not in self._hours.columns:
+            self._hours["is_occupied_month"] = self._hours.index.get_level_values(
+                "month"
+            ).map(self.is_occupied_month)
+        return self._hours["is_occupied_month"]
+
+    @property
+    def zonal_occupation(self) -> DataFrame:
+        """Hourly occupation for each zone based on opening and closing times."""
+        if self._zonal_occupation is None:
             open_times = [
                 self.spec.occupancy_open_office,
                 self.spec.occupancy_open_canteen,
@@ -189,27 +202,53 @@ class OccupationSimulation(HourlySimulation):
                 raise ValueError(
                     "Occupancy open and close times must be self.specified in the building specification."
                 )
-            open_time = min(ot for ot in open_times if ot is not None)
-            close_time = max(ct for ct in close_times if ct is not None)
+            zonal_occupancy = HOURS_DF.copy()
+            hours = zonal_occupancy.index.get_level_values("hour")
+            for zone in OCCUPATION_ZONES:
+                if zone not in [
+                    OCCUPATION_ZONES.Office,
+                    OCCUPATION_ZONES.Canteen,
+                    OCCUPATION_ZONES.Teaching,
+                ]:
+                    # Default to office hours for zones without specific times
+                    z = OCCUPATION_ZONES.Office
+                else:
+                    z = zone
+                open_time = getattr(self.spec, f"occupancy_open_{z.value}")
+                close_time = getattr(self.spec, f"occupancy_close_{z.value}")
+                if open_time is None or close_time is None:
+                    raise ValueError(
+                        f"Occupancy open and close times must be self.specified for {z.value} in the building specification."
+                    )
+                zonal_occupancy[zone] = (
+                    (hours >= open_time)
+                    & (hours <= close_time)
+                    & self.occupied_days
+                    & self.occupied_months
+                )
+            self._zonal_occupation = zonal_occupancy.drop(columns="is_daytime")
+        return self._zonal_occupation
 
-            self._hours["is_occupied"] = False
-            self._hours["occupancy_ratio"] = 0.0
-            self._hours["is_occupied_day"] = False
-            # Get a mask for occupied hours in occupied days in occupied months that aren't public holidays
-            index_df = self._hours.index.to_frame()
-            month_mask = index_df["month"].apply(lambda m: self.is_occupied_month(m))
-            day_mask = index_df["day"].apply(lambda d: self.is_occupied_day(d))
-            hour_mask = (index_df["hour"] >= open_time) & (
-                index_df["hour"] <= close_time
+    @property
+    def is_occupied(self) -> "Series[bool]":
+        """Hourly report of whether the building is occupied based on opening and closing times."""
+        if "is_occupied" not in self._hours.columns:
+            self._hours["is_occupied"] = self.zonal_occupation[
+                list(OCCUPATION_ZONES)
+            ].any(axis=1)
+        return self._hours["is_occupied"]
+
+    @property
+    def occupancy_ratio(self) -> "Series[float]":
+        """Hourly report of the occupancy ratio (0.0 to 1.0) based on the building schedule.
+
+        Do not confuse with self.occupation_ratio, which is a single value representing the typical occupation as a percentage of capacity. This occupancy_ratio is an hourly Series that takes into account the building schedule and returns the occupation ratio for each hour of the year.
+        """
+        if "occupancy_ratio" not in self._hours.columns:
+            self._hours["occupancy_ratio"] = (
+                self.is_occupied.astype(float) * self.occupation_ratio
             )
-            mask = month_mask & day_mask & hour_mask
-            self._hours.loc[mask, "is_occupied"] = True
-            self._hours.loc[mask, "occupancy_ratio"] = self.occupation_ratio
-            self._hours["is_occupied_day"] = self._hours.groupby("day")[
-                "is_occupied"
-            ].transform("any")
-
-        return self._hours[["is_occupied", "occupancy_ratio", "is_occupied_day"]]
+        return self._hours["occupancy_ratio"]
 
     @property
     def occupied_days_per_month(self) -> Series:
@@ -222,8 +261,7 @@ class OccupationSimulation(HourlySimulation):
             or self._occupied_days_per_month is None
         ):
             self._occupied_days_per_month = (
-                self.occupancy["is_occupied"]
-                .groupby(level=["day", "month"])
+                self.is_occupied.groupby(level=["day", "month"])
                 .any()
                 .groupby(level="month")
                 .sum()

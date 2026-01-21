@@ -1,5 +1,6 @@
 from importlib.resources import files
 
+from numpy import logical_and
 from pandas import DataFrame, read_csv, Series
 from .. import logging
 
@@ -162,16 +163,14 @@ class LightingSimulation(EnergyUseSimulation):
         Lights are considered to be on during occupied hours between the specified on and off times.
         """
         if "lights_on" not in self._hours.columns:
-            df = self.occupancy.occupancy
+            s = self.occupancy.is_occupied
             self._hours["lights_on"] = False
             on_time = self.spec.lighting_on_time
             off_time = self.spec.lighting_off_time
             if on_time is not None and off_time is not None:
-                i = df.index.names.index("hour")
-                self._hours["lights_on"] = df.apply(
-                    lambda r: r["is_occupied"] and (on_time < r.name[i] <= off_time),
-                    axis=1,
-                )
+                i = s.index.get_level_values("hour")
+                lights_on = (i > on_time) & (i <= off_time)
+                self._hours["lights_on"] = logical_and(s, lights_on)
         return self._hours["lights_on"]
 
     @property

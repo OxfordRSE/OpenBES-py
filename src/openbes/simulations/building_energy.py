@@ -7,8 +7,7 @@ from importlib.metadata import metadata
 from importlib.resources import files
 from typing import Dict, Optional, List
 
-from numpy import logical_and
-from pandas import DataFrame, read_csv, Series, MultiIndex
+from pandas import DataFrame, read_csv, Series, MultiIndex, concat, Index
 from pydantic import BaseModel, ConfigDict
 
 from .base import EnergyUseSimulation, HOURS_DF
@@ -29,14 +28,15 @@ from ..schemas import (
     SpaceThermalDemandResult,
     VentilationSystemResult,
     ThermalSystemResult,
+    ModelValidation,
 )
 from ..types import (
     OpenBESSpecification,
     ENERGY_USE_CATEGORIES,
     ENERGY_SOURCES,
-    get_zone_number,
     LIGHTING_CONTROL,
     HEATING_SYSTEM_TYPES,
+    COMPASS_POINTS,
 )
 
 logger = logging.getLogger(__name__)
@@ -276,46 +276,9 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         )
         out.loc[("Heating", "Passivehaus standard")] = ["<15", None, "<10"]
         out.loc[("Cooling", "Passivehaus standard")] = ["<15", None, "<10"]
-        zonal_occupancy = self.occupancy.occupancy[["is_occupied"]].copy()
-        heating_demand = Series(name="Heating")
-        cooling_demand = Series(name="Cooling")
-        areas = self.geometry.conditioned_floor_areas.copy()
-        areas = areas.reset_index()
-        for zz in self.geometry.conditioned_floor_areas.index.get_level_values("zone"):
-            z = zz.value
-            if not getattr(self.spec, f"condition_z{get_zone_number(zz)}"):
-                continue
 
-            area = areas.loc[areas["zone"] == zz, "conditioned_floor_area"].sum()
-
-            if z not in ["common_areas", "other"]:
-                # common and other inherit from office; see below
-                opens = getattr(self.spec, f"occupancy_open_{z}") or 24
-                closes = getattr(self.spec, f"occupancy_close_{z}") or 0
-                z_open = [
-                    x
-                    for x in map(
-                        lambda x: opens <= x <= closes,
-                        zonal_occupancy.index.get_level_values("hour"),
-                    )
-                ]
-                zonal_occupancy[z] = logical_and(zonal_occupancy["is_occupied"], z_open)
-                occupancy = zonal_occupancy[z]
-            else:
-                # Excel uses the Office occupancy for calculating common conditioning
-                # [DX/DY inherit from DC/DD]
-                occupancy = zonal_occupancy["office"]
-
-            raw_demand = (
-                self.climate.heating_cooling_demand * occupancy
-            )  # need HVAC when zone is occupied; W/m2
-            zonal_demand = (
-                raw_demand
-                / 1000  # W/m2 -> kW/m2
-                * area  # kW/m2 -> kW for zone
-            )
-            heating_demand[zz] = zonal_demand.clip(0).sum()
-            cooling_demand[zz] = (zonal_demand * -1).clip(0).sum()
+        heating_demand = self.climate.zonal_heating_demand.sum() / 1000
+        cooling_demand = self.climate.zonal_cooling_demand.sum() / 1000 * -1
 
         peak_heating_demand = max(
             self.climate.heating_demand * self.geometry.conditioned_floor_area / 1000
@@ -347,7 +310,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         mask = self.climate.air_free_temp.index.get_level_values("month").isin(
             [6, 7, 8]
         )
-        occupation = self.occupancy.occupancy.loc[mask, "is_occupied"]
+        occupation = self.occupancy.is_occupied.loc[mask]
         temp = self.climate.air_free_temp.loc[mask]
         temp_gt_26 = (temp * occupation) >= 26.0
         return Series(
@@ -538,21 +501,57 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         temp_df = DataFrame(index=self._hours.index)
         temp_df["external_temperature_C"] = self.climate.dry_bulb_temp
         temp_df["internal_temperature_C"] = self.climate.air_free_temp
-        temp_df.set_index(self._mdh_index_, inplace=True)
+        temp_df.set_index(self._mdh_index, inplace=True)
         return temp_df.round(self.spec.parameters.output_csv_precision).to_csv(
             header=True
         )
 
     def _find_peak(self, series: Series, fn: callable) -> HourPeak:
         """Find the peak value in a series using the provided function (e.g. max or min)."""
+        months = [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+        ]
         peak_value = fn(series)
         peak_time = series[series == peak_value].index[0]
         return HourPeak(
-            month=peak_time[0],
+            month=months[peak_time[0] - 1],
             day=day_of_the_month(peak_time[1], peak_time[0]),
             hour=peak_time[2],
             value=round(peak_value, self.spec.parameters.output_csv_precision),
         )
+
+    @property
+    def quantiles(self):
+        return [
+            0,
+            0.004,
+            0.01,
+            0.02,
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+            0.95,
+            0.99,
+            0.996,
+            1,
+        ]
 
     def _space_thermal_demand_result(self, series: Series) -> SpaceThermalDemandResult:
         """Convert a series of thermal demand into a SpaceThermalDemandResult."""
@@ -562,39 +561,269 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             load_csv=series.groupby("month")
             .sum()
             .round(self.spec.parameters.output_csv_precision)
+            .set_axis(self.months_index)
+            .rename("Demand (kWh)")
             .to_csv(header=True),
-            load_duraction_csv=(
-                series.quantile(
-                    [
-                        0,
-                        0.004,
-                        0.01,
-                        0.02,
-                        0.1,
-                        0.2,
-                        0.3,
-                        0.4,
-                        0.5,
-                        0.6,
-                        0.7,
-                        0.8,
-                        0.9,
-                        0.95,
-                        0.99,
-                        0.996,
-                        1,
-                    ]
-                )
-            ),
+            load_duraction_csv=series.quantile(self.quantiles)
+            .rename_axis("Quantile")
+            .to_frame(name="kW")
+            .round(self.spec.parameters.output_csv_precision)
+            .to_csv(header=True),
         )
 
     def _thermal_system_result(
         self, systems: List[HeatingSystemSimulation | CoolingSystemSimulation]
     ) -> List[ThermalSystemResult]:
-        raise NotImplementedError
+        out = []
+        for sys in systems:
+            energy_use = sys.energy_use.sum().sum()
+            peak_load = self._find_peak(sys.energy_use.sum(axis="columns"), max)
+            peak_capacity = (
+                sys.nominal_capacity * 1
+                if isinstance(sys, CoolingSystemSimulation)
+                else sys.number
+            )
+            if isinstance(sys, HeatingSystemSimulation):
+                all_year_demand = sys.phi_h_nd_ac
+            else:
+                all_year_demand = sys.phi_c_nd_ac
 
-    def get_outputs(self, include_subsimulations: bool = True) -> OpenBESOutput:
+            out.append(
+                ThermalSystemResult(
+                    conditioned_area=sys.area,
+                    energy_demand=energy_use / sys.area,
+                    energy_demand_on_all_year=all_year_demand.sum(),
+                    system_usage=energy_use / self.geometry.conditioned_floor_area,
+                    peak_load=peak_load,
+                    peak_capacity=peak_capacity,
+                    peak_ratio=(
+                        peak_capacity
+                        / sys.energy_use.sum(axis="columns").quantile(0.996)
+                    ),
+                )
+            )
+        return out
+
+    def _model_validation(
+        self, simulated: Series, specified: Series
+    ) -> ModelValidation:
+        """Compare simulated and specified values for model validation."""
+        df = concat(
+            [simulated.rename("Simulated (kWh)"), specified.rename("Measured (kWh)")],
+            axis=1,
+        ).dropna(how="any")
+
+        n = len(df)
+        if n == 0:
+            logger.warning("No overlapping data for model validation.")
+            return ModelValidation()
+
+        s = df["Simulated (kWh)"].to_numpy(dtype=float)
+        m = df["Measured (kWh)"].to_numpy(dtype=float)
+
+        mean_m = m.mean()
+        if mean_m == 0:
+            logger.warning(
+                "Mean of measured values is zero -> normalization/division by zero."
+            )
+            return ModelValidation()
+
+        # Residuals
+        res = s - m
+        sum_res = res.sum()
+        ss_res = np.sum(res**2)
+
+        # RMSE with chosen denominator
+        denom = max(n - 1, 1)  # avoid division by zero; ASHRAE uses ddof of n - 1
+        rmse = np.sqrt(ss_res / denom)
+
+        # NMBE: normalized mean bias error (percent)
+        nmbe_pct = (sum_res / (denom * mean_m)) * 100
+
+        # CV(RMSE) percent
+        cv_rmse_pct = (rmse / mean_m) * 100
+
+        # R^2
+        ss_tot = np.sum((m - mean_m) ** 2)
+        # If ss_tot is zero (constant measured series), define r2 sensibly:
+        if ss_tot == 0:
+            r2 = float("nan")
+        else:
+            r2 = 1 - (ss_res / ss_tot)
+
+        return ModelValidation(
+            energy_use_csv=df.round(self.spec.parameters.output_csv_precision)
+            .set_index(self.months_index)
+            .to_csv(header=True),
+            nmbe=float(nmbe_pct),
+            cv_rmse=float(cv_rmse_pct),
+            r2=float(r2),
+        )
+
+    @property
+    def degree_days(self):
+        base_temperature = 18.0  # Hardcoded in AA109
+        hourly_temperatures = self.climate.dry_bulb_temp
+        max_daily_t = hourly_temperatures.groupby(["month", "day"]).max()
+        min_daily_t = hourly_temperatures.groupby(["month", "day"]).min()
+        avg_daily_t = (max_daily_t + min_daily_t) / 2
+        heating_dd = base_temperature - avg_daily_t
+        return DataFrame(
+            {
+                "Heating Degree Days": heating_dd.clip(lower=0),
+                "Cooling Degree Days": (-heating_dd).clip(lower=0),
+            },
+            index=avg_daily_t.index,
+        )
+
+    @property
+    def overheating_running_average(self) -> Series:
+        """Calculate overheating metrics for the building.
+        Adaptive thermal comfort model EN 16798-1:2019.
+
+        The week's running mean outdoor temperature is copied from the last day of that week,
+        which is the first day on which the running mean can be calculated.
+
+        Returns: DataFrame with hourly overheating flags for each category.
+        """
+        day_means = self.climate.dry_bulb_temp.groupby(["month", "day"]).mean()
+
+        weights = np.array([1, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2])
+        W = weights.sum()
+
+        trm_daily = (
+            concat(
+                [day_means.shift(i) * w for i, w in enumerate(weights)],
+                axis=1,
+            ).sum(axis=1)
+            / W
+        ).clip(upper=30)
+
+        # Excel-style bootstrap: copy first week value backwards
+        trm_daily.iloc[:5] = trm_daily.iloc[6]
+
+        # Expand to hourly
+        trm_hourly = trm_daily.reindex(
+            self.climate.dry_bulb_temp.groupby(["month", "day"]).mean().index
+        )
+        trm_hourly = trm_hourly.repeat(24)
+        trm_hourly.index = self.climate.dry_bulb_temp.index[: len(trm_hourly)]
+        trm_hourly.name = "Running mean outdoor temperature (C)"
+        return trm_hourly
+
+    @property
+    def overheating_limits(self):
+        outdoor_running_mean_temp = Series([10.0, 20.0, 30.0])
+        limits = DataFrame()
+        limits["Outdoor running mean temp (C)"] = outdoor_running_mean_temp
+        limits["Category I min (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 - 3
+        limits["Category I max (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 + 2
+        limits["Category II min (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 - 4
+        limits["Category II max (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 + 3
+        limits["Category III min (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 - 5
+        limits["Category III max (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 + 4
+        return limits
+
+    @property
+    def building_geometry(self):
+        window_area = self.geometry.window_areas.groupby("floor").sum()
+        opaque_facade_area = (
+            self.geometry.conditioned_facade_areas.groupby("floor").sum() - window_area
+        )
+        wwr = window_area / (window_area + opaque_facade_area)
+        return DataFrame(
+            {
+                "Opaque facade (m2)": opaque_facade_area,
+                "Roof (m2)": self.geometry.roof_projections,
+                "Floor (m2)": self.geometry.conditioned_floor_areas.groupby(
+                    "floor"
+                ).sum(),
+                "Windows (m2)": window_area,
+                "Window-to-Wall Ratio": wwr,
+            }
+        )
+
+    @property
+    def building_geometry_orientation(self) -> DataFrame:
+        window_area = self.geometry.window_areas.groupby("compass_point").sum()
+        opaque_facade_area = (
+            self.geometry.conditioned_facade_areas.groupby("compass_point").sum()
+            - window_area
+        )
+        opaque_facade_area["Horizontal"] = self.geometry.roof_projections.sum()
+        window_area["Horizontal"] = 0.0
+        return DataFrame(
+            {"Opaque facade (m2)": opaque_facade_area, "Windows (m2)": window_area}
+        )
+
+    @property
+    def solar_heat_gains(self) -> DataFrame:
+        opaque_gains_by_orientation = (
+            (
+                self.geometry.opaque_areas.to_frame("opaque_area")
+                .groupby("compass_point")
+                .sum()
+                .apply(self.climate.get_solar_heat_opaque, axis=1)
+            )
+            .transpose()
+            .sum()
+        )
+        opaque_gains_by_orientation["Horizontal"] = self.climate.solar_heat_roof.sum()
+        # Determine winter/summer
+        ref_temp = 22.0
+        prev_air_free_temp = self.climate.air_free_temp.shift(1).fillna(17.4)
+        winter = prev_air_free_temp < ref_temp
+        window_gains_by_orientation = self.climate._solar_heat_windows["winter"].where(
+            winter, self.climate._solar_heat_windows["summer"]
+        )
+        # Add in missing orientations with zero gains
+        window_gains_by_orientation = window_gains_by_orientation.reindex(
+            columns=list(COMPASS_POINTS), fill_value=0
+        )
+        window_gains_by_orientation["Horizontal"] = 0.0
+        return (
+            DataFrame(
+                {
+                    "Opaque gains (kWh)": opaque_gains_by_orientation,
+                    "Window gains (kWh)": window_gains_by_orientation.sum(),
+                }
+            )
+            / 1000
+        )  # Wh to kWh
+
+    @property
+    def months_index(self) -> Index:
+        return Index(
+            name="month",
+            data=[
+                "January",
+                "February",
+                "March",
+                "April",
+                "May",
+                "June",
+                "July",
+                "August",
+                "September",
+                "October",
+                "November",
+                "December",
+            ],
+        )
+
+    @property
+    def outputs(self) -> OpenBESOutput:
         if self._outputs is None:
+            lighting_peak_load = 0
+            for z in range(1, 7):
+                try:
+                    lighting_peak_load += (
+                        self.lighting.get_w_per_luminaire(zone=z)
+                        * getattr(self.spec, f"lighting_system_luminary_number_z{z}")
+                    ) / 1000  # W to kW
+                except (AttributeError, TypeError):
+                    continue
+
             self._outputs = OpenBESOutput(
                 **{
                     "altitude": self.climate.epw_metadata["altitude"],
@@ -622,14 +851,15 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                     "min_indoor_temperature": self._find_peak(
                         self.climate.air_free_temp, min
                     ),
+                    "mean_indoor_temperature": self.climate.air_free_temp.mean(),
                     "discomfort_hours_percent": (
                         (
-                            self.occupancy.occupancy["is_occupied"]
-                            * self.climate.air_free_temp
+                            self.occupancy.is_occupied.sum()
+                            - (self.occupancy.is_occupied * self.climate.air_free_temp)
+                            .between(18, 26, inclusive="neither")
+                            .sum()
                         )
-                        .between(18, 26, inclusive="neither")
-                        .sum()
-                        / self.occupancy.occupancy["is_occupied"].sum()
+                        / self.occupancy.is_occupied.sum()
                         * 100
                     ),
                     "discomfort_hours_percent_summer": self.sim_to_retrofit_report("")[
@@ -638,10 +868,28 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                     "heat_exchange_breakdown_csv": (
                         DataFrame(
                             {
-                                "Heat transfer (infiltration)": self.climate.heat_transmission_by_infiltration,
-                                "Heat transfer (ventilation)": self.climate.heat_transmission_by_ventilation,
-                                "Solar gains (opaque)": self.climate.solar_heat_opaque,
-                                "Solar gains (glazing)": self.climate.solar_heat_windows,
+                                "Heat transfer (infiltration)": (
+                                    self.climate.heat_infiltration_window
+                                    + (
+                                        self.geometry.heat_infiltration_opaque
+                                        / self.geometry.conditioned_floor_area
+                                    )
+                                )
+                                * (
+                                    self.climate.air_set_temp
+                                    - self.climate.dry_bulb_temp
+                                )
+                                * -1,
+                                "Heat transfer (ventilation)": self.climate.heat_transmission_by_ventilation
+                                * (
+                                    self.climate.air_set_temp
+                                    - self.climate.dry_bulb_temp
+                                )
+                                * -1,
+                                "Solar gains (opaque)": self.climate.solar_heat_opaque
+                                / self.geometry.conditioned_floor_area,
+                                "Solar gains (glazing)": self.climate.solar_heat_windows
+                                / self.geometry.conditioned_floor_area,
                                 "Heat from occupants": self.climate.internal_heat_from_occupants,
                                 "Heat from appliances": self.climate.internal_heat_from_appliances,
                                 "Heat from lighting": self.climate.internal_heat_from_lighting,
@@ -649,6 +897,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                         )
                         .groupby("month")
                         .sum()
+                        .set_index(self.months_index)
                         / 1000  # Wh/m2 to kWh/m2
                     )
                     .round(self.spec.parameters.output_csv_precision)
@@ -656,31 +905,43 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                     "space_thermal_demand_csv": (
                         DataFrame(
                             {
-                                "Heating demand (W/m2)": self.climate.heating_demand,
-                                "Cooling demand (W/m2)": self.climate.cooling_demand,
+                                "Heating demand (kWh/m2)": self.climate.zonal_heating_demand.sum(
+                                    axis="columns"
+                                )
+                                / 1000,
+                                "Cooling demand (kWh/m2)": self.climate.zonal_cooling_demand.sum(
+                                    axis="columns"
+                                )
+                                * -1
+                                / 1000,
                             }
                         )
                         .groupby("month")
                         .sum()
-                        / 1000  # Wh/m2 to kWh/m2
+                        .set_index(self.months_index)
+                        / self.geometry.conditioned_floor_area  # kWh to Wh/m2
                     )
                     .round(self.spec.parameters.output_csv_precision)
                     .to_csv(header=True),
                     "infiltration_ach": (
-                        self.climate.air_flow_dependent
-                        + self.spec.leakage_air_flow_independent
-                    )
-                    / self.spec.floor_to_ceiling_height,
+                        (
+                            self.climate.air_flow_dependent
+                            + self.spec.leakage_air_flow_independent
+                        )
+                        / self.spec.floor_to_ceiling_height
+                    ).mean(),
                     "natural_ach": (
                         self.climate.night_ventilation_enabled
                         * self.spec.natural_ventilation_night
                         / self.spec.floor_to_ceiling_height
-                    ),
+                    ).mean(),
                     "heating_demand": self._space_thermal_demand_result(
-                        self.climate.heating_demand
+                        self.climate.zonal_heating_demand.sum(axis="columns") / 1000
                     ),
                     "cooling_demand": self._space_thermal_demand_result(
-                        self.climate.cooling_demand
+                        self.climate.zonal_cooling_demand.sum(axis="columns")
+                        / 1000
+                        * -1
                     ),
                     "ventilation_systems": [
                         VentilationSystemResult(
@@ -695,122 +956,176 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                             else []
                         )
                     ],
-                    "heating_systems": {
-                        "type": "array",
-                        "items": {"$ref": "#/definitions/ThermalSystemResult"},
-                    },
-                    "cooling_systems": {
-                        "type": "array",
-                        "items": {"$ref": "#/definitions/ThermalSystemResult"},
-                    },
-                    "lighting_demand": {
-                        "type": "number",
-                        "description": "Energy demand for lighting in kWh/m2.",
-                    },
-                    "lighting_peak_load": {
-                        "type": "number",
-                        "description": "Peak lighting load in kW.",
-                    },
-                    "lighting_load_ratio": {
-                        "type": "number",
-                        "description": "Lighting energy required in W/m2.",
-                    },
-                    "hot_water_demand": {
-                        "type": "number",
-                        "description": "Energy demand for water heating in kWh/m2.",
-                    },
-                    "hot_water_peak_load": {
-                        "type": "number",
-                        "description": "Peak water heating load in kW.",
-                    },
-                    "other_energy_use_electricity": {
-                        "type": "number",
-                        "description": "Miscellaneous electricity use in kWh/m2.",
-                    },
-                    "other_energy_use_gas": {
-                        "type": "number",
-                        "description": "Miscellaneous natural gas usage in kWh/m2.",
-                    },
-                    "on_site_electricity_generated": {
-                        "type": "number",
-                        "description": "Renewable electricity generated on site in kWh/m2.",
-                    },
-                    "on_site_electricity_used": {
-                        "type": "number",
-                        "description": "Renewable electricity generated and consumed on site in kWh/m2.",
-                    },
-                    "on_site_electricity_fraction": {
-                        "type": "number",
-                        "description": "Renewable energy consumption / Final energy consumption",
-                    },
-                    "all_renewable_fraction": {
-                        "type": "number",
-                        "description": "Fraction of final energy consumption drawn from renewable energy sources including both on- and off-site renewable energy sources.",
-                    },
-                    "final_energy_consumption": {
-                        "type": "number",
-                        "description": "Final energy consumption in kWh/m2.",
-                    },
-                    "primary_energy_consumption": {
-                        "type": "number",
-                        "description": "Primary energy consumption in kWh/m2.",
-                    },
-                    "non_renewable_primary_energy_consumption": {
-                        "type": "number",
-                        "description": "Non-renewable primary energy consumption in kWh/m2.",
-                    },
-                    "co2_equivalent_emissions": {
-                        "type": "number",
-                        "description": "CO2 equivalent emissions in kg CO2 eq/m2.",
-                    },
-                    "final_energy_consumption_csv": {
-                        "type": "string",
-                        "description": "Final energy consumption in kWh for each energy use category. Divide by `conditioned_floor_area` for kWh/m2.",
-                    },
-                    "energy_use_csv": {
-                        "type": "string",
-                        "description": "Energy used in kWh/yr for each Energy Source. Measured and simulated values are both included.",
-                    },
-                    "electricity_validation": {"$ref": "#/definitions/ModelValidation"},
-                    "gas_validation": {"$ref": "#/definitions/ModelValidation"},
-                    "climate_percentiles_csv": {
-                        "type": "string",
-                        "description": "Outdoor air temperature percentiles from climate data.",
-                    },
-                    "degree_days_csv": {
-                        "type": "string",
-                        "description": "Heating/cooling degree days by month.",
-                    },
-                    "annual_incident_solar_radiation_csv": {
-                        "type": "string",
-                        "description": "Annual incident solar radiation in kWh/m2 for each 1/8th compass point.",
-                    },
-                    "indoor_temperature_mean": {
-                        "type": "number",
-                        "description": "Mean indoor temperature over the year.",
-                    },
-                    "indoor_temperature_min": {"$ref": "#/definitions/HourPeak"},
-                    "indoor_temperature_max": {"$ref": "#/definitions/HourPeak"},
-                    "overheating_csv": {
-                        "type": "string",
-                        "description": "Discomfort hours by comfort model category.??????",
-                    },
-                    "building_geometry_csv": {
-                        "type": "string",
-                        "description": "Building area by floor and category in m2, and window-to-wall ratio (unitless).",
-                    },
-                    "building_facade_csv": {
-                        "type": "string",
-                        "description": "Building facade area in m2 by category and orientation.",
-                    },
-                    "solar_heat_gains_csv": {
-                        "type": "string",
-                        "description": "Solar heat gains in kWh by orientation and category. For kWh/m2 divide by relevant `building_facade_csv` area.",
-                    },
-                    "window_transmissivity_coefficient_csv": {
-                        "type": "string",
-                        "description": "Annual transmissivity coefficient of windows by orientation.",
-                    },
+                    "heating_systems": self._thermal_system_result(
+                        self.heating.heating_simulations if self.heating else []
+                    ),
+                    "cooling_systems": self._thermal_system_result(
+                        self.cooling.cooling_simulations if self.cooling else []
+                    ),
+                    "lighting_demand": self.lighting.energy_use.sum().sum()
+                    / self.geometry.conditioned_floor_area,
+                    "lighting_peak_load": lighting_peak_load,
+                    "lighting_load_ratio": lighting_peak_load
+                    * 1000  # kW to W
+                    / self.geometry.conditioned_floor_area,
+                    "hot_water_demand": self.hot_water.energy_use.sum().sum()
+                    / self.geometry.conditioned_floor_area,
+                    "other_energy_use_electricity": (
+                        self._other_energy_use[ENERGY_SOURCES.Electricity].sum()
+                        + self._standby_energy_use[ENERGY_SOURCES.Electricity].sum()
+                    )
+                    / self.geometry.conditioned_floor_area,
+                    "other_energy_use_gas": self._other_energy_use[
+                        ENERGY_SOURCES.Natural_gas
+                    ].sum()
+                    / self.geometry.conditioned_floor_area,
+                    "on_site_electricity_generated": self.spec.energy_generated
+                    / self.geometry.conditioned_floor_area,
+                    "on_site_electricity_used": self.spec.energy_used
+                    / self.geometry.conditioned_floor_area,
+                    "on_site_electricity_fraction": (
+                        self.spec.energy_used / self.geometry.conditioned_floor_area
+                    )
+                    / self.final_energy_consumption_distribution["kWh/m2"].sum(),
+                    "all_renewable_fraction": (
+                        self.primary_energy_consumption.loc[
+                            self.building_name, "Renewable"
+                        ]
+                        / self.primary_energy_consumption.loc[
+                            self.building_name, "Total PEC"
+                        ]
+                    ),
+                    "final_energy_consumption": self.final_energy_consumption_distribution[
+                        "kWh/m2"
+                    ].sum(),
+                    "primary_energy_consumption": self.primary_energy_consumption.loc[
+                        self.building_name, "Total PEC"
+                    ],
+                    "non_renewable_primary_energy_consumption": self.primary_energy_consumption.loc[
+                        self.building_name, "Non-renewable"
+                    ],
+                    "co2_equivalent_emissions": self.kg_co2_eq.sum()
+                    / self.geometry.conditioned_floor_area,
+                    "final_energy_consumption_csv": self.final_energy_consumption_distribution[
+                        "kWh"
+                    ]
+                    .rename_axis("System")
+                    .round(self.spec.parameters.output_csv_precision)
+                    .to_csv(header=True),
+                    "electricity_validation": self._model_validation(
+                        self.energy_use[ENERGY_SOURCES.Electricity]
+                        .groupby("month")
+                        .sum(),
+                        Series(
+                            [
+                                self.spec.electricity_january,
+                                self.spec.electricity_february,
+                                self.spec.electricity_march,
+                                self.spec.electricity_april,
+                                self.spec.electricity_may,
+                                self.spec.electricity_june,
+                                self.spec.electricity_july,
+                                self.spec.electricity_august,
+                                self.spec.electricity_september,
+                                self.spec.electricity_october,
+                                self.spec.electricity_november,
+                                self.spec.electricity_december,
+                            ],
+                            index=range(1, 13),
+                        ),
+                    ),
+                    "gas_validation": self._model_validation(
+                        self.energy_use[ENERGY_SOURCES.Natural_gas]
+                        .groupby("month")
+                        .sum(),
+                        Series(
+                            [
+                                self.spec.gas_january,
+                                self.spec.gas_february,
+                                self.spec.gas_march,
+                                self.spec.gas_april,
+                                self.spec.gas_may,
+                                self.spec.gas_june,
+                                self.spec.gas_july,
+                                self.spec.gas_august,
+                                self.spec.gas_september,
+                                self.spec.gas_october,
+                                self.spec.gas_november,
+                                self.spec.gas_december,
+                            ],
+                            index=range(1, 13),
+                        ),
+                    ),
+                    "climate_quantiles_csv": self.climate.dry_bulb_temp.quantile(
+                        self.quantiles
+                    )
+                    .rename_axis("Quantile")
+                    .to_frame(name="Temperature (C)")
+                    .round(self.spec.parameters.output_csv_precision)
+                    .to_csv(header=True),
+                    "degree_days_csv": self.degree_days.round(
+                        self.spec.parameters.output_csv_precision
+                    ).to_csv(header=True),
+                    "annual_incident_solar_radiation_csv": (
+                        self.climate.solar_irradiation.solar_irradiation.sum(
+                            axis="rows"
+                        )
+                        / 1000
+                    )
+                    .rename(index=lambda x: x.value)
+                    .rename_axis("Compass point")
+                    .to_frame(name="Annual incident solar radiation (kWh/m2)")
+                    .round(self.spec.parameters.output_csv_precision)
+                    .to_csv(header=True),
+                    "running_average_outside_temp_csv": self.overheating_running_average.round(
+                        self.spec.parameters.output_csv_precision
+                    ).to_csv(header=True),
+                    "overheating_limits_csv": self.overheating_limits.round(
+                        self.spec.parameters.output_csv_precision
+                    ).to_csv(header=True, index=False),
+                    "building_geometry_csv": self.building_geometry.round(
+                        self.spec.parameters.output_csv_precision
+                    )
+                    .rename(index=lambda x: x.value)
+                    .rename_axis("Floor")
+                    .to_csv(header=True),
+                    "building_geometry_orientation_csv": self.building_geometry_orientation.round(
+                        self.spec.parameters.output_csv_precision
+                    )
+                    .rename(
+                        index=lambda x: x.value if isinstance(x, COMPASS_POINTS) else x
+                    )
+                    .rename_axis("Compass point")
+                    .to_csv(header=True),
+                    "solar_heat_gains_csv": (
+                        self.solar_heat_gains.round(
+                            self.spec.parameters.output_csv_precision
+                        )
+                    )
+                    .rename(
+                        index=lambda x: x.value if isinstance(x, COMPASS_POINTS) else x
+                    )
+                    .rename_axis("Compass point")
+                    .to_csv(header=True),
+                    "window_transmissivity_coefficient_csv": (
+                        (
+                            self.solar_heat_gains["Window gains (kWh)"]
+                            / self.building_geometry_orientation["Windows (m2)"]
+                        )
+                        / self.climate.solar_irradiation.solar_irradiation.sum(
+                            axis="rows"
+                        )
+                        * 1000
+                    )
+                    .drop(index="Horizontal")
+                    .rename(
+                        index=lambda x: x.value if isinstance(x, COMPASS_POINTS) else x
+                    )
+                    .rename_axis("Compass point")
+                    .to_frame(name="Window transmissivity coefficient")
+                    .fillna(0)
+                    .round(self.spec.parameters.output_csv_precision)
+                    .to_csv(header=True),
                 }
             )
         return self._outputs

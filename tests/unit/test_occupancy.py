@@ -38,14 +38,16 @@ class Occupancy(OpenBESTestCase):
         holiday_count = 11
         weekend_count = 104  # 52 weekends * 2 days
         occupied_count = 365 - holiday_count - weekend_count
-        self.assertEqual(sum([int(self.sim.is_occupied_day(d)) for d in days]), occupied_count)
+        self.assertEqual(
+            sum([int(self.sim.is_occupied_day(d)) for d in days]), occupied_count
+        )
 
     def test_HOURS_DF(self):
         # Check we have 24 * 365 rows
         self.assertEqual(len(HOURS_DF), 24 * 365)
         df = HOURS_DF.copy().reset_index()
-        self.assertEqual(df['month'].nunique(), 12)
-        self.assertEqual(df['hour'].nunique(), 24)
+        self.assertEqual(df["month"].nunique(), 12)
+        self.assertEqual(df["hour"].nunique(), 24)
 
     def test_occupation_by_zone(self):
         with self.subTest(method="Occupation/Capacity"):
@@ -61,25 +63,26 @@ class Occupancy(OpenBESTestCase):
                 (132.76 + 55.65 + 52.93) / 5,
                 0.0,
             ]
-            expected = round(spec.typical_occupation / sum(zonal_capacities), self.decimal_places)
+            expected = round(
+                spec.typical_occupation / sum(zonal_capacities), self.decimal_places
+            )
             computed = round(sim.occupation_ratio, self.decimal_places)
             self.assertEqual(expected, computed)
 
     def test_occupation_by_hour(self):
         expected = self.read_single_col_csv_to_series(
-            'fixtures/hh_occupancy_ratio.csv').to_frame('occupancy_ratio')
+            "fixtures/hh_occupancy_ratio.csv"
+        ).to_frame("occupancy_ratio")
         expected.index = HOURS_DF.index
-        expected['is_occupied'] = expected['occupancy_ratio'].apply(lambda x: x > 0)
-        calculated = self.sim.occupancy[['occupancy_ratio', 'is_occupied', 'is_occupied_day']]
+        expected["is_occupied"] = expected["occupancy_ratio"].apply(lambda x: x > 0)
         with self.subTest(column="is_occupied"):
-            tmp = self.sim.occupancy[['occupancy_ratio', 'is_occupied']]
+            tmp = expected.copy()
+            tmp["is_occupied"] = self.sim.is_occupied
+            tmp["occupancy_ratio"] = self.sim.occupancy_ratio
             self.assertTrue(expected.equals(tmp), expected.compare(tmp))
         with self.subTest(column="is_occupied_day"):
-            expected = expected.groupby(level='day')['is_occupied'].transform('max')
-            self.assertTrue(
-                expected.equals(calculated['is_occupied_day']),
-                expected.compare(calculated['is_occupied_day'])
-            )
+            expected = expected.groupby(level="day")["is_occupied"].transform("max")
+            self.check_series_versus_values(self.sim.occupied_days, expected)
 
     def test_occupation_m2_per_person(self):
         expected = round(4.86522963366, self.decimal_places)
@@ -91,5 +94,6 @@ class Occupancy(OpenBESTestCase):
         calculated = round(self.sim.metabolic_rate_per_m2, self.decimal_places)
         self.assertEqual(expected, calculated)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

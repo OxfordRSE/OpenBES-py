@@ -1181,21 +1181,21 @@
       "type": "object",
       "description": "Characteristics of a heating or cooling system simulation.",
       "properties": {
+        "conditioned_area": {
+          "type": "number",
+          "description": "Conditioned equivalent area in m2 (conditioned area adjusted for simultaneity)."
+        },
         "energy_demand": {
           "type": "number",
-          "description": "Energy demanded in kWh/m2"
+          "description": "Energy demanded in kWh/m2 when specific zonal occupancy is simulated."
         },
         "energy_demand_on_all_year": {
           "type": "number",
           "description": "Energy demanded in kWh/m2 if the system is on all year round."
         },
-        "occupancy_profile": {
-          "type": "number",
-          "description": "Energy demanded in kWh/m2 when specific zonal occupancy is simulated."
-        },
         "system_usage": {
           "type": "number",
-          "description": "????????? in kWh/m2"
+          "description": "Energy demand divided by conditioned area (no simultaneity adjustment) in kWh/m2"
         },
         "peak_load": {
           "$ref": "#/definitions/HourPeak"
@@ -1311,6 +1311,10 @@
         "min_indoor_temperature": {
           "$ref": "#/definitions/HourPeak"
         },
+        "mean_indoor_temperature": {
+          "type": "number",
+          "description": "Mean indoor temperature over the year."
+        },
         "discomfort_hours_percent": {
           "type": "number",
           "description": "The number of hours when the building is occupied and it would be outside 18-26C if HVAC were not operating."
@@ -1375,10 +1379,6 @@
           "type": "number",
           "description": "Energy demand for water heating in kWh/m2."
         },
-        "hot_water_peak_load": {
-          "type": "number",
-          "description": "Peak water heating load in kW."
-        },
         "other_energy_use_electricity": {
           "type": "number",
           "description": "Miscellaneous electricity use in kWh/m2."
@@ -1423,10 +1423,6 @@
           "type": "string",
           "description": "Final energy consumption in kWh for each energy use category. Divide by `conditioned_floor_area` for kWh/m2."
         },
-        "energy_use_csv": {
-          "type": "string",
-          "description": "Energy used in kWh/yr for each Energy Source. Measured and simulated values are both included."
-        },
         "electricity_validation": {
           "$ref": "#/definitions/ModelValidation"
         },
@@ -1445,27 +1441,21 @@
           "type": "string",
           "description": "Annual incident solar radiation in kWh/m2 for each 1/8th compass point."
         },
-        "indoor_temperature_mean": {
-          "type": "number",
-          "description": "Mean indoor temperature over the year."
-        },
-        "indoor_temperature_min": {
-          "$ref": "#/definitions/HourPeak"
-        },
-        "indoor_temperature_max": {
-          "$ref": "#/definitions/HourPeak"
-        },
-        "overheating_csv": {
+        "running_average_outside_temp_csv": {
           "type": "string",
-          "description": "Discomfort hours by comfort model category.??????"
+          "description": "The 7-day weighted running mean of the outside temperature for each hour of the year. The first 6 days copy the value from day 7."
+        },
+        "overheating_limits_csv": {
+          "type": "string",
+          "description": "Category I, II, and III overheating limits in °C at different outdoor temperatures."
         },
         "building_geometry_csv": {
           "type": "string",
           "description": "Building area by floor and category in m2, and window-to-wall ratio (unitless)."
         },
-        "building_facade_csv": {
+        "building_geometry_orientation_csv": {
           "type": "string",
-          "description": "Building facade area in m2 by category and orientation."
+          "description": "Building facade, window, and roof area in m2 by category and orientation."
         },
         "solar_heat_gains_csv": {
           "type": "string",

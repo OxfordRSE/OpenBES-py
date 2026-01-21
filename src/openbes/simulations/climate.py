@@ -8,12 +8,18 @@ from pandas import DataFrame, Series
 import os
 
 from .base import HourlySimulation
-from .geometry import BuildingGeometry
+from .geometry import BuildingGeometry, THERMAL_BREAK_TRANSMITTANCE
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
 from .solar_irradiation import SolarIrradiationSimulation
 from .ventilation import VentilationSimulation
-from ..types import OpenBESSpecification, TERRAINS, ORIENTATIONS, COMPASS_POINTS
+from ..types import (
+    OpenBESSpecification,
+    TERRAINS,
+    ORIENTATIONS,
+    COMPASS_POINTS,
+    THERMAL_BREAKS,
+)
 
 # Optional dependencies
 try:
@@ -159,10 +165,10 @@ class ClimateSimulation(HourlySimulation):
     _heating_and_cooling_degree_days: DataFrame
     _heat_infiltration_window: float
     _heat_infiltration_opaque: float
-    _heat_transmission_by_infiltration: float
     _temp_change_demand: float
     _theta_st_partial: float
     _solar_radiation: DataFrame = None
+    _zonal_heating_cooling_demand: DataFrame = None
 
     def __init__(
         self,
@@ -249,7 +255,7 @@ class ClimateSimulation(HourlySimulation):
             "internal_heat": array(self.internal_heat.values),
             "internal_heat_adjusted": array(self.internal_heat_adjusted.values),
             "supply_air_temp": array(self.supply_air_temp.values),
-            "is_occupied": array(self.occupancy.occupancy["is_occupied"]),
+            "is_occupied": array(self.occupancy.is_occupied),
         }
         return static
 
@@ -829,26 +835,21 @@ class ClimateSimulation(HourlySimulation):
     @property
     def heat_infiltration_window(self) -> float:
         """Calculate the heat transmission by infiltration through windows in kW/K.
-        Htr,w
+        Htr,w [Hourly Simulation column AR97]
         """
         if (
             not hasattr(self, "_heat_infiltration_window")
             or self._heat_infiltration_window is None
         ):
-            raise NotImplementedError
+            self._heat_infiltration_window = (
+                (self.geometry.window_area * self.spec.uvalue_window)
+                + (
+                    self.geometry.window_shading.sum()
+                    * self.spec.thermal_bridge_shading
+                    * THERMAL_BREAK_TRANSMITTANCE[THERMAL_BREAKS.Shading]
+                )
+            ) / self.geometry.conditioned_floor_area
         return self._heat_infiltration_window
-
-    @property
-    def heat_transmission_by_infiltration(self) -> float:
-        """Calculate the heat transmission by infiltration in kW/K.
-        Htr
-        """
-        if (
-            not hasattr(self, "_heat_transmission_by_infiltration")
-            or self._heat_transmission_by_infiltration is None
-        ):
-            raise NotImplementedError
-        return self._heat_transmission_by_infiltration
 
     @property
     def internal_heat_from_occupants(self) -> "Series[float]":
@@ -857,8 +858,7 @@ class ClimateSimulation(HourlySimulation):
         """
         if "internal_heat_from_occupants" not in self._hours.columns:
             self._hours["internal_heat_from_occupants"] = (
-                self.occupancy.occupancy["occupancy_ratio"]
-                * self.occupancy.metabolic_rate_per_m2
+                self.occupancy.occupancy_ratio * self.occupancy.metabolic_rate_per_m2
             )
         return self._hours["internal_heat_from_occupants"]
 
@@ -873,7 +873,7 @@ class ClimateSimulation(HourlySimulation):
                 self.spec.appliances_load * self.spec.parameters.appliance_on_off
             )
             self._hours["internal_heat_from_appliances"] = (
-                self.occupancy.occupancy["occupancy_ratio"] * appliance_W_per_m2
+                self.occupancy.occupancy_ratio * appliance_W_per_m2
             )
         return self._hours["internal_heat_from_appliances"]
 
@@ -1206,13 +1206,31 @@ class ClimateSimulation(HourlySimulation):
     @property
     def heating_cooling_demand(self) -> "Series[float]":
         """Hourly temperature change demand based in W/m2.
-        ϕHC,nd W [Hourly simulation column DB * zone area]
+        ϕHC,nd W/m2 [Hourly simulation column CF]
 
         Has columns for heating and cooling demand because they need to be weighted by their scaling factors.
 
         This is used for the ASHRAE140 test cases to determine the heating and cooling demand.
         """
         return self._hours["heating_cooling_demand"]
+
+    @property
+    def zonal_heating_cooling_demand(self):
+        """Hourly temperature change demand in W for the whole zone.
+        ϕHC,nd W [Hourly simulation column DB, DI, etc]
+
+        This is the zonal heating/cooling demand, calculated by multiplying the per square meter demand by the conditioned floor area.
+        """
+        if self._zonal_heating_cooling_demand is None:
+            # Restore heating_cooling_demand's W/m2 to W by multiplying by the conditioned floor area,
+            # Then redivide by zonal area based on zonal occupation.
+            demand = self.heating_cooling_demand  # W/m2
+            zonal_occupation = self.occupancy.zonal_occupation
+            zonal_demand = zonal_occupation.mul(demand, axis=0)  # W/m2
+            areas = self.geometry.conditioned_floor_areas.groupby("zone").sum()
+            zonal_demand = zonal_demand * areas  # W
+            self._zonal_heating_cooling_demand = zonal_demand
+        return self._zonal_heating_cooling_demand
 
     @property
     def heating_demand(self) -> "Series[float]":
@@ -1224,11 +1242,27 @@ class ClimateSimulation(HourlySimulation):
         return self._hours["heating_need"]
 
     @property
+    def zonal_heating_demand(self) -> "Series[float]":
+        """Hourly zonal heating need in W.
+        [Hourly simulation column DC, DJ, etc]
+        The energy required to heat each zone for each hour of the year.
+        """
+        return self.zonal_heating_cooling_demand.clip(0, None)
+
+    @property
     def cooling_demand(self) -> "Series[float]":
-        """Hourly cooling need in W/m2.
-        Represents values from heating_cooling_demand clipped to only negative values, then inverted.
+        """Hourly cooling need in W.
+        The energy required to cool each zone for each hour of the year.
         """
         if "cooling_need" not in self._hours.columns:
             self._hours["cooling_need"] = self.heating_cooling_demand.clip(None, 0)
             self._hours["cooling_need"] = -self._hours["cooling_need"]
         return self._hours["cooling_need"]
+
+    @property
+    def zonal_cooling_demand(self) -> "Series[float]":
+        """Hourly zonal cooling need in W/m2.
+        [Hourly simulation column DD, DK, etc]
+        Represents values from zonal_heating_cooling_demand clipped to only negative values, then inverted.
+        """
+        return self.zonal_heating_cooling_demand.clip(None, 0)

@@ -85,8 +85,7 @@ class VentilationSystemSimulation(EnergyUseSimulation):
                 )
             )
             self._hours["ventilation_on"] = (
-                self._hours["ventilation_on"]
-                * self.occupancy.occupancy["is_occupied_day"]
+                self._hours["ventilation_on"] * self.occupancy.occupied_days
             )
         return self._hours["ventilation_on"]
 

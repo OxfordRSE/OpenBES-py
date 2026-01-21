@@ -75,8 +75,8 @@ class HotWaterSimulation(EnergyUseSimulation):
             daily_kWh = self.get_daily_hot_water()
             hourly_kWh = (
                 daily_kWh * self.occupancy.occupied_days_per_month.sum()
-            ) / self.occupancy.occupancy["is_occupied"].sum()
+            ) / self.occupancy.is_occupied.sum()
             self._energy_use[self.spec.water_system_energy_source] = [
                 hourly_kWh
-            ] * self.occupancy.occupancy["is_occupied"]
+            ] * self.occupancy.is_occupied
         return self._energy_use

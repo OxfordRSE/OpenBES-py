@@ -1,3 +1,8 @@
+"""Data classes for OpenBES simulation specifications and parameters.
+
+This will be removed in v2 in favour of the schemas-driven approach.
+"""
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Union

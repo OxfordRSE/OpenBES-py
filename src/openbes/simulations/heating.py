@@ -80,7 +80,7 @@ class HeatingSystemSimulation(EnergyUseSimulation):
 
         The system will typically be 100% enabled during occupied hours.
         """
-        return self.occupancy.occupancy["is_occupied"].astype(float)
+        return self.occupancy.is_occupied.astype(float)
 
     def _get_target_temp(self) -> "np.array[float]":
         """Get the target temperature for heating based on thresholds and air temperature."""
@@ -124,7 +124,7 @@ class HeatingSystemSimulation(EnergyUseSimulation):
         return self._hours["phi_hc_nd_actual"]
 
     @property
-    def phi_h_nd_ac(self) -> float:
+    def phi_h_nd_ac(self) -> "Series[float]":
         """Heating load per unit area in W/m2.
         [Hourly simulation column EP]
         """
