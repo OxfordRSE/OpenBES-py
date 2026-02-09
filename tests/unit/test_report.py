@@ -166,6 +166,7 @@ class TestOpenBESReport(OpenBESTestCase):
             "heating_demand": {
                 "demand_total": 76574.14,
                 "demand_scaled": 69.85,
+                "demand_on_all_year": 75.0972329030,
                 "load_csv": {
                     "headers": ["month", "Demand (kWh)"],
                     "num_rows": 12,
@@ -180,6 +181,7 @@ class TestOpenBESReport(OpenBESTestCase):
             "cooling_demand": {
                 "demand_total": 7048.13,
                 "demand_scaled": 6.43,
+                "demand_on_all_year": 6.7832092631,
                 "load_csv": {
                     "headers": ["month", "Demand (kWh)"],
                     "num_rows": 12,
@@ -202,6 +204,10 @@ class TestOpenBESReport(OpenBESTestCase):
             with self.subTest(a=domain, b="demand_scaled"):
                 self.assertAlmostEquals(
                     tdr.demand_scaled, expected["demand_scaled"], places=2
+                )
+            with self.subTest(a=domain, b="demand_on_all_year"):
+                self.assertAlmostEquals(
+                    tdr.demand_on_all_year, expected["demand_on_all_year"], places=2
                 )
             with self.subTest(a=domain, b="load_csv"):
                 self.check_csv(tdr.load_csv, expected["load_csv"])
@@ -348,82 +354,103 @@ class TestOpenBESReport(OpenBESTestCase):
             vs = outputs.ventilation_systems
             self.assertEqual(len(vs), 1)
             s = vs[0]
-            self.assertEqual(s.energy_demand, 3.75)
-            self.assertEqual(s.peak_load, 0.30)
-            self.assertEqual(s.sfp, 3.60)
-            self.assertEqual(s.mechanical_ventilation_rate, 3.00)
-            self.assertEqual(s.ventilation_rate, 0.83)
-            self.assertEqual(s.ach, 0.02)
+            self.assertAlmostEqual(s.energy_demand, 3.75, places=self.decimal_places)
+            self.assertAlmostEqual(s.peak_load, 0.30, places=self.decimal_places)
+            self.assertAlmostEqual(s.sfp, 3.60, places=self.decimal_places)
+            self.assertAlmostEqual(
+                s.mechanical_ventilation_rate, 3.00, places=self.decimal_places
+            )
+            self.assertAlmostEqual(
+                s.ventilation_rate, 0.83333333, places=self.decimal_places
+            )
+            self.assertAlmostEqual(s.ach, 0.02359216099177, places=self.decimal_places)
         with self.subTest("heating_systems"):
             hs = outputs.heating_systems
             self.assertEqual(len(hs), 1)
             s = hs[0]
-            self.assertEqual(s.conditioned_area, 912.80)
-            self.assertEqual(s.energy_demand, 58.61)
-            self.assertEqual(s.energy_demand_on_all_year, 75.10)
-            self.assertEqual(s.system_usage, 43.15)
-            self.assertEqual(
-                s.peak_load,
-                {
-                    "value": 202.22,
-                    "month": "December",
-                    "day": 3,
-                    "hour": 8,
-                },
+            self.assertAlmostEqual(
+                s.conditioned_area, 912.7961, places=self.decimal_places
             )
-            self.assertEqual(s.peak_capacity, 96.00)
-            self.assertEqual(s.peak_ratio, 0.76)
+            self.assertAlmostEqual(
+                s.energy_demand, 58.6091516482, places=self.decimal_places
+            )
+            self.assertAlmostEqual(
+                s.system_usage, 43.153822995, places=self.decimal_places
+            )
+            self.assertAlmostEqual(s.peak_capacity, 96.00, places=self.decimal_places)
+            self.assertAlmostEqual(
+                s.peak_ratio, 0.7615514254, places=self.decimal_places
+            )
+            for prop, value in {
+                "value": 202.22,
+                "month": "December",
+                "day": 3,
+                "hour": 8,
+            }.items():
+                with self.subTest(a="heating_systems", b=prop):
+                    self.assertEqual(getattr(s.peak_load, prop), value)
         with self.subTest("cooling_systems"):
             cs = outputs.cooling_systems
             self.assertEqual(len(cs), 1)
             s = cs[0]
-            self.assertEqual(s.conditioned_area, 866.94)
-            self.assertEqual(s.energy_demand, 1.82)
-            self.assertEqual(s.energy_demand_on_all_year, 6.78)
-            self.assertEqual(s.system_usage, 3.05)
-            self.assertEqual(
-                s.peak_load,
-                {
-                    "value": 47.95,
-                    "month": "July",
-                    "day": 20,
-                    "hour": 14,
-                },
+            self.assertAlmostEqual(
+                s.conditioned_area, 866.9415, places=self.decimal_places
             )
-            self.assertEqual(s.peak_capacity, 75.00)
-            self.assertEqual(s.peak_ratio, 2.05)
+            self.assertAlmostEqual(
+                s.energy_demand, 1.8167188334, places=self.decimal_places
+            )
+            self.assertAlmostEqual(
+                s.system_usage, 3.0494674, places=self.decimal_places
+            )
+            self.assertAlmostEqual(s.peak_capacity, 75.00, places=self.decimal_places)
+            self.assertAlmostEqual(
+                s.peak_ratio, 2.049765830, places=self.decimal_places
+            )
+            for prop, value in {
+                "value": 47.95,
+                "month": "July",
+                "day": 20,
+                "hour": 14,
+            }.items():
+                with self.subTest(a="cooling_systems", b=prop):
+                    self.assertEqual(getattr(s.peak_load, prop), value)
 
         expected_validations = {
             "electricity_validation": {
                 "energy_use_csv": {
                     "headers": ["month", "Simulated (kWh)", "Measured (kWh)"],
                     "num_rows": 12,
-                    "first_row": ["January", 4264.1, 4402.0],
+                    "first_row": ["January", 4264.08, 4402.20],
                 },
-                "nmbe": 0.011,
-                "cv_rmse": 0.050,
-                "r2": 0.85,
+                "nmbe": 0.011044270,
+                "cv_rmse": 0.050374155,
+                "r2": 0.846673353,
             },
             "gas_validation": {
                 "energy_use_csv": {
                     "headers": ["month", "Simulated (kWh)", "Measured (kWh)"],
                     "num_rows": 12,
-                    "first_row": ["January", 7890.4, 10129.7],
+                    "first_row": ["January", 7890.42, 10129.70],
                 },
-                "nmbe": -0.0024,
-                "cv_rmse": 0.323,
-                "r2": 0.94,
+                "nmbe": -0.0241811550,
+                "cv_rmse": 0.3230852229,
+                "r2": 0.9355730172,
             },
         }
         for key, expected_info in expected_validations.items():
             with self.subTest(key):
                 calculated_info = getattr(outputs, key)
-                self.assertEqual(calculated_info.nmbe, expected_info["nmbe"])
-                self.assertEqual(calculated_info.cv_rmse, expected_info["cv_rmse"])
-                self.assertEqual(calculated_info.r2, expected_info["r2"])
+                self.assertAlmostEqual(
+                    calculated_info.nmbe, expected_info["nmbe"], places=6
+                )
+                self.assertAlmostEqual(
+                    calculated_info.cv_rmse, expected_info["cv_rmse"], places=6
+                )
+                self.assertAlmostEqual(
+                    calculated_info.r2, expected_info["r2"], places=4
+                )
                 self.check_csv(
-                    calculated_info.energy_use_csv,
-                    expected_info.energy_use_csv,
+                    calculated_info.energy_use_csv, expected_info["energy_use_csv"]
                 )
 
 

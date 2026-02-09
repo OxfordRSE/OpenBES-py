@@ -255,6 +255,13 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         return self._attr("number")
 
     @property
+    def min_demand(self) -> float:
+        """Minimum demand for the system in kW.
+        [Hourly simulation cell EY91]
+        """
+        return self._attr("min_demand")
+
+    @property
     def nominal_capacity(self) -> float:
         """ """
         if self._nominal_capacity is None:

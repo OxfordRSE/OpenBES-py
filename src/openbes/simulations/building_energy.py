@@ -553,19 +553,26 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             1,
         ]
 
-    def _space_thermal_demand_result(self, series: Series) -> SpaceThermalDemandResult:
+    def _space_thermal_demand_result(
+        self, zonal_demand: Series, raw_demand: Series
+    ) -> SpaceThermalDemandResult:
         """Convert a series of thermal demand into a SpaceThermalDemandResult."""
+        quantiles = (raw_demand * self.geometry.conditioned_floor_area / 1000).quantile(
+            self.quantiles
+        )
         return SpaceThermalDemandResult(
-            demand_total=series.sum(),
-            demand_scaled=series.sum() / self.geometry.conditioned_floor_area,
-            load_csv=series.groupby("month")
+            demand_total=zonal_demand.sum(),
+            demand_scaled=zonal_demand.sum() / self.geometry.conditioned_floor_area,
+            demand_on_all_year=raw_demand.sum(),
+            load_csv=zonal_demand.groupby("month")
             .sum()
             .round(self.spec.parameters.output_csv_precision)
             .set_axis(self.months_index)
             .rename("Demand (kWh)")
             .to_csv(header=True),
-            load_duraction_csv=series.quantile(self.quantiles)
-            .rename_axis("Quantile")
+            load_duraction_csv=quantiles.rename_axis(  # zonal_demand.quantile(self.quantiles)
+                "Quantile"
+            )
             .to_frame(name="kW")
             .round(self.spec.parameters.output_csv_precision)
             .to_csv(header=True),
@@ -577,29 +584,35 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         out = []
         for sys in systems:
             energy_use = sys.energy_use.sum().sum()
-            peak_load = self._find_peak(sys.energy_use.sum(axis="columns"), max)
-            peak_capacity = (
-                sys.nominal_capacity * 1
-                if isinstance(sys, CoolingSystemSimulation)
-                else sys.number
-            )
             if isinstance(sys, HeatingSystemSimulation):
-                all_year_demand = sys.phi_h_nd_ac
+                demand = (
+                    self.climate.heating_demand
+                    * self.geometry.conditioned_floor_area
+                    / 1000
+                )
             else:
-                all_year_demand = sys.phi_c_nd_ac
+                demand = (
+                    self.climate.cooling_demand
+                    * self.geometry.conditioned_floor_area
+                    / 1000
+                )
+            quantile = demand.quantile(0.996)
+            peak_load = self._find_peak(demand, max)
+            capacity = (
+                sys.nominal_capacity
+                if isinstance(sys, HeatingSystemSimulation)
+                else sys.sensible_nominal_capacity
+            )
 
             out.append(
                 ThermalSystemResult(
                     conditioned_area=sys.area,
                     energy_demand=energy_use / sys.area,
-                    energy_demand_on_all_year=all_year_demand.sum(),
-                    system_usage=energy_use / self.geometry.conditioned_floor_area,
+                    system_usage=sys.demand.sum()
+                    / self.geometry.conditioned_floor_area,
                     peak_load=peak_load,
-                    peak_capacity=peak_capacity,
-                    peak_ratio=(
-                        peak_capacity
-                        / sys.energy_use.sum(axis="columns").quantile(0.996)
-                    ),
+                    peak_capacity=capacity,
+                    peak_ratio=capacity / quantile,
                 )
             )
         return out
@@ -629,35 +642,35 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             return ModelValidation()
 
         # Residuals
-        res = s - m
-        sum_res = res.sum()
-        ss_res = np.sum(res**2)
+        res = m - s
+        mean_bias_error = res.mean()
 
-        # RMSE with chosen denominator
-        denom = max(n - 1, 1)  # avoid division by zero; ASHRAE uses ddof of n - 1
-        rmse = np.sqrt(ss_res / denom)
+        dof = max(n, 1)  # degrees of freedom for RMSE and r2; avoid division by zero
 
-        # NMBE: normalized mean bias error (percent)
-        nmbe_pct = (sum_res / (denom * mean_m)) * 100
+        # NMBE: normalized mean bias error
+        nmbe = (1 / mean_m) * mean_bias_error
 
-        # CV(RMSE) percent
-        cv_rmse_pct = (rmse / mean_m) * 100
+        # CV(RMSE)
+        cv_rmse = (1 / mean_m) * np.sqrt(
+            np.sum(res**2) / (dof - 1)
+        )  # ASHRAE uses ddof of n - 1
 
         # R^2
-        ss_tot = np.sum((m - mean_m) ** 2)
-        # If ss_tot is zero (constant measured series), define r2 sensibly:
-        if ss_tot == 0:
-            r2 = float("nan")
-        else:
-            r2 = 1 - (ss_res / ss_tot)
+        r_numerator = (dof * np.sum(m * s)) - (np.sum(m) * np.sum(s))
+        r_denominator = np.sqrt(
+            ((dof * np.sum(m**2)) - (np.sum(m) ** 2))
+            * ((dof * np.sum(s**2)) - (np.sum(s) ** 2))
+        )
+        r = r_numerator / r_denominator
+        r2 = r**2
 
         return ModelValidation(
             energy_use_csv=df.round(self.spec.parameters.output_csv_precision)
             .set_index(self.months_index)
             .to_csv(header=True),
-            nmbe=float(nmbe_pct),
-            cv_rmse=float(cv_rmse_pct),
-            r2=float(r2),
+            nmbe=nmbe,
+            cv_rmse=cv_rmse,
+            r2=r2,
         )
 
     @property
@@ -812,6 +825,24 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         )
 
     @property
+    def _monthly_electricity_for_validation(self) -> Series:
+        """Electricity use for model validation, aggregated by month."""
+        df = DataFrame(
+            {
+                k: v[ENERGY_SOURCES.Electricity]
+                for k, v in {
+                    k: v.groupby("month").sum()
+                    for k, v in self.energy_use_by_category.items()
+                }.items()
+            }
+        )
+        df[ENERGY_USE_CATEGORIES.Others] = self.spec.other_electricity_usage
+        df[ENERGY_USE_CATEGORIES.Building_standby] = self.spec.building_standby_load
+        # Need to use self.lighting.get_kwh_per_month values because self.lighting.energy_use gives different numbers??
+        df[ENERGY_USE_CATEGORIES.Lighting] = self.lighting.get_kwh_per_month().values
+        return df.sum(axis="columns")
+
+    @property
     def outputs(self) -> OpenBESOutput:
         if self._outputs is None:
             lighting_peak_load = 0
@@ -936,19 +967,33 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                         / self.spec.floor_to_ceiling_height
                     ).mean(),
                     "heating_demand": self._space_thermal_demand_result(
-                        self.climate.zonal_heating_demand.sum(axis="columns") / 1000
+                        zonal_demand=self.climate.zonal_heating_demand.sum(
+                            axis="columns"
+                        )
+                        / 1000,
+                        raw_demand=self.climate.heating_demand / 1000,
                     ),
                     "cooling_demand": self._space_thermal_demand_result(
-                        self.climate.zonal_cooling_demand.sum(axis="columns")
+                        zonal_demand=self.climate.zonal_cooling_demand.sum(
+                            axis="columns"
+                        )
                         / 1000
-                        * -1
+                        * -1,
+                        raw_demand=self.climate.cooling_demand / 1000,
                     ),
                     "ventilation_systems": [
                         VentilationSystemResult(
-                            energy_demand=vs.energy_use.sum().sum(),
+                            energy_demand=vs.energy_use.sum().sum()
+                            / vs.ventilated_area,
                             peak_load=max(vs.energy_use.sum(axis="columns")),
                             sfp=max(vs.energy_use.sum(axis="columns"))
                             / (vs.airflow / 3600),
+                            mechanical_ventilation_rate=vs.airflow / vs.ventilated_area,
+                            ventilation_rate=vs.airflow / vs.ventilated_area / 3.6,
+                            ach=(
+                                vs.air_supply_rate / self.spec.floor_to_ceiling_height
+                            ).sum()
+                            / (vs.air_supply_rate != 0).sum(),
                         )
                         for vs in (
                             self.ventilation.ventilation_simulations
@@ -1013,9 +1058,8 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                     .round(self.spec.parameters.output_csv_precision)
                     .to_csv(header=True),
                     "electricity_validation": self._model_validation(
-                        self.energy_use[ENERGY_SOURCES.Electricity]
-                        .groupby("month")
-                        .sum(),
+                        # Use flat values for standby and other electricity use, but real values for others
+                        self._monthly_electricity_for_validation,
                         Series(
                             [
                                 self.spec.electricity_january,

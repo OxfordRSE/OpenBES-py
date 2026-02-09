@@ -90,6 +90,16 @@ class VentilationSystemSimulation(EnergyUseSimulation):
         return self._hours["ventilation_on"]
 
     @property
+    def ventilated_area(self) -> float:
+        """Area (m2) served by the ventilation system."""
+        return self._attr("ventilated_area")
+
+    @property
+    def efficiency(self) -> float:
+        """Heat recovery efficiency of the ventilation system."""
+        return self._attr("heat_recovery_efficiency")
+
+    @property
     def air_supply_rate(self) -> "Series[float]":
         """Hourly air supply rate (m3/h/m2) throughout the year.
         [Hourly simulation columns IV, JB]

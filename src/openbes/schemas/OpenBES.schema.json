@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.1.6/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.2.0",
+  "$version": "0.3.0",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -1131,11 +1131,15 @@
       "properties": {
         "demand_total": {
           "type": "number",
-          "description": "Energy required for heating/cooling in kWh/year."
+          "description": "Annual energy required for heating/cooling in kWh."
         },
         "demand_scaled": {
           "type": "number",
-          "description": "Energy required for heating/cooling in kWh/m2."
+          "description": "Annual energy required for heating/cooling in kWh/m2."
+        },
+        "demand_on_all_year": {
+          "type": "number",
+          "description": "Annual energy demanded in kWh/m2 if the system is on all year round."
         },
         "load_csv": {
           "type": "string",
@@ -1188,10 +1192,6 @@
         "energy_demand": {
           "type": "number",
           "description": "Energy demanded in kWh/m2 when specific zonal occupancy is simulated."
-        },
-        "energy_demand_on_all_year": {
-          "type": "number",
-          "description": "Energy demanded in kWh/m2 if the system is on all year round."
         },
         "system_usage": {
           "type": "number",
