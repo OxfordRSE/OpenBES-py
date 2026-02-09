@@ -1,7 +1,7 @@
 """Converting OpenBESSpecificationV2 JSON to legacy TOML.
 
 The historical TOML format used by OpenBES only captures a flattened view of
-the data model.  The new :class:`~openbes.schemas.generated.models.OpenBESSpecificationV2`
+the data model.  The new `openbes.schemas.OpenBESSpecificationV2`
 model is richer (allowing arbitrary list lengths, nested structures, etc.), so
 these helpers provide a best-effort conversion layer.
 """
@@ -18,7 +18,7 @@ from openbes.schemas import (
     VentilationSystem,
 )
 from openbes.schemas.conversion.toml_to_json import monthly_average_to_consumption
-from openbes.schemas.generated.models import (
+from openbes.schemas import (
     Consumption,
     OpenBESSpecificationV2,
     ZoneSimultaneity,
@@ -32,6 +32,7 @@ def _len(obj: Any) -> int:
         return 0
     return len(obj)
 
+
 def _bool_to_string(value: bool | None) -> str:
     """Convert a boolean value to 'Yes' or 'No' string."""
     if value is True:
@@ -42,7 +43,9 @@ def _bool_to_string(value: bool | None) -> str:
         return ""
 
 
-def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings: bool = True):
+def json_to_toml(
+    spec: OpenBESSpecificationV2 | Dict[str, Any] | str, allow_warnings: bool = True
+):
     """Convert an OpenBESSpecificationV2 or its JSON representation to a TOML mapping.
 
     Args:
@@ -69,11 +72,36 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
     # Map default zone names and numbers to the spec Zones with best-effort matching.
     # If there are clashes, raise an error.
     zone_map = [
-        { "default_name": "office", "default_str": "Office area", "number": 1, "zone": spec.zones[0] if _len(spec.zones) >= 1 else None },
-        { "default_name": "teaching", "default_str": "Teaching", "number": 2, "zone": spec.zones[1] if _len(spec.zones) >= 2 else None },
-        { "default_name": "canteen", "default_str": "Canteen", "number": 3, "zone": spec.zones[2] if _len(spec.zones) >= 3 else None },
-        { "default_name": "common", "default_str": "Common areas", "number": 4, "zone": spec.zones[3] if _len(spec.zones) >= 4 else None },
-        { "default_name": "other", "default_str": "Other spaces", "number": 5, "zone": spec.zones[4] if _len(spec.zones) >= 5 else None },
+        {
+            "default_name": "office",
+            "default_str": "Office area",
+            "number": 1,
+            "zone": spec.zones[0] if _len(spec.zones) >= 1 else None,
+        },
+        {
+            "default_name": "teaching",
+            "default_str": "Teaching",
+            "number": 2,
+            "zone": spec.zones[1] if _len(spec.zones) >= 2 else None,
+        },
+        {
+            "default_name": "canteen",
+            "default_str": "Canteen",
+            "number": 3,
+            "zone": spec.zones[2] if _len(spec.zones) >= 3 else None,
+        },
+        {
+            "default_name": "common",
+            "default_str": "Common areas",
+            "number": 4,
+            "zone": spec.zones[3] if _len(spec.zones) >= 4 else None,
+        },
+        {
+            "default_name": "other",
+            "default_str": "Other spaces",
+            "number": 5,
+            "zone": spec.zones[4] if _len(spec.zones) >= 5 else None,
+        },
     ]
 
     def get_zone_condition(idx: int) -> str | None:
@@ -83,7 +111,7 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
                 return "Conditioned"
         return "Unconditioned"
 
-    def get_zone_floor_areas(floor: str, n: int) -> dict[str, float|str]:
+    def get_zone_floor_areas(floor: str, n: int) -> dict[str, float | str]:
         return {
             f"i.{floor}_floor_area_z{i + 1}": spec.zones[i].areas[n]
             if _len(spec.zones) > i and len(spec.zones[i].areas) >= n + 1
@@ -91,18 +119,20 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             for i in range(len(zone_map))
         }
 
-    def get_simultaneity_factors(zs: ZoneSimultaneity) -> List[Tuple[str,float|str]]:
+    def get_simultaneity_factors(zs: ZoneSimultaneity) -> List[Tuple[str, float | str]]:
         """Return (zone_name, simultaneity_factor) tuples for all default zones."""
         out = []
         for i in range(len(zone_map)):
-            zone = zone_map[i]['zone']
+            zone = zone_map[i]["zone"]
             if zone is not None and zone.name in zs.root:
                 out.append((zone_map[i]["default_name"], zs.root[zone.name]))
             else:
                 out.append((zone_map[i]["default_name"], ""))
         return out
 
-    def cooling_system_to_toml(cs: CoolingSystem, n: int) -> dict[str, str|float|int]:
+    def cooling_system_to_toml(
+        cs: CoolingSystem, n: int
+    ) -> dict[str, str | float | int]:
         d = "d" if n == 2 else "i"
         if cs is None:
             return {
@@ -134,7 +164,9 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             **{f"{d}.cooling_system{n}_simultaneity_factor_{f[0]}": f[1] for f in sf},
         }
 
-    def heating_system_to_toml(hs: HeatingSystem, n: int) -> dict[str, str|float|int]:
+    def heating_system_to_toml(
+        hs: HeatingSystem, n: int
+    ) -> dict[str, str | float | int]:
         d = "d" if n == 2 else "i"
         if hs is None:
             return {
@@ -164,7 +196,9 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             **{f"{d}.heating_system{n}_simultaneity_factor_{f[0]}": f[1] for f in sf},
         }
 
-    def ventilation_system_to_toml(vs: VentilationSystem, n: int) -> dict[str, str|float|int]:
+    def ventilation_system_to_toml(
+        vs: VentilationSystem, n: int
+    ) -> dict[str, str | float | int]:
         d = "d" if n == 2 else "i"
         if vs is None:
             return {
@@ -190,7 +224,9 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
 
     def lighting_systems_to_toml() -> dict[str, str | float | int]:
         out = {}
-        for i in range(6):  # for some reason there are 6 lighting system slots in the TOML schema
+        for i in range(
+            6
+        ):  # for some reason there are 6 lighting system slots in the TOML schema
             zone_number = i + 1
             if _len(spec.lighting_systems) <= i:
                 ls = None
@@ -213,19 +249,30 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
                 out = {
                     **out,
                     f"i.lighting_system_ballast_z{zone_number}": ls.ballast or "",
-                    f"i.lighting_system_lamp_number_z{zone_number}": ls.lamp_number or "",
+                    f"i.lighting_system_lamp_number_z{zone_number}": ls.lamp_number
+                    or "",
                     f"i.lighting_system_lamp_power_z{zone_number}": ls.lamp_power or "",
-                    f"i.lighting_system_luminary_number_z{zone_number}": ls.luminary_number or "",
+                    f"i.lighting_system_luminary_number_z{zone_number}": ls.luminary_number
+                    or "",
                     f"i.lighting_system_name_z{zone_number}": ls.name or "",
-                    f"i.lighting_system_operating_hours_z{zone_number}": ls.active_hours.end - ls.active_hours.start if ls.active_hours else "",
-                    f"i.lighting_system_similar_zone_number_z{zone_number}": ls.count or "",
-                    f"i.lighting_system_simultaneity_factor_z{zone_number}": ls.simultaneity_factor or "",
+                    f"i.lighting_system_operating_hours_z{zone_number}": ls.active_hours.end
+                    - ls.active_hours.start
+                    if ls.active_hours
+                    else "",
+                    f"i.lighting_system_similar_zone_number_z{zone_number}": ls.count
+                    or "",
+                    f"i.lighting_system_simultaneity_factor_z{zone_number}": ls.simultaneity_factor
+                    or "",
                     f"i.lighting_system_tech_z{zone_number}": ls.tech or "",
                 }
         return out
 
     def hot_water_systems_to_toml() -> dict[str, str | float | int]:
-        ws = spec.hot_water_systems[0] if spec.hot_water_systems and len(spec.hot_water_systems) >= 1 else None
+        ws = (
+            spec.hot_water_systems[0]
+            if spec.hot_water_systems and len(spec.hot_water_systems) >= 1
+            else None
+        )
         if not ws:
             return {
                 "i.water_demand": "",
@@ -238,11 +285,21 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             }
         return {
             "i.water_demand": annual_consumption(ws.demand) / 365 if ws.demand else "",
-            "i.water_reference_temperature": ws.reference_temperature if ws.reference_temperature else "",
-            "i.water_supply_temperature": ws.supply_temperature if ws.supply_temperature else "",
-            "i.water_system_efficiency_cop": ws.efficiency_cop if ws.efficiency_cop else "",
-            "i.water_system_energy_source": ws.energy_source if ws.energy_source else "",
-            "i.water_system_nominal_capacity": ws.nominal_capacity if ws.nominal_capacity else "",
+            "i.water_reference_temperature": ws.reference_temperature
+            if ws.reference_temperature
+            else "",
+            "i.water_supply_temperature": ws.supply_temperature
+            if ws.supply_temperature
+            else "",
+            "i.water_system_efficiency_cop": ws.efficiency_cop
+            if ws.efficiency_cop
+            else "",
+            "i.water_system_energy_source": ws.energy_source
+            if ws.energy_source
+            else "",
+            "i.water_system_nominal_capacity": ws.nominal_capacity
+            if ws.nominal_capacity
+            else "",
             "i.water_system_type": ws.type if ws.type else "",
         }
 
@@ -259,10 +316,16 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             "d.courtyard_width": spec.courtyards[0].width if spec.courtyards else 0,
         }
 
-    def get_window_counts() -> dict[str, int|str]:
+    def get_window_counts() -> dict[str, int | str]:
         out = {}
         orientations = [("a", "front"), ("b", "right"), ("c", "back"), ("d", "left")]
-        floors = [(1, "ground"), (2, "first"), (3, "second"), (4, "third"), (5, "fourth")]
+        floors = [
+            (1, "ground"),
+            (2, "first"),
+            (3, "second"),
+            (4, "third"),
+            (5, "fourth"),
+        ]
         for f, floor in floors:
             for o_code, o_name in orientations:
                 value = ""
@@ -274,7 +337,7 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
                 out[key] = value
         return out
 
-    def get_occupation_schedule() -> dict[str, int|str]:
+    def get_occupation_schedule() -> dict[str, int | str]:
         if spec.occupation_schedule is None:
             return {
                 "i.schedule_january": "",
@@ -298,7 +361,8 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
                 "i.schedule_sunday": "",
             }
         return {
-            f"i.schedule_{k.lower()}": v for k, v in dict(spec.occupation_schedule).items()
+            f"i.schedule_{k.lower()}": v
+            for k, v in dict(spec.occupation_schedule).items()
         }
 
     if spec.heat_capacity is None or spec.heat_capacity.Am is None:
@@ -318,11 +382,12 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
 
     toml = {
         # Parameters
-        "d.advanced_heat_capacity_am": spec.heat_capacity.Am if hc_class == "Custom Value" else "",
+        "d.advanced_heat_capacity_am": spec.heat_capacity.Am
+        if hc_class == "Custom Value"
+        else "",
         "d.altitude": spec.parameters.altitude or "",
         "d.appliance_on_off": 1 if spec.parameters.include_appliances else 0,
         "d.cooling_load_factor": spec.parameters.cooling_load_factor or "",
-        
         "d.cooling_system1_min_demand": spec.cooling_systems[0].min_demand
         if _len(spec.cooling_systems) >= 1
         else "",
@@ -330,29 +395,28 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             spec.cooling_systems[1] if _len(spec.cooling_systems) >= 2 else None, n=2
         ),
         **courtyards,
-
         "d.density_of_air": spec.parameters.density_of_air or "",
-        "d.facade_absorption_coefficient": spec.parameters.facade_absorption_coefficient or "",
+        "d.facade_absorption_coefficient": spec.parameters.facade_absorption_coefficient
+        or "",
         "d.facade_correction_factor": spec.parameters.facade_correction_factor or "",
         "d.facade_emissivity": spec.parameters.facade_emissivity or "",
-
         "d.floor_correction_factor": spec.parameters.floor_correction_factor or "",
-        "d.heat_capacity_correction_factor": spec.parameters.heat_capacity_correction_factor or "",
+        "d.heat_capacity_correction_factor": spec.parameters.heat_capacity_correction_factor
+        or "",
         "d.heat_capacity_joule": spec.parameters.heat_capacity_joule or "",
         "d.heating_load_factor": spec.parameters.heating_load_factor or "",
-        
         "d.heating_system1_min_demand": spec.heating_systems[0].min_demand
         if _len(spec.heating_systems) >= 1
         else "",
         **heating_system_to_toml(
             spec.heating_systems[1] if _len(spec.heating_systems) >= 2 else None, n=2
         ),
-
-        "d.infiltration_correction_factor": spec.parameters.infiltration_correction_factor or "",
-        "d.leakage_air_flow_dependent": spec.parameters.leakage_air_flow_dependent or "",
+        "d.infiltration_correction_factor": spec.parameters.infiltration_correction_factor
+        or "",
+        "d.leakage_air_flow_dependent": spec.parameters.leakage_air_flow_dependent
+        or "",
         "d.lighting_on_off": 1 if spec.parameters.include_lighting else 0,
         "d.nia_gba_ratio": spec.parameters.nia_gba_ratio or "",
-
         **{
             f"d.occupancy_close_{zone_map[i]['default_name']}": zone_map[i][
                 "zone"
@@ -360,7 +424,7 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             if zone_map[i]["zone"] is not None
             and zone_map[i]["zone"].active_hours is not None
             else ""
-            for i in [3,4]  # Last two zone occupancies are parameters
+            for i in [3, 4]  # Last two zone occupancies are parameters
         },
         "d.occupancy_on_off": 1 if spec.parameters.include_occupancy else 0,
         **{
@@ -370,9 +434,8 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             if zone_map[i]["zone"] is not None
             and zone_map[i]["zone"].active_hours is not None
             else ""
-            for i in [3,4]  # Last two zone occupancies are parameters
+            for i in [3, 4]  # Last two zone occupancies are parameters
         },
-        
         "d.open_courtyard_depth_a1": spec.open_courtyards.front.depth
         if spec.open_courtyards is not None and spec.open_courtyards.front is not None
         else 0,
@@ -397,27 +460,27 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         "d.open_courtyard_number_d1": spec.open_courtyards.left.count
         if spec.open_courtyards is not None and spec.open_courtyards.left is not None
         else 0,
-
         "d.pressure_of_air": spec.parameters.pressure_of_air or "",
-        "d.roof_absorption_coefficient": spec.parameters.roof_absorption_coefficient or "",
+        "d.roof_absorption_coefficient": spec.parameters.roof_absorption_coefficient
+        or "",
         "d.roof_correction_factor": spec.parameters.roof_correction_factor or "",
         "d.roof_emissivity": spec.parameters.roof_emissivity or "",
         "d.shading_correction_factor": spec.parameters.shading_correction_factor or "",
         "d.specific_heat_of_air": spec.parameters.specific_heat_of_air or "",
-
         **ventilation_system_to_toml(
             spec.ventilation_systems[1] if _len(spec.ventilation_systems) > 1 else None,
             n=2,
         ),
-
         "d.view_factor_to_sky_facade": spec.parameters.view_factor_to_sky_facade or "",
         "d.view_factor_to_sky_roof": spec.parameters.view_factor_to_sky_roof or "",
         "d.window_correction_factor": spec.parameters.window_correction_factor or "",
         **{
-            f"d.window_optical_c{idx + 1}": spec.parameters.window_angular_correction_factors[idx] or ""
+            f"d.window_optical_c{idx + 1}": spec.parameters.window_angular_correction_factors[
+                idx
+            ]
+            or ""
             for idx in range(5)
         },
-
         # Specifications
         "i.appliances_load": spec.appliances_load or "",
         "i.biomass_annual": annual_consumption(spec.biomass_consumption) or "",
@@ -429,7 +492,8 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         "i.building_name": spec.building.name or "",
         "i.building_standby_load": annual_consumption(
             spec.building_standby_electricity_consumption
-        ) / 12
+        )
+        / 12
         or "",
         "i.building_type": spec.building.type or "",
         "i.building_width": spec.building.width or "",
@@ -445,7 +509,9 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         "i.electricity_annual": "",
         **{
             f"i.electricity_{month.lower()}": v
-            for month, v in dict(spec.electricity_consumption or monthly_average_to_consumption(0.0)).items()
+            for month, v in dict(
+                spec.electricity_consumption or monthly_average_to_consumption(0.0)
+            ).items()
         },
         "i.energy_generated": annual_consumption(spec.energy_generated),
         "i.energy_used": annual_consumption(spec.energy_used),
@@ -454,7 +520,9 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         **get_zone_floor_areas("fourth", 4),
         **{
             f"i.gas_{month.lower()}": v
-            for month, v in dict(spec.natural_gas_consumption or monthly_average_to_consumption(0.0)).items()
+            for month, v in dict(
+                spec.natural_gas_consumption or monthly_average_to_consumption(0.0)
+            ).items()
         },
         **get_zone_floor_areas("ground", 0),
         "i.heat_capacity": hc_class,
@@ -476,16 +544,21 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
         "i.location": spec.location or "",
         "i.LPG_annual": annual_consumption(spec.LPG_consumption) or "",
         "i.max_building_occupation": spec.max_building_occupation or "",
-        "i.meteorological_file": get_meteorological_name(spec.meteorological_file or ""),
+        "i.meteorological_file": get_meteorological_name(
+            spec.meteorological_file or ""
+        ),
         "i.natural_gas_annual": "",
         "i.natural_ventilation_night": spec.natural_ventilation_night or "",
         **{
             f"i.occupancy_close_{zone_map[i]['default_name']}": zone_map[i][
                 "zone"
             ].active_hours.end
-            if zone_map[i]["zone"] is not None and zone_map[i]["zone"].active_hours is not None
+            if zone_map[i]["zone"] is not None
+            and zone_map[i]["zone"].active_hours is not None
             else ""
-            for i in range(3)  # Only first 3 zones have occupancy_close in spec, last two are handled above
+            for i in range(
+                3
+            )  # Only first 3 zones have occupancy_close in spec, last two are handled above
         },
         **{
             f"i.occupancy_open_{zone_map[i]['default_name']}": zone_map[i][
@@ -499,16 +572,27 @@ def json_to_toml(spec: OpenBESSpecificationV2|Dict[str, Any]|str, allow_warnings
             )  # Only first 3 zones have occupancy_open in spec, last two are handled above
         },
         "i.orientation_angle": spec.building.orientation_angle or "",
-        "i.other_electricity_usage": (annual_consumption(spec.other_electricity_consumption) or 0) / 12
+        "i.other_electricity_usage": (
+            annual_consumption(spec.other_electricity_consumption) or 0
+        )
+        / 12
         or "",
         "i.other_gas_usage": (annual_consumption(spec.other_gas_consumption) or 0) / 12,
         "i.roof_angle": spec.building.roof_angle or "",
         **get_occupation_schedule(),
         **get_zone_floor_areas("second", 2),
-        "i.setpoint_summer_day": (spec.setpoint_temperature_day.min or "") if spec.setpoint_temperature_day else "",
-        "i.setpoint_summer_night": (spec.setpoint_temperature_night.min or "") if spec.setpoint_temperature_night else "",
-        "i.setpoint_winter_day": (spec.setpoint_temperature_day.max or "") if spec.setpoint_temperature_day else "",
-        "i.setpoint_winter_night": (spec.setpoint_temperature_night.max or "") if spec.setpoint_temperature_night else "",
+        "i.setpoint_summer_day": (spec.setpoint_temperature_day.min or "")
+        if spec.setpoint_temperature_day
+        else "",
+        "i.setpoint_summer_night": (spec.setpoint_temperature_night.min or "")
+        if spec.setpoint_temperature_night
+        else "",
+        "i.setpoint_winter_day": (spec.setpoint_temperature_day.max or "")
+        if spec.setpoint_temperature_day
+        else "",
+        "i.setpoint_winter_night": (spec.setpoint_temperature_night.max or "")
+        if spec.setpoint_temperature_night
+        else "",
         "i.slab_thickness": spec.building.slab_thickness or "",
         "i.solar_external_shading_summer": spec.building.solar_external_shading_summer
         or "",
