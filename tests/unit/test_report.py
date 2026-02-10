@@ -66,7 +66,7 @@ class TestOpenBESReport(OpenBESTestCase):
     def test_passive_survivability(self):
         expected = 0.09
         calculated = self.report.passive_survivability[self.sim.building_name]
-        self.assertAlmostEquals(expected, calculated, 2)
+        self.assertAlmostEqual(expected, calculated, 2)
 
     def test_retrofit_report(self):
         expected = Series(
@@ -136,7 +136,7 @@ class TestOpenBESReport(OpenBESTestCase):
         for key, expected_value in expected_scalars.items():
             with self.subTest(key):
                 calculated_value = getattr(outputs, key)
-                self.assertAlmostEquals(calculated_value, expected_value, places=1)
+                self.assertAlmostEqual(calculated_value, expected_value, places=1)
 
         expected_peaks = {
             "max_outdoor_temperature": {"value": 30.2},
@@ -158,7 +158,7 @@ class TestOpenBESReport(OpenBESTestCase):
             calculated_info = getattr(outputs, property)
             for key in expected_info.keys():
                 with self.subTest(a=property, b=key):
-                    self.assertAlmostEquals(
+                    self.assertAlmostEqual(
                         getattr(calculated_info, key), expected_info[key], places=1
                     )
 
@@ -198,15 +198,15 @@ class TestOpenBESReport(OpenBESTestCase):
             tdr = getattr(outputs, domain)
             expected = expected_thermal_demands[domain]
             with self.subTest(a=domain, b="demand_total"):
-                self.assertAlmostEquals(
+                self.assertAlmostEqual(
                     tdr.demand_total, expected["demand_total"], places=2
                 )
             with self.subTest(a=domain, b="demand_scaled"):
-                self.assertAlmostEquals(
+                self.assertAlmostEqual(
                     tdr.demand_scaled, expected["demand_scaled"], places=2
                 )
             with self.subTest(a=domain, b="demand_on_all_year"):
-                self.assertAlmostEquals(
+                self.assertAlmostEqual(
                     tdr.demand_on_all_year, expected["demand_on_all_year"], places=2
                 )
             with self.subTest(a=domain, b="load_csv"):
