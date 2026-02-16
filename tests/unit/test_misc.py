@@ -6,7 +6,7 @@ from openbes.types import OpenBESParameters, MONTHS, ENERGY_SOURCES
 
 class MiscellaneousUtilities(unittest.TestCase):
     def test_listable_enum_list(self):
-        self.assertEqual(MONTHS.list_values()[0], 'Jan')
+        self.assertEqual(MONTHS.list_values()[0], "Jan")
 
     def test_listable_enum_by_index(self):
         self.assertEqual(MONTHS.get_by_index(0), MONTHS.Jan)
@@ -17,7 +17,7 @@ class MiscellaneousUtilities(unittest.TestCase):
         self.assertTrue(isinstance(spec.cooling_system1_energy_source, ENERGY_SOURCES))
 
     def test_spec_with_param_dict(self):
-        params = { "cooling_system2_number": 10 }
+        params = {"cooling_system2_number": 10}
         spec = OpenBESSpecification(parameters=params)
         self.assertTrue(isinstance(spec.parameters, OpenBESParameters))
         self.assertEqual(spec.parameters.cooling_system2_number, 10)
@@ -130,12 +130,13 @@ class MiscellaneousUtilities(unittest.TestCase):
                 "lighting_on_off": True,
                 "occupancy_on_off": True,
                 "appliance_on_off": True,
-                "advanced_heat_capacity_am": None
-            }
+                "advanced_heat_capacity_am": None,
+            },
         }
         spec = OpenBESSpecification(**obj)
         sim = BuildingEnergySimulation(spec)
         self.assertGreater(sim.energy_use.sum().sum(), 0)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

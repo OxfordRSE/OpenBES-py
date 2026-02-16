@@ -155,6 +155,23 @@ def _calculate_temperatures(
 
 @profile_if_available
 class ClimateSimulation(HourlySimulation):
+    """
+    Simulates the hourly indoor climate conditions of a building based on its geometry, occupancy, lighting,
+    ventilation, and solar irradiation.
+
+    The simulation calculates various parameters such as air flow, heat transmission, internal surface temperature,
+    and air free temperature for each hour of the year.
+
+    Thermal demand in the climate simulation represents the heating or cooling needed to maintain comfortable indoor
+    temperatures based on the simulated air free temperature and set point temperatures.
+    This is irrespective of whether there are heating and/or cooling systems in the building,
+    and is instead a measure of the building's thermal performance and comfort conditions.
+    The thermal demand model calculates the thermal demand for each hour on the assumption that the building
+    was appropriately heated or cooled to meet the set point temperatures by the end of the previous hour.
+    Set point temperatures are determined based on the building occupancy profile and the specification's target
+    temperatures.
+    """
+
     geometry: BuildingGeometry
     occupancy: OccupationSimulation
     lighting: LightingSimulation
@@ -724,14 +741,16 @@ class ClimateSimulation(HourlySimulation):
             df = self.relative_humidity.to_frame()
             df["temp_air"] = list(self.epw_data["temp_air"])
             self._hours["wet_bulb_temp"] = df.apply(
-                lambda row: row["temp_air"]
-                * atan(0.151977 * (row["relative_humidity"] + 8.313659) ** 0.5)
-                + atan(row["temp_air"] + row["relative_humidity"])
-                - atan(row["relative_humidity"] - 1.676331)
-                + 0.00391838
-                * (row["relative_humidity"] ** 1.5)
-                * atan(0.023101 * row["relative_humidity"])
-                - 4.686035,
+                lambda row: (
+                        row["temp_air"]
+                        * atan(0.151977 * (row["relative_humidity"] + 8.313659) ** 0.5)
+                        + atan(row["temp_air"] + row["relative_humidity"])
+                        - atan(row["relative_humidity"] - 1.676331)
+                        + 0.00391838
+                        * (row["relative_humidity"] ** 1.5)
+                        * atan(0.023101 * row["relative_humidity"])
+                        - 4.686035
+                ),
                 axis=1,
             )
         return self._hours["wet_bulb_temp"]

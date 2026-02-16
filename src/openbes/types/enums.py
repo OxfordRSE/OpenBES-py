@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class ListableEnum(Enum):
     @classmethod
     def list_values(cls):
@@ -16,7 +17,7 @@ class ListableEnum(Enum):
             if member.value.strip().lower() == v:
                 return member
         raise ValueError(f"{value} is not a valid value for {cls.__name__}")
-    
+
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return NotImplemented
@@ -144,6 +145,7 @@ class ORIENTATIONS(ListableEnum):
     Cardinal directions for building orientation. These are relative to the building layout, with the assumption that
     "Up" corresponds to the front of the building.
     """
+
     Up = "Up"
     Right = "Right"
     Down = "Down"

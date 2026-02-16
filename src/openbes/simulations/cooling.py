@@ -134,16 +134,18 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         if "phi_c_nd_ac" not in self._hours.columns:
             self._hours["phi_c_nd_ac"] = (
                 self.phi_hc_nd_actual.apply(
-                    lambda r: min(r, 0.0)
-                    if r
-                    < (
-                        getattr(
-                            self.spec.parameters,
-                            f"cooling_system{self.system_number}_min_demand",
+                    lambda r: (
+                        min(r, 0.0)
+                        if r
+                        < (
+                            getattr(
+                                self.spec.parameters,
+                                f"cooling_system{self.system_number}_min_demand",
+                            )
+                            * -1
                         )
-                        * -1
+                        else 0.0
                     )
-                    else 0.0
                 )
                 * self.spec.parameters.cooling_load_factor
             )

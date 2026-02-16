@@ -37,14 +37,13 @@ def month_for_day(day_number_in_year: int) -> int:
 
 
 # Blank DataFrame of each hour with month info, indexed by day of the year
-HOURS_DF = DataFrame([
-    {
-        'month': month_for_day(d),
-        'day': d,
-        'hour': h,
-        'is_daytime': 8 <= h <= 22
-    } for d in range(1, 366) for h in range(1, 25)
-]).set_index(['month', 'day', 'hour'])
+HOURS_DF = DataFrame(
+    [
+        {"month": month_for_day(d), "day": d, "hour": h, "is_daytime": 8 <= h <= 22}
+        for d in range(1, 366)
+        for h in range(1, 25)
+    ]
+).set_index(["month", "day", "hour"])
 
 
 class HourlySimulation:
@@ -80,9 +79,12 @@ class EnergyUseSimulation(HourlySimulation):
     The _energy_use property is initialized as a DataFrame of NaNs with the same index as _hours
     and columns for each ENERGY_SOURCES. self.energy_use should populate this DataFrame appropriately.
     """
+
     def __init__(self, spec: OpenBESSpecification):
         super().__init__(spec)
-        self._energy_use = DataFrame(index=self._hours.index, columns=list(ENERGY_SOURCES)).astype(float)
+        self._energy_use = DataFrame(
+            index=self._hours.index, columns=list(ENERGY_SOURCES)
+        ).astype(float)
 
     def get_param_or_spec(self, key: str):
         try:
@@ -92,9 +94,10 @@ class EnergyUseSimulation(HourlySimulation):
 
     @property
     def energy_use(self) -> DataFrame:
-        """DataFrame of energy use in kW for each hour of the year, with a column for each ENERGY_SOURCES.
-        """
-        raise NotImplementedError("Child classes must implement the energy_use property.")
+        """DataFrame of energy use in kW for each hour of the year, with a column for each ENERGY_SOURCES."""
+        raise NotImplementedError(
+            "Child classes must implement the energy_use property."
+        )
 
     @property
     def annual_energy_use(self) -> DataFrame:

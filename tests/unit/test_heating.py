@@ -30,20 +30,20 @@ class Heating(OpenBESTestCase):
     def test_area(self):
         self.assertEqual(
             round(self.system.area, self.decimal_places),
-            round( 912.79610000, self.decimal_places)
+            round(912.79610000, self.decimal_places),
         )
 
     def test_demand(self):
         self.check_series_versus_csv(
-            self.system.demand,
-            'fixtures/hh_heating_demand.csv'
+            self.system.demand, "fixtures/hh_heating_demand.csv"
         )
 
     def test_energy_use(self):
         self.check_series_versus_csv(
             self.sim.energy_use.sum(axis="columns"),
-            'fixtures/hh_heating_energy_use.csv'
+            "fixtures/hh_heating_energy_use.csv",
         )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

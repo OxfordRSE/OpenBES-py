@@ -131,13 +131,15 @@ class HeatingSystemSimulation(EnergyUseSimulation):
         if "phi_h_nd_ac" not in self._hours.columns:
             self._hours["phi_h_nd_ac"] = (
                 self.phi_hc_nd_actual.apply(
-                    lambda r: max(r, 0.0)
-                    if r
-                    > getattr(
-                        self.spec.parameters,
-                        f"heating_system{self.system_number}_min_demand",
+                    lambda r: (
+                        max(r, 0.0)
+                        if r
+                        > getattr(
+                            self.spec.parameters,
+                            f"heating_system{self.system_number}_min_demand",
+                        )
+                        else 0.0
                     )
-                    else 0.0
                 )
                 * self.spec.parameters.heating_load_factor
             )
