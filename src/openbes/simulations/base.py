@@ -50,10 +50,12 @@ class HourlySimulation:
     """
     Base class for hourly simulations.
 
-    Each instance is initialized with an OpenBESSpecification and contains an _hours property
+    Each instance is initialized with an OpenBESSpecification and contains an `_hours` property
     that holds a DataFrame representing each hour of the year.
 
-    Properties will typically add columns to the _hours DataFrame as needed for various calculations,
+    These simulations usually make heavy use of the `@property` decorator to define various calculated properties
+    based on the specification and the hourly data.
+    Properties will typically add columns to the `_hours` DataFrame as needed for various calculations,
     and usually return that DataFrame or specific columns from it.
     """
 

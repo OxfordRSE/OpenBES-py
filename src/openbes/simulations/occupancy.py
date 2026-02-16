@@ -56,6 +56,20 @@ def is_public_holiday(day_number_in_year: int) -> bool:
 
 
 class OccupationSimulation(HourlySimulation):
+    """Simulate building occupation patterns based on building specifications and geometry.
+
+    This simulation calculates the occupation ratio, occupied days,
+    and zonal occupation based on the building schedule defined in the specifications.
+    It also computes the occupation area per person and metabolic rate per square meter
+    based on the building geometry and typical occupation.
+
+    Occupation is expressed in terms of monthly and daily patterns throughout the year
+    (e.g. the building is closed in January; the building is closed on weekends;
+    the building is closed on public holidays). For those days where the building is open,
+    occupancy is expressed in terms of hourly patterns
+    (e.g. the office zone is occupied from 8am to 6pm, the canteen is occupied from 12pm to 2pm, etc.).
+    """
+
     geometry: BuildingGeometry
     _occupation_ratio: float
     _occupation_m2_per_person: float

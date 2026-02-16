@@ -170,8 +170,13 @@ class ClimateSimulation(HourlySimulation):
     was appropriately heated or cooled to meet the set point temperatures by the end of the previous hour.
     Set point temperatures are determined based on the building occupancy profile and the specification's target
     temperatures.
-    """
 
+    The climate simulation is the most computationally intensive of the simulations,
+    because the value for each hour depends on the values from the previous hour, negating the ability to use
+    vectorized calculations. To mitigate this, the core loop is implemented in a JIT-compiled function.
+    Unlike the rest of our codebase, the climate simulation prioritizes performance over interpretability,
+    meaning we use Numpy arrays rather than Pandas Series/DataFrames for intermediate calculations.
+    """
     geometry: BuildingGeometry
     occupancy: OccupationSimulation
     lighting: LightingSimulation
@@ -1230,6 +1235,8 @@ class ClimateSimulation(HourlySimulation):
         Has columns for heating and cooling demand because they need to be weighted by their scaling factors.
 
         This is used for the ASHRAE140 test cases to determine the heating and cooling demand.
+
+        This is somewhat distinct from `self.zonal_heating_cooling_demand` and used in slightly different places.
         """
         return self._hours["heating_cooling_demand"]
 
@@ -1239,6 +1246,8 @@ class ClimateSimulation(HourlySimulation):
         ϕHC,nd W [Hourly simulation column DB, DI, etc]
 
         This is the zonal heating/cooling demand, calculated by multiplying the per square meter demand by the conditioned floor area.
+
+        This is somewhat distinct from `self.heating_demand` and used in slightly different places.
         """
         if self._zonal_heating_cooling_demand is None:
             # Restore heating_cooling_demand's W/m2 to W by multiplying by the conditioned floor area,
@@ -1255,6 +1264,8 @@ class ClimateSimulation(HourlySimulation):
     def heating_demand(self) -> "Series[float]":
         """Hourly heating need in W/m2.
         Represents values from heating_cooling_demand clipped to only positive values.
+
+        This is somewhat distinct from `self.zonal_heating_demand` and used in slightly different places.
         """
         if "heating_need" not in self._hours.columns:
             self._hours["heating_need"] = self.heating_cooling_demand.clip(0, None)
@@ -1265,6 +1276,8 @@ class ClimateSimulation(HourlySimulation):
         """Hourly zonal heating need in W.
         [Hourly simulation column DC, DJ, etc]
         The energy required to heat each zone for each hour of the year.
+
+        This is somewhat distinct from `self.heating_demand` and used in slightly different places.
         """
         return self.zonal_heating_cooling_demand.clip(0, None)
 
@@ -1272,6 +1285,8 @@ class ClimateSimulation(HourlySimulation):
     def cooling_demand(self) -> "Series[float]":
         """Hourly cooling need in W.
         The energy required to cool each zone for each hour of the year.
+
+        This is somewhat distinct from `self.zonal_cooling_demand` and used in slightly different places.
         """
         if "cooling_need" not in self._hours.columns:
             self._hours["cooling_need"] = self.heating_cooling_demand.clip(None, 0)
@@ -1283,5 +1298,7 @@ class ClimateSimulation(HourlySimulation):
         """Hourly zonal cooling need in W/m2.
         [Hourly simulation column DD, DK, etc]
         Represents values from zonal_heating_cooling_demand clipped to only negative values, then inverted.
+
+        This is somewhat distinct from `self.cooling_demand` and used in slightly different places.
         """
         return self.zonal_heating_cooling_demand.clip(None, 0)

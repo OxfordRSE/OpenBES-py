@@ -60,6 +60,45 @@ class BuildingEnergySimulation(EnergyUseSimulation):
     """
     A building energy simulation takes a building specification and model parameters and produces a report
     on the energy use of the building.
+
+    The simulation is composed of several sub-simulations for different aspects of the building's energy use:
+    - Geometry
+    - Occupancy
+    - Solar Radiation
+    - Ventilation
+    - Lighting
+    - Hot Water
+    - Climate
+    - Heating
+    - Cooling
+
+    Some simulations depend up on others, meaing they can be executed in the following order:
+    0: Geometry, Occupancy, Solar Radiation
+    1: Ventilation, Lighting, Hot Water
+    2: Climate
+    3: Heating, Cooling
+
+    For a full relationship diagram, see `./simulation_dag_full.png` in the repository.
+
+    The Climate Simulation takes almost all of the computational time, and is run immediately upon instantiation
+    of the class.
+
+    Because of the aggressive caching of results, simulations should be considered immutable.
+    Do not try to update a simulation with a new specification, instead create a new simulation with the updated spec.
+
+    Example usage:
+    ```python
+    from openbes import BuildingEnergySimulation, OpenBESSpecification
+    spec = OpenBESSpecification.from_toml("path_to_my_spec.toml")
+    sim = BuildingEnergySimulation(spec)  # run the simulation (takes a second or so)
+    report = sim.report()  # generate the report (instantaneous after the initial simulation)
+
+    # We can also inspect various Pandas Series/DataFrames for more detailed analysis:
+    sim.climate.air_free_temp  # hourly internal temperature without HVAC
+
+    # If necessary, we can dig in to the internals of a simulation:
+    sim.climate._hours  # the full hourly DataFrame used for climate calculations
+    ```
     """
 
     def __init__(

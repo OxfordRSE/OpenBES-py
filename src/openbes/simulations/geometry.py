@@ -50,6 +50,7 @@ EXPOSURES_MAP = DataFrame(
 
 
 class Rectangle:
+    """Simple class to represent a rectangle with length and width, and calculate area and ratio."""
     def __init__(self, length: float, width: float):
         self.length = length
         self.width = width
@@ -77,6 +78,7 @@ class BuildingGeometry:
     Calculates equivalent rectangle, gross floor area, external vertical envelope area,
     window counts, window areas, and other geometry-related metrics.
 
+    The building's heat transfer rates through windows and opaque areas are also calculated based on the geometry.
     """
 
     spec: OpenBESSpecification

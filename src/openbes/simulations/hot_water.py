@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 class HotWaterSimulation(EnergyUseSimulation):
+    """Simulate hot water energy use based on building specifications and occupancy patterns."""
+
     def __init__(
         self, spec: OpenBESSpecification, occupancy: OccupationSimulation = None
     ):

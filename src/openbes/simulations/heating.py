@@ -24,6 +24,15 @@ MAX_HEATING_CAPACITY_LIMIT = 1.5  # [Hardcoded in Hourly Simulation cell ES114]
 class HeatingSystemSimulation(EnergyUseSimulation):
     """A class to simulate a heating system's energy consumption.
 
+    A heating system's energy use is determined by its capacity, the heating load, and the efficiency of the system.
+    The heating load is determined by the difference between the indoor temperature and the outdoor temperature,
+    as well as the area being heated and the occupancy of the building.
+
+    Note that the heating system load is dependent on the heating system and the area it has to heat,
+    as opposed to the Climate Simulation's heating demand, which is a model of the total heating demand of the
+    building based on the climate and building characteristics,
+    independent of any heating system that happens to be installed.
+
     [Cell references are for System 1]
     """
 
@@ -293,7 +302,10 @@ class HeatingSystemSimulation(EnergyUseSimulation):
 
 
 class HeatingSimulation(EnergyUseSimulation):
-    """A class to simulate heating energy consumption based on building specifications."""
+    """A class to simulate heating energy consumption based on building specifications.
+
+    Aggregates the energy use of all heating systems in the building.
+    """
 
     heating_simulations: List[HeatingSystemSimulation]
 
