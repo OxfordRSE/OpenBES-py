@@ -1,43 +1,94 @@
 # OpenBES-py Development Wishlist (Post-Excel)
 
-## Index
-- [Schema overhaul and legacy pruning](#schema-overhaul-and-legacy-pruning)
-- [Remove correction-factor parameters](#remove-correction-factor-parameters)
-- [Adopt schema-driven specifications in core simulations](#adopt-schema-driven-specifications-in-core-simulations)
-- [Generalize HVAC/lighting system handling](#generalize-hvaclighting-system-handling)
-- [Retire legacy TOML conversion assumptions](#retire-legacy-toml-conversion-assumptions)
-- [Restructure validation data inputs/outputs](#restructure-validation-data-inputsoutputs)
-- [Refocus unit tests on functionality vs. Excel parity](#refocus-unit-tests-on-functionality-vs-excel-parity)
-- [Relax ASHRAE case tests to standard targets](#relax-ashrae-case-tests-to-standard-targets)
-- [Improve error handling and simulation resilience](#improve-error-handling-and-simulation-resilience)
-- [Streamline Excel-era calculations and placeholders](#streamline-excel-era-calculations-and-placeholders)
-
 ## Schema overhaul and legacy pruning
-:warning: **External API change.** The current JSON Schema still encodes placeholder enums, [UNUSED] fields, and Excel-era assumptions (e.g., parameters flagged as unused, enumerations with placeholder wording). A focused pass should remove or rename fields that no longer have meaning, tighten units/descriptions, and turn placeholder enums into explicit, documented options so the schema stands on its own without the Excel context. **Estimate:** 3–5 days. [OpenBES.schema.json](./src/openbes/schemas/OpenBES.schema.json#L17-L1100)
+The current JSON Schema still encodes placeholder enums, [UNUSED] fields, and Excel-era assumptions (e.g., parameters flagged as unused, enumerations with placeholder wording). A focused pass should remove or rename fields that no longer have meaning, tighten units/descriptions, and turn placeholder enums into explicit, documented options so the schema stands on its own without the Excel context. 
 
 ## Remove correction-factor parameters
-:warning: **External API change.** Correction-factor parameters are spread across the schema, generated models, conversion layers, example data, and live simulations, yet they appear to exist solely for Excel parity. The next step is to delete these parameters end-to-end and replace any remaining usage with direct physics-based inputs or explicit user overrides where needed. **Estimate:** 2–4 days. [OpenBES.schema.json](./src/openbes/schemas/OpenBES.schema.json#L815-L929) [geometry.py](./src/openbes/simulations/geometry.py#L604-L823) [climate.py](./src/openbes/simulations/climate.py#L221-L1075)
+Correction-factor parameters are a deprecated Excel feature. They are always set to 1, make no mathematical difference, and can be safely removed throughout. 
 
 ## Adopt schema-driven specifications in core simulations
-:warning: **External API change.** Core simulations still rely on legacy dataclasses and flattened spec fields (e.g., `cooling_system1_*`) despite the newer schema supporting arrays and nested objects. The simulation entrypoints should be refactored to consume `OpenBESSpecificationV2` (or the schema-derived models) directly, removing the legacy dataclasses and updating internal lookups to use the new structure. **Estimate:** 5–10 days. [dataclasses.py](./src/openbes/types/dataclasses.py#L1-L220) [cooling.py](./src/openbes/simulations/cooling.py#L24-L90)
+Core simulations still rely on legacy dataclasses and flattened spec fields (e.g., `cooling_system1_*`) despite the newer schema supporting arrays and nested objects. The simulation entrypoints should be refactored to consume `OpenBESSpecificationV2` (or the schema-derived models) directly, removing the legacy dataclasses and updating internal lookups to use the new structure. 
 
-## Generalize HVAC/lighting system handling
-:warning: **External API change.** The schema already models arrays of heating/cooling/ventilation/lighting systems, but the implementation and conversion tooling still hard-code small fixed counts (e.g., two HVAC systems, six lighting slots). Refactor the simulations and conversions to iterate over arbitrary-length arrays and return results aligned with those arrays in outputs. **Estimate:** 4–7 days. [OpenBES.schema.json](./src/openbes/schemas/OpenBES.schema.json#L969-L1060) [json_to_toml.py](./src/openbes/schemas/conversion/json_to_toml.py#L72-L235)
+The schema already models arrays of heating/cooling/ventilation/lighting systems, but the implementation and conversion tooling still hard-code small fixed counts (e.g., two HVAC systems, six lighting slots). Refactor the simulations and conversions to iterate over arbitrary-length arrays and return results aligned with those arrays in outputs.
 
 ## Retire legacy TOML conversion assumptions
-The JSON↔TOML conversion layer bakes in Excel-era defaults such as fixed zone names and index positions, which makes it harder to evolve the schema without accidental data loss. Decide whether the TOML conversion remains necessary; if not, deprecate it and simplify the pipeline to accept JSON only, or rework it to preserve arbitrary zone/system lists without lossy mapping. **Estimate:** 2–4 days. [json_to_toml.py](./src/openbes/schemas/conversion/json_to_toml.py#L72-L235)
+The JSON↔TOML conversion layer bakes in Excel-era defaults such as fixed zone names and index positions, which makes it harder to evolve the schema without accidental data loss. Decide whether the TOML conversion remains necessary; if not, deprecate it and simplify the pipeline to accept JSON only, or rework it to preserve arbitrary zone/system lists without lossy mapping. 
 
-## Restructure validation data inputs/outputs
-The validation outputs currently serialize monthly comparisons into CSV strings and depend on separate consumption fields in the spec, which are marked as unused. Replace this with structured validation inputs (e.g., arrays of monthly values with metadata) and structured outputs (arrays of comparison records), and ensure the model validation layer cleanly handles missing months without dropping the entire comparison. **Estimate:** 2–4 days. [OpenBES.schema.json](./src/openbes/schemas/OpenBES.schema.json#L1009-L1431) [building_energy.py](./src/openbes/simulations/building_energy.py#L620-L699)
+The most likely solution here is that we keep JSON -> TOML conversion so we can easily support ASHRAE 140 cases that are currently in TOML, but we remove the TOML -> JSON conversion and require all user specs to be in JSON format. This would allow us to remove the lossy mapping from the TOML conversion and simplify the codebase, while still supporting legacy ASHRAE 140 cases.
+
+## Monthly/annual inputs
+Some data are supplied to the tool in monthly format, and some in annual format. The Excel tool used monthly values for some and annual values for others, and we have inherited that inconsistency. 
+
+We should decide on a consistent approach. It may be that there is logic to the Excel decisions (e.g. monthly electricity and gas consumption figures are used for validating the tool simulation against actual energy bill values). If this is the case, a combination of clear variable names and good documentation should remove the confusion.
 
 ## Refocus unit tests on functionality vs. Excel parity
-Many unit tests compare against `hh_*.csv` fixtures that mirror Excel outputs, which locks in legacy behaviors. Replace these with scenario-based tests that assert invariants, unit consistency, and known physical relationships (e.g., sign and magnitude checks, conservation rules), and build new fixtures from JSON specs rather than Excel-exported CSVs. **Estimate:** 4–8 days. [test_climate.py](./tests/unit/test_climate.py#L45-L241) [test_heating.py](./tests/unit/test_heating.py#L1-L50)
+Many unit tests compare against `hh_*.csv` fixtures that mirror Excel outputs, which locks in legacy behaviors. Replace these with scenario-based tests that assert invariants, unit consistency, and known physical relationships (e.g., sign and magnitude checks, conservation rules), and build new fixtures from JSON specs rather than Excel-exported CSVs. 
 
 ## Relax ASHRAE case tests to standard targets
-The ASHRAE 140 case tests currently compare outputs to precomputed CSV expectations, including exact peaks and totals, tying them to Excel parity rather than the standard’s target ranges. Update these tests to focus on ASHRAE acceptance criteria only and report deviations from target ranges without enforcing exact Excel values. **Estimate:** 2–4 days. [test_cases.py](./tests/test_cases/test_cases.py#L1-L210)
+The ASHRAE 140 case tests currently compare outputs to precomputed CSV expectations, including exact peaks and totals, tying them to Excel parity rather than the standard’s target ranges. Update these tests to focus on ASHRAE acceptance criteria only and report deviations from target ranges without enforcing exact Excel values. 
 
 ## Improve error handling and simulation resilience
-Several simulations raise hard errors on missing inputs (e.g., HVAC system attributes, geometry validation, occupancy indexing), which stops the full simulation. Replace these with structured warnings that skip the affected subsystem, record the issue in the log, and continue with other outputs; only error out if no modules can run at all. **Estimate:** 3–6 days.【./src/openbes/simulations/cooling.py†L24-L60】【./src/openbes/simulations/geometry.py†L128-L213】【./src/openbes/simulations/occupancy.py†L90-L220】
+Several simulations raise hard errors on missing inputs (e.g., HVAC system attributes, geometry validation, occupancy indexing), which stops the full simulation. Replace these with structured warnings that skip the affected subsystem, record the issue in the log, and continue with other outputs; only error out if no modules can run at all (and possibly not even then for non-critical simulations). This would allow users to get partial results and identify issues without losing all outputs, and would allow users to start getting results rapidly while inputting their specification.
 
-## Streamline Excel-era calculations and placeholders
-There are explicit Excel-style behaviors (e.g., bootstrapping running means) and placeholder/unused parameters that can now be simplified or replaced with clearer algorithms and configuration flags. Identify which of these legacy calculations are still required and remove or normalize them to reduce code paths and improve maintainability. **Estimate:** 2–5 days.【./src/openbes/simulations/building_energy.py†L706-L740】【./src/openbes/schemas/OpenBES.schema.json†L770-L933】
+## Specification/parameters/advanced inputs
+The Excel tool had some specification/parameter fields that made Excel sense but not programming sense (e.g. specifications for the first Heating System were 'specifications', while those for the second were 'parameters' (advanced inputs)). 
+
+It will be worthwhile to overhaul the specification/parameter distinction and keep everything that is actually a specification to the specification section, and things that are physics-based (e.g. specific heat capacity of air) in the parameters section. This would make the code more intuitive and reduce confusion about where to find and update different kinds of inputs.
+
+We may wish to retain some kind of signal in the schema to indicate which fields are more or less advanced, or perhaps for what they are required (e.g. fields that are only required for certain simulations). This would allow us to provide better error messages and documentation about which fields are necessary for which simulations, and to guide users in filling out the specification. In many cases, the presence of a default value will do much of this signalling work. 
+
+## Excel era inconsistencies in calculations
+There are one or two areas where Excel has inconsistencies or mistakes. These can be corrected.
+
+There are some more general approaches which might be relatively simple Python refactors that would improve the consistency of the tool. For example, heating/cooling systems could quite easily be refactored to depend more precisely on the occupation of a particular zone at a particular time. The 'common areas' and 'other' zones, for example, use the same occupancy profile as the 'office' zone -- we could refactor to allow them to use their own occupancy profiles.
+
+## Magic Numbers
+Several calculations invoke magic numbers that were hardcoded in Excel. These should be replaced with named constants. Most should turn up with a text-search for `hardcoded`.
+
+## Internal function names
+Some internal function names use shorthand where more explicit names would improve readability. For example, the heating/cooling simulations use names like `phi_hc_nd_actual` instead of `demand_actual`. Some thought should go into these names to disambiguate them from one another given we have multiple demands.
+
+These occurrences are particularly prevalent in heating/cooling simulations and in the climate/solar calculations.
+
+## Naming scheme and consistency
+There are several areas where a consistent and clear naming scheme would help readability and maintainability of the codebase. Changes would include disambiguating different kinds of demand (e.g. actual demand, demand with HVAC fully on, demand per unit area), having a consistent structure for units (e.g. always use W rather than kW unless noted in the function name), and differentiating in function names whether values are scaled (W/m²). Ideally we should be able to read at a glance whether a value is a total, per unit area, or per person, and whether it is in W or kW. This would be a significant refactor but would improve readability and reduce the chance of unit errors.
+
+## Possible: Refactor reports into their respective simulations
+Not sure on the value of this. 
+
+Advantages:
+- Keeps all the logic for a given simulation in one place, improving readability and maintainability.
+- Allows us to keep prerequisite checks and error handling in the simulation rather than spreading it out into the report generator
+- Allows us to add new simulations without needing to add to spaghetti code in the report generator
+- Simplifies the report generator
+
+Disadvantages:
+- The report structure is governed by the API specification which the simulation logic should largely be agnostic about
+- Having the report generator look similar to the API specification makes it easier to detect where the simulation logic is missing or incomplete, as the report will be missing expected fields. If the report generation is mixed into the simulations, it may be less obvious when a field is missing or not being calculated.
+
+On balance, it's probably worth refactoring. We can accept as a necessary consequence that simulation reports will have to produce an output that matches the API specification, but that can be usefully enforced with the Pydantic models generated from the OpenAPI schema.
+
+## Support Pythonic outputs
+Currently, the table outputs are all in CSV format. It would be useful to provide outputs as DataFrames etc. for dealing with downstream Python code. This should be relatively easy to do by adding utility functions to convert DataFrames to CSV (reducing code duplication in report generation), and simply not using them if Pythonic outputs are requested.
+
+## Docstrings
+The codebase has quite a lot of docstrings, but their verbosity and clarity doesn't always match the complexity of the code or the frequency with which a function is used. In several cases we still have `???` placeholders from where the Excel logic or naming was not properly understood. 
+
+We should have docstrings that explain what a function does, what its inputs and outputs are, and any important details about the calculation. This is especially important for complex calculations or those that are used frequently throughout the codebase. Where functions need to be disambiguated from one another (e.g. different kinds of demand), the docstring should clarify the distinction.
+
+Most developers in the future of this project will primarily be energy scientists, not software engineers, so areas of the code that use software engineering tricks or unusual patterns should have hand-holding documentation (e.g. why we extract the core of the climate simulation into a JIT-compiled function).
+
+References to Excel can be removed from docstrings and the docstrings should stand on their own without requiring familiarity with the Excel tool. We can still mention Excel where the logic of the code takes a path that could be simplified or improved but exists in its current form because that's how it was in Excel and we've not yet updated it.
+
+## CI Documentation
+CI should be much better documented, remembering that future developers may not be familiar with GitHub Actions or CI in general. The CI workflow should be clearly documented in the README, and the individual steps should have comments explaining what they do and why they are necessary.
+
+## Streamline and disambiguate calculations
+Some calculations are done in similar-but-subtly-different ways in different places. E.g. heating/cooling system usage is sometimes scaled by zone area and sometimes not, and the rules about zonal/general occupancy and how it interacts with those systems is not clear. 
+
+We should review calculations and, where similar calculations are necessarily different, we should carefully explain the logic in the docstrings and ensure that the naming of variables and functions makes it clear what the differences are. Where calculations can be streamlined or unified, we should do so to reduce code duplication and improve maintainability.
+
+## Logging
+Each simulation should provide a useful structured log of its behaviour. This can replace the current `logging`-based logging approach which is a bit spammy. Logs should include information about which subsystems were run, any warnings or errors that were raised, and any important details about the calculations (e.g. if a particular zone was skipped due to missing inputs). Perhaps they might include information on how long the simulation took, when each property was calculated, etc. 
+
+This would allow users to understand what happened during the simulation and identify any issues without needing to debug the code directly. It would also allow us to provide better error messages and guidance for users when they encounter issues with their specifications.
