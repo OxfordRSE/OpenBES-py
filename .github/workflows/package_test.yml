@@ -121,5 +121,5 @@ jobs:
           if [ "${{ github.event_name }}" = "release" ]; then
             python -m twine upload dist/*
           else
-            python -m twine upload dist/* --repository-url https://test.pypi.org/legacy/
+            python -m twine upload dist/* --verbose --repository-url https://test.pypi.org/legacy/
           fi
