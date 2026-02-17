@@ -22,6 +22,15 @@ MIN_COOLING_EFFICIENCY = 0.01  # kWh
 class CoolingSystemSimulation(EnergyUseSimulation):
     """A class to simulate a cooling system's energy consumption.
 
+    A cooling system's energy use is determined by its capacity, the cooling load, and the efficiency of the system.
+    The cooling load is determined by the difference between the indoor temperature and the outdoor temperature,
+    as well as the area being heated and the occupancy of the building.
+
+    Note that the cooling system load is dependent on the cooling system and the area it has to heat,
+    as opposed to the Climate Simulation's cooling demand, which is a model of the total cooling demand of the
+    building based on the climate and building characteristics,
+    independent of any cooling system that happens to be installed.
+
     [Cell references are for System 1]
     """
 
@@ -134,16 +143,18 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         if "phi_c_nd_ac" not in self._hours.columns:
             self._hours["phi_c_nd_ac"] = (
                 self.phi_hc_nd_actual.apply(
-                    lambda r: min(r, 0.0)
-                    if r
-                    < (
-                        getattr(
-                            self.spec.parameters,
-                            f"cooling_system{self.system_number}_min_demand",
+                    lambda r: (
+                        min(r, 0.0)
+                        if r
+                        < (
+                            getattr(
+                                self.spec.parameters,
+                                f"cooling_system{self.system_number}_min_demand",
+                            )
+                            * -1
                         )
-                        * -1
+                        else 0.0
                     )
-                    else 0.0
                 )
                 * self.spec.parameters.cooling_load_factor
             )
@@ -319,7 +330,10 @@ class CoolingSystemSimulation(EnergyUseSimulation):
 
 
 class CoolingSimulation(EnergyUseSimulation):
-    """A class to simulate cooling energy consumption based on building specifications."""
+    """A class to simulate cooling energy consumption based on building specifications.
+
+    Aggregates the energy used by all cooling systems in the building.
+    """
 
     cooling_simulations: List[CoolingSystemSimulation]
 

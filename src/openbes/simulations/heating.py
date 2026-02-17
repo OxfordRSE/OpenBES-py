@@ -24,6 +24,15 @@ MAX_HEATING_CAPACITY_LIMIT = 1.5  # [Hardcoded in Hourly Simulation cell ES114]
 class HeatingSystemSimulation(EnergyUseSimulation):
     """A class to simulate a heating system's energy consumption.
 
+    A heating system's energy use is determined by its capacity, the heating load, and the efficiency of the system.
+    The heating load is determined by the difference between the indoor temperature and the outdoor temperature,
+    as well as the area being heated and the occupancy of the building.
+
+    Note that the heating system load is dependent on the heating system and the area it has to heat,
+    as opposed to the Climate Simulation's heating demand, which is a model of the total heating demand of the
+    building based on the climate and building characteristics,
+    independent of any heating system that happens to be installed.
+
     [Cell references are for System 1]
     """
 
@@ -131,13 +140,15 @@ class HeatingSystemSimulation(EnergyUseSimulation):
         if "phi_h_nd_ac" not in self._hours.columns:
             self._hours["phi_h_nd_ac"] = (
                 self.phi_hc_nd_actual.apply(
-                    lambda r: max(r, 0.0)
-                    if r
-                    > getattr(
-                        self.spec.parameters,
-                        f"heating_system{self.system_number}_min_demand",
+                    lambda r: (
+                        max(r, 0.0)
+                        if r
+                        > getattr(
+                            self.spec.parameters,
+                            f"heating_system{self.system_number}_min_demand",
+                        )
+                        else 0.0
                     )
-                    else 0.0
                 )
                 * self.spec.parameters.heating_load_factor
             )
@@ -291,7 +302,10 @@ class HeatingSystemSimulation(EnergyUseSimulation):
 
 
 class HeatingSimulation(EnergyUseSimulation):
-    """A class to simulate heating energy consumption based on building specifications."""
+    """A class to simulate heating energy consumption based on building specifications.
+
+    Aggregates the energy use of all heating systems in the building.
+    """
 
     heating_simulations: List[HeatingSystemSimulation]
 

@@ -18,6 +18,14 @@ logger = logging.getLogger(__name__)
 
 
 class LightingSimulation(EnergyUseSimulation):
+    """Simulate lighting energy use based on building specifications and occupancy patterns.
+
+    Lighting simulations calculate energy use based on the number of luminaires, lamp power, ballast type,
+    and lighting technology for each zone in the building.
+    The model also accounts for lighting control strategies (manual vs automatic)
+    and calculates parasitic heat gains from lighting.
+    """
+
     occupancy: OccupationSimulation
     _lighting_heat: float
 

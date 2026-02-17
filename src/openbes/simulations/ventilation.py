@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class VentilationSystemSimulation(EnergyUseSimulation):
+    """Simulate energy use for a single ventilation system based on building specifications and occupancy patterns."""
     system_number: int
     geometry: BuildingGeometry
     _air_supply_rate_adjusted: float
@@ -128,6 +129,7 @@ class VentilationSystemSimulation(EnergyUseSimulation):
 
 
 class VentilationSimulation(EnergyUseSimulation):
+    """Aggregate simulation of all ventilation systems in the building, summing their energy use and air supply rates."""
     ventilation_simulations: List[VentilationSystemSimulation]
 
     def __init__(

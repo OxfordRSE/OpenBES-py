@@ -99,32 +99,38 @@
         "floor_to_ceiling_height": {
           "type": "number",
           "description": "Floor to ceiling height in m.",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 2.7
         },
         "slab_thickness": {
           "type": "number",
           "description": "Slab thickness in m.",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.2
         },
         "orientation_angle": {
           "type": "number",
           "description": "Orientation angle of the building in degrees clockwise from North=0.",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "roof_angle": {
           "type": "number",
           "description": "Roof angle in degrees from horizontal.",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "solar_external_shading_summer": {
           "type": "number",
           "description": "External solar shading factor for summer (Summer = air temp > 22C).",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "solar_external_shading_winter": {
           "type": "number",
           "description": "External solar shading factor for winter (Winter = air temp <= 22C).",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "terrain_class": {
           "$ref": "#/definitions/TERRAIN_CLASS",
@@ -159,42 +165,50 @@
         "uvalue_facade": {
           "type": "number",
           "description": "U-value of the facade in W/m2K.",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "uvalue_roof": {
           "type": "number",
           "description": "U-value of the roof in W/m2K.",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "uvalue_window": {
           "type": "number",
           "description": "U-value of the windows in W/m2K.",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "uvalue_floor": {
           "type": "number",
           "description": "U-value of the floor in W/m2K.",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "window_frame_factor": {
           "type": "number",
           "description": "Window frame factor (fraction).",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "window_gvalue": {
           "type": "number",
           "description": "Window g-value (fraction).",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "window_height": {
           "type": "number",
           "description": "Window height in m.",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "window_length": {
           "type": "number",
           "description": "Window length in m.",
-          "$comment": "Mapped without building_ prefix"
+          "$comment": "Mapped without building_ prefix",
+          "default": 0.0
         },
         "window_counts": {
           "type": "object",
@@ -232,7 +246,6 @@
         }
       },
       "required": [
-        "height",
         "length",
         "width"
       ],
@@ -1004,7 +1017,8 @@
         },
         "appliances_load": {
           "type": "number",
-          "description": "Load from appliances (Wh/m2)."
+          "description": "Load from appliances (Wh/m2).",
+          "default": 0.0
         },
         "biomass_consumption": {
           "$ref": "#/definitions/Consumption",
@@ -1070,7 +1084,8 @@
         },
         "leakage_air_flow_independent": {
           "type": "number",
-          "description": "Leakage air flow rate independent of other factors (m3/s)."
+          "description": "Leakage air flow rate independent of other factors (m3/s).",
+          "default": 0.0
         },
         "lighting_control": {
           "type": "string",
@@ -1108,11 +1123,19 @@
         },
         "setpoint_temperature_day": {
           "$ref": "#/definitions/Range",
-          "description": "Daytime temperature setpoint range."
+          "description": "Daytime temperature setpoint range.",
+          "default": {
+            "min": 20.0,
+            "max": 20.0
+          }
         },
         "setpoint_temperature_night": {
           "$ref": "#/definitions/Range",
-          "description": "Night-time temperature setpoint range."
+          "description": "Night-time temperature setpoint range.",
+          "default": {
+            "min": 20.0,
+            "max": 20.0
+          }
         },
         "typical_occupation": {
           "type": "integer",
@@ -1122,7 +1145,8 @@
       "additionalProperties": false,
       "required": [
         "building",
-        "zones"
+        "zones",
+        "meteorological_file"
       ]
     },
     "SpaceThermalDemandResult": {

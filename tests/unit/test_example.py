@@ -12,5 +12,6 @@ class Example(OpenBESTestCase):
         simulation = BuildingEnergySimulation(spec=HOLYWELL_HOUSE_SPEC)
         assert simulation.energy_use.sum().sum() is not None
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

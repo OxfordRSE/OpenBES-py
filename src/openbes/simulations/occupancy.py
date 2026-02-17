@@ -56,6 +56,20 @@ def is_public_holiday(day_number_in_year: int) -> bool:
 
 
 class OccupationSimulation(HourlySimulation):
+    """Simulate building occupation patterns based on building specifications and geometry.
+
+    This simulation calculates the occupation ratio, occupied days,
+    and zonal occupation based on the building schedule defined in the specifications.
+    It also computes the occupation area per person and metabolic rate per square meter
+    based on the building geometry and typical occupation.
+
+    Occupation is expressed in terms of monthly and daily patterns throughout the year
+    (e.g. the building is closed in January; the building is closed on weekends;
+    the building is closed on public holidays). For those days where the building is open,
+    occupancy is expressed in terms of hourly patterns
+    (e.g. the office zone is occupied from 8am to 6pm, the canteen is occupied from 12pm to 2pm, etc.).
+    """
+
     geometry: BuildingGeometry
     _occupation_ratio: float
     _occupation_m2_per_person: float
@@ -196,12 +210,7 @@ class OccupationSimulation(HourlySimulation):
                 self.spec.occupancy_close_canteen,
                 self.spec.occupancy_close_teaching,
             ]
-            if all(ot is None for ot in open_times) or all(
-                ct is None for ct in close_times
-            ):
-                raise ValueError(
-                    "Occupancy open and close times must be self.specified in the building specification."
-                )
+
             zonal_occupancy = HOURS_DF.copy()
             hours = zonal_occupancy.index.get_level_values("hour")
             for zone in OCCUPATION_ZONES:
@@ -217,15 +226,17 @@ class OccupationSimulation(HourlySimulation):
                 open_time = getattr(self.spec, f"occupancy_open_{z.value}")
                 close_time = getattr(self.spec, f"occupancy_close_{z.value}")
                 if open_time is None or close_time is None:
-                    raise ValueError(
-                        f"Occupancy open and close times must be self.specified for {z.value} in the building specification."
+                    logger.info(
+                        f"Occupancy open and close times are not specified for {z.value}. Zone will be considered unoccupied throughout the year."
                     )
-                zonal_occupancy[zone] = (
-                    (hours >= open_time)
-                    & (hours <= close_time)
-                    & self.occupied_days
-                    & self.occupied_months
-                )
+                    zonal_occupancy[zone] = False
+                else:
+                    zonal_occupancy[zone] = (
+                            (hours >= open_time)
+                            & (hours <= close_time)
+                            & self.occupied_days
+                            & self.occupied_months
+                    )
             self._zonal_occupation = zonal_occupancy.drop(columns="is_daytime")
         return self._zonal_occupation
 

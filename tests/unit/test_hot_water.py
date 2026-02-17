@@ -15,9 +15,7 @@ class HotWaterPipeline(OpenBESTestCase):
 
     def test_nominal_consumption(self):
         self.assertAlmostEqual(
-            self.sim.get_daily_hot_water_nominal(),
-            15.32667,
-            self.decimal_places
+            self.sim.get_daily_hot_water_nominal(), 15.32667, self.decimal_places
         )
 
     def test_nominal_consumption_error(self):
@@ -39,9 +37,7 @@ class HotWaterPipeline(OpenBESTestCase):
 
     def test_consumption(self):
         self.assertAlmostEqual(
-            self.sim.get_daily_hot_water(),
-            15.32667,
-            self.decimal_places
+            self.sim.get_daily_hot_water(), 15.32667, self.decimal_places
         )
 
     def test_consumption_error(self):
@@ -69,11 +65,21 @@ class HotWaterPipeline(OpenBESTestCase):
     def test_hot_water_per_month(self):
         expected = Series(
             [
-                275.88000000000, 306.53333333333, 337.18666666667, 321.86000000000, 352.51333333333, 321.86000000000,
-                337.18666666667, 352.51333333333, 306.53333333333, 352.51333333333, 337.18666666667, 229.90000000000
+                275.88000000000,
+                306.53333333333,
+                337.18666666667,
+                321.86000000000,
+                352.51333333333,
+                321.86000000000,
+                337.18666666667,
+                352.51333333333,
+                306.53333333333,
+                352.51333333333,
+                337.18666666667,
+                229.90000000000,
             ],
             index=list(MONTHS),
-            name="kWh"
+            name="kWh",
         ).round(self.decimal_places)
         output = self.sim.get_hot_water_per_month().round(self.decimal_places)
         self.assertTrue(expected.equals(output), expected.compare(output))
@@ -83,5 +89,6 @@ class HotWaterPipeline(OpenBESTestCase):
         calculated = self.sim.energy_use[self.spec.water_system_energy_source].sum()
         self.assertAlmostEqual(expected, calculated, self.decimal_places)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

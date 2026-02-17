@@ -1,0 +1,29 @@
+digraph BuildingSimulationDAG {
+    rankdir = TB;
+    splines = ortho;
+    node [shape = box];
+
+    Geometry;
+    Occupancy;
+    Lighting;
+    "Solar Radiation";
+    Ventilation;
+    Climate;
+    Cooling;
+    Heating;
+    "Hot Water";
+
+
+    Geometry -> Ventilation;
+
+    Occupancy -> Lighting;
+    Lighting -> Climate;
+    Ventilation -> Climate;
+    Occupancy -> Climate;
+    "Solar Radiation" -> Climate;
+
+    Climate -> Cooling;
+    Climate -> Heating;
+
+    Occupancy -> "Hot Water";
+}

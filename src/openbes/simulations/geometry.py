@@ -1,5 +1,6 @@
 import math
 from typing import Optional
+import logging
 
 from pandas import MultiIndex, DataFrame, Series
 
@@ -13,6 +14,9 @@ from ..types import (
     THERMAL_BREAKS,
     HEAT_CAPACITY_CLASSES,
 )
+
+logger = logging.getLogger(__name__)
+
 
 THERMAL_BREAK_TRANSMITTANCE = {
     THERMAL_BREAKS.Facade_ground: 0.54,
@@ -49,7 +53,9 @@ EXPOSURES_MAP = DataFrame(
 )
 
 
+
 class Rectangle:
+    """Simple class to represent a rectangle with length and width, and calculate area and ratio."""
     def __init__(self, length: float, width: float):
         self.length = length
         self.width = width
@@ -77,6 +83,7 @@ class BuildingGeometry:
     Calculates equivalent rectangle, gross floor area, external vertical envelope area,
     window counts, window areas, and other geometry-related metrics.
 
+    The building's heat transfer rates through windows and opaque areas are also calculated based on the geometry.
     """
 
     spec: OpenBESSpecification
@@ -125,9 +132,13 @@ class BuildingGeometry:
             elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Custom_value:
                 self._heat_capacity_am = self.spec.parameters.advanced_heat_capacity_am
             else:
-                raise ValueError(
-                    f"Unknown heat capacity class: {self.spec.heat_capacity}"
-                )
+                if self.spec.heat_capacity is None:
+                    logger.info("No heat capacity class specified, defaulting to Medium.")
+                else:
+                    logger.info(
+                        f"Unknown heat capacity class: {self.spec.heat_capacity}; defaulting to Medium."
+                    )
+                self._heat_capacity_am = 2.5
         return self._heat_capacity_am
 
     @property
@@ -161,9 +172,8 @@ class BuildingGeometry:
                     self.spec.parameters.heat_capacity_joule + air_heat_capacity
                 )
             else:
-                raise ValueError(
-                    f"Unknown heat capacity class: {self.spec.heat_capacity}"
-                )
+                logger.info(f"Unknown heat capacity class: {self.spec.heat_capacity}; defaulting to Medium.")
+                self._heat_capacity_cm = 165_000.0
         return self._heat_capacity_cm
 
     @property
@@ -430,10 +440,10 @@ class BuildingGeometry:
         """Window area in square meters for each floor and orientation."""
         if "window_area_orientation" not in self._orientation_facade.columns:
             if self.spec.window_height is None or self.spec.window_length is None:
-                raise ValueError(
-                    "Window height and length are required to model window area."
-                )
-            self._orientation_facade["window_area_orientation"] = (
+                logger.error("Window height and length are required to model window area.")
+                self._orientation_facade["window_area_orientation"] = Series(0.0, index=self._orientation_facade.index)
+            else:
+                self._orientation_facade["window_area_orientation"] = (
                 self.window_count * self.spec.window_height * self.spec.window_length
             )
         return self._orientation_facade["window_area_orientation"]
