@@ -159,17 +159,19 @@ class OpenBESSpecification:
     Data class for OpenBES spec parameters.
     """
 
+    building_length: float
+    building_width: float
+    meteorological_file: str
+
     parameters: Optional[OpenBESParameters] = field(default_factory=OpenBESParameters)
-    appliances_load: Optional[float] = None
+    appliances_load: float = 0.0
     biomass_annual: Optional[float] = None
     biomass_pellets_annual: Optional[float] = None
     building_area: Optional[str] = None
     building_height: Optional[float] = None
-    building_length: Optional[float] = None
     building_name: Optional[str] = None
     building_standby_load: Optional[float] = 0.0
     building_type: Optional[str] = None
-    building_width: Optional[float] = None
     # Conditioned=True, Unconditioned=False
     condition_z1: Optional[bool] = True
     # Conditioned=True, Unconditioned=False
@@ -219,7 +221,7 @@ class OpenBESSpecification:
     first_floor_area_z3: Optional[float] = None
     first_floor_area_z4: Optional[float] = None
     first_floor_area_z5: Optional[float] = None
-    floor_to_ceiling_height: Optional[float] = None
+    floor_to_ceiling_height: float = 2.7
     fourth_floor_area_z1: Optional[float] = None
     fourth_floor_area_z2: Optional[float] = None
     fourth_floor_area_z3: Optional[float] = None
@@ -263,7 +265,7 @@ class OpenBESSpecification:
     )
     holiday: Optional[bool] = None
     leakage_air_flow: Optional[float] = None
-    leakage_air_flow_independent: Optional[float] = None
+    leakage_air_flow_independent: float = 0.0
     lighting_control: Optional[LIGHTING_CONTROL] = field(
         default=None, metadata={"cls": LIGHTING_CONTROL}
     )
@@ -351,7 +353,6 @@ class OpenBESSpecification:
     location: Optional[float] = None
     LPG_annual: Optional[float] = None
     max_building_occupation: Optional[float] = None
-    meteorological_file: Optional[str] = None
     natural_gas_annual: Optional[float] = None
     natural_ventilation_night: Optional[float] = 0.0
     occupancy_close_canteen: Optional[float] = None
@@ -360,10 +361,10 @@ class OpenBESSpecification:
     occupancy_open_canteen: Optional[float] = None
     occupancy_open_office: Optional[float] = None
     occupancy_open_teaching: Optional[float] = None
-    orientation_angle: Optional[float] = None
+    orientation_angle: float = 0.0
     other_electricity_usage: Optional[float] = 0.0
     other_gas_usage: Optional[float] = 0.0
-    roof_angle: Optional[float] = None
+    roof_angle: float = 0.0
     schedule_april: Optional[bool] = None
     schedule_august: Optional[bool] = None
     schedule_december: Optional[bool] = None
@@ -389,16 +390,16 @@ class OpenBESSpecification:
     second_floor_area_z4: Optional[float] = None
     second_floor_area_z5: Optional[float] = None
     # Better described as 'setpoint maximum'
-    setpoint_summer_day: Optional[float] = None
+    setpoint_summer_day: Optional[float] = 21.0
     # Better described as 'setpoint maximum'
-    setpoint_summer_night: Optional[float] = None
+    setpoint_summer_night: Optional[float] = 21.0
     # Better described as 'setpoint minimum'
-    setpoint_winter_day: Optional[float] = None
+    setpoint_winter_day: Optional[float] = 21.0
     # Better described as 'setpoint minimum'
-    setpoint_winter_night: Optional[float] = None
-    slab_thickness: Optional[float] = None
-    solar_external_shading_summer: Optional[float] = None
-    solar_external_shading_winter: Optional[float] = None
+    setpoint_winter_night: Optional[float] = 21.0
+    slab_thickness: float = 0.2
+    solar_external_shading_summer: float = 0.0
+    solar_external_shading_winter: float = 0.0
     terrain_class: Optional[TERRAINS] = field(default=None, metadata={"cls": TERRAINS})
     thermal_bridge_facade_ground: Optional[bool] = None
     thermal_bridge_facade_intermediate: Optional[bool] = None
@@ -411,10 +412,10 @@ class OpenBESSpecification:
     third_floor_area_z4: Optional[float] = None
     third_floor_area_z5: Optional[float] = None
     typical_occupation: Optional[float] = None
-    uvalue_facade: Optional[float] = None
-    uvalue_floor: Optional[float] = None
-    uvalue_roof: Optional[float] = None
-    uvalue_window: Optional[float] = None
+    uvalue_facade: float = 0.0
+    uvalue_floor: float = 0.0
+    uvalue_roof: float = 0.0
+    uvalue_window: float = 0.0
     ventilation_system1_airflow: Optional[float] = 0.0
     ventilation_system1_energy_source: Optional[ENERGY_SOURCES] = field(
         default=None, metadata={"cls": ENERGY_SOURCES}
@@ -434,10 +435,10 @@ class OpenBESSpecification:
     )
     water_system_nominal_capacity: Optional[float] = None
     water_system_type: Optional[float] = None
-    window_frame_factor: Optional[float] = None
-    window_gvalue: Optional[float] = None
-    window_height: Optional[float] = None
-    window_length: Optional[float] = None
+    window_frame_factor: float = 0.0
+    window_gvalue: float = 0.0
+    window_height: float = 0.0
+    window_length: float = 0.0
     window_number_first_a1: Optional[int] = 0
     window_number_first_b1: Optional[int] = 0
     window_number_first_c1: Optional[int] = 0

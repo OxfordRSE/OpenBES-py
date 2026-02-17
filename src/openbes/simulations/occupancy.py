@@ -210,12 +210,7 @@ class OccupationSimulation(HourlySimulation):
                 self.spec.occupancy_close_canteen,
                 self.spec.occupancy_close_teaching,
             ]
-            if all(ot is None for ot in open_times) or all(
-                ct is None for ct in close_times
-            ):
-                raise ValueError(
-                    "Occupancy open and close times must be self.specified in the building specification."
-                )
+
             zonal_occupancy = HOURS_DF.copy()
             hours = zonal_occupancy.index.get_level_values("hour")
             for zone in OCCUPATION_ZONES:
@@ -231,15 +226,17 @@ class OccupationSimulation(HourlySimulation):
                 open_time = getattr(self.spec, f"occupancy_open_{z.value}")
                 close_time = getattr(self.spec, f"occupancy_close_{z.value}")
                 if open_time is None or close_time is None:
-                    raise ValueError(
-                        f"Occupancy open and close times must be self.specified for {z.value} in the building specification."
+                    logger.info(
+                        f"Occupancy open and close times are not specified for {z.value}. Zone will be considered unoccupied throughout the year."
                     )
-                zonal_occupancy[zone] = (
-                    (hours >= open_time)
-                    & (hours <= close_time)
-                    & self.occupied_days
-                    & self.occupied_months
-                )
+                    zonal_occupancy[zone] = False
+                else:
+                    zonal_occupancy[zone] = (
+                            (hours >= open_time)
+                            & (hours <= close_time)
+                            & self.occupied_days
+                            & self.occupied_months
+                    )
             self._zonal_occupation = zonal_occupancy.drop(columns="is_daytime")
         return self._zonal_occupation
 

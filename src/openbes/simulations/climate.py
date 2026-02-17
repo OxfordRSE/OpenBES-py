@@ -20,6 +20,9 @@ from ..types import (
     COMPASS_POINTS,
     THERMAL_BREAKS,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Optional dependencies
 try:
@@ -337,7 +340,12 @@ class ClimateSimulation(HourlySimulation):
         temp_diff = abs(dry_bulb_temp - air_set_temp_prev)
         qv_stack = max(0.0146 * q4pa * (((0.7 * Hstack) * temp_diff) ** 0.667), 0.001)
         dcp = 0.75  # [Hardcoded in JE103]
-        vsite_by_vmetro = TERRAIN_VSITE_BY_VMETRO[self.spec.terrain_class]  # JE104
+        if self.spec.terrain_class is None:
+            if i == 0:
+                logger.info("Terrain class not specified, defaulting to 'Open'")
+            vsite_by_vmetro = TERRAIN_VSITE_BY_VMETRO[TERRAINS.Open]
+        else:
+            vsite_by_vmetro = TERRAIN_VSITE_BY_VMETRO[self.spec.terrain_class]  # JE104
         qv_wind = (
             0.0769
             * q4pa
@@ -547,7 +555,10 @@ class ClimateSimulation(HourlySimulation):
         }
 
         if i == 1 and any(isnan(v) for v in values.values()):
-            raise ValueError(f"NaN values:\n{DataFrame([values])}")
+            if self.geometry.conditioned_floor_area == 0:
+                logger.info("Conditioned floor area is zero, which will result in NaN values in climate simulation.")
+            else:
+                raise ValueError(f"Unexpected NaN values:\n{DataFrame([values])}")
 
         return values
 

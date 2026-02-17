@@ -4,11 +4,13 @@ import unittest
 import pandas as pd
 from pandas import DataFrame, Series
 
-from openbes import BuildingEnergySimulation
+from openbes import BuildingEnergySimulation, OpenBESSpecification
 from openbes.examples import HOLYWELL_HOUSE_SPEC
 from tests.unit.utils import (
     OpenBESTestCase,
 )
+from importlib.metadata import metadata
+from openbes.schemas import OpenBESMetaData
 
 
 class TestOpenBESReport(OpenBESTestCase):
@@ -103,6 +105,21 @@ class TestOpenBESReport(OpenBESTestCase):
                 expected_first_row = expected_info["first_row"]
                 calculated_first_row = df.iloc[0]
             self.check_series_versus_values(calculated_first_row, expected_first_row)
+
+    def test_end2end_with_minimal_inputs(self):
+        # This test runs the full simulation and checks that we're tolerant to missing input values
+        spec = OpenBESSpecification.from_toml({
+            "i.building_length": 20.0,
+            "i.building_width": 10.0,
+            "i.meteorological_file": HOLYWELL_HOUSE_SPEC.meteorological_file,
+        })
+        sim = BuildingEnergySimulation(spec=spec)
+        outputs = sim.outputs
+        meta = OpenBESMetaData(version=metadata("openbes")["Version"], timestamp=sim.timestamp)
+        log = sim.log
+        self.assertIsNotNone(outputs)
+        self.assertIsNotNone(meta)
+        self.assertIsNotNone(log)
 
     def test_outputs(self):
         outputs = self.sim.outputs
