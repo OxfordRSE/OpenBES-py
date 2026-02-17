@@ -132,7 +132,12 @@ class BuildingGeometry:
             elif self.spec.heat_capacity == HEAT_CAPACITY_CLASSES.Custom_value:
                 self._heat_capacity_am = self.spec.parameters.advanced_heat_capacity_am
             else:
-                logger.info("No heat capacity class specified, defaulting to Medium.")
+                if self.spec.heat_capacity is None:
+                    logger.info("No heat capacity class specified, defaulting to Medium.")
+                else:
+                    logger.info(
+                        f"Unknown heat capacity class: {self.spec.heat_capacity}; defaulting to Medium."
+                    )
                 self._heat_capacity_am = 2.5
         return self._heat_capacity_am
 
