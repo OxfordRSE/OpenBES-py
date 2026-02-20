@@ -30,7 +30,8 @@ openbes = [
     "**/lighting_data/*.csv",
     "**/climate_data/*.epw",
     "**/example_data/*.json",
-    "**/schemas/*.json"
+    "**/schemas/*.json",
+    "**/report_data/*.csv"
 ]
 
 [build-system]

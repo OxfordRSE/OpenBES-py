@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.1.6/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.3.0",
+  "$version": "0.3.1",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -95,6 +95,11 @@
         "type": {
           "type": "string",
           "description": "Type of building (e.g. Office, School)."
+        },
+        "floor_count": {
+          "type": "integer",
+          "description": "Number of floors in the building.",
+          "default": 1
         },
         "floor_to_ceiling_height": {
           "type": "number",
