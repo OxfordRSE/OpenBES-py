@@ -247,7 +247,8 @@
               "description": "Array of window counts per floor on the right side of the building."
             }
           },
-          "description": "A map of building side to array of window counts per floor."
+          "description": "A map of building side to array of window counts per floor.",
+          "additionalProperties": false
         }
       },
       "required": [
@@ -718,7 +719,8 @@
         "energy_source",
         "efficiency_cop",
         "nominal_capacity"
-      ]
+      ],
+      "additionalProperties": false
     },
     "Courtyard": {
       "type": "object",
@@ -779,7 +781,8 @@
           "$ref": "#/definitions/OpenCourtyard"
         }
       },
-      "description": "The open courtyards on each side of the building."
+      "description": "The open courtyards on each side of the building.",
+      "additionalProperties": false
     },
     "HeatCapacity": {
       "type": "object",
@@ -1178,7 +1181,8 @@
           "type": "string",
           "description": "Load in kW by annual percentile."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "VentilationSystemResult": {
       "type": "object",
@@ -1208,7 +1212,8 @@
           "type": "number",
           "description": "Air changes per hour."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "ThermalSystemResult": {
       "type": "object",
@@ -1237,7 +1242,8 @@
           "type": "number",
           "description": "Sensible peak capacity for cooling systems. For heating systems, peak capacity/load at 99.6th percentile."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "ModelValidation": {
       "type": "object",
@@ -1259,7 +1265,8 @@
           "type": "number",
           "description": "R-squared model fit."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "HourPeak": {
       "type": "object",
@@ -1294,7 +1301,8 @@
           "type": "number",
           "description": "Hour of the day."
         }
-      }
+      },
+      "additionalProperties": false
     },
     "OpenBESOutput": {
       "type": "object",
@@ -1495,7 +1503,7 @@
           "description": "Annual transmissivity coefficient of windows by orientation."
         }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     },
     "OpenBESMetaData": {
       "type": "object",
@@ -1512,7 +1520,8 @@
       },
       "required": [
         "version"
-      ]
+      ],
+      "additionalProperties": false
     }
   },
   "properties": {
