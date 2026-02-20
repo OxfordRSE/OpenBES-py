@@ -98,7 +98,8 @@
         },
         "floor_count": {
           "type": "integer",
-          "description": "Number of floors in the building."
+          "description": "Number of floors in the building.",
+          "default": 1
         },
         "floor_to_ceiling_height": {
           "type": "number",
