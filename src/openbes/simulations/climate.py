@@ -1313,3 +1313,205 @@ class ClimateSimulation(HourlySimulation):
         This is somewhat distinct from `self.cooling_demand` and used in slightly different places.
         """
         return self.zonal_heating_cooling_demand.clip(None, 0)
+
+
+def specs_require_climate_rerun(old_spec: OpenBESSpecification, new_spec: OpenBESSpecification) -> bool:
+    """
+    Determine whether a climate simulation needs to be rerun based on spec changes.
+
+    Returns True if the new spec differs from the old spec in any way that would affect
+    the climate simulation results. Returns False if only non-climate-affecting specs changed.
+
+    The climate simulation depends on:
+    - Meteorological file (affects EPW data and solar irradiation)
+    - Geometry (affects heat transfer rates, thermal capacity, window areas)
+    - Occupancy (affects internal heat gains and occupancy schedules)
+    - Lighting (affects internal heat gains)
+    - Ventilation (affects air supply rates)
+    - Climate-specific parameters (infiltration, thermal bridges, setpoints, natural ventilation)
+
+    Args:
+        old_spec: The previous OpenBESSpecification
+        new_spec: The new OpenBESSpecification to compare against
+
+    Returns:
+        bool: True if climate simulation needs to be rerun, False otherwise
+    """
+    # Meteorological file - CRITICAL: Different climate data
+    if old_spec.meteorological_file != new_spec.meteorological_file:
+        return True
+
+    # Climate-specific parameters that directly affect _populate_cache()
+    climate_params = [
+        'leakage_air_flow_independent',
+        'natural_ventilation_night',
+        'terrain_class',
+        'setpoint_winter_day',
+        'setpoint_winter_night',
+        'setpoint_summer_day',
+        'setpoint_summer_night',
+        'appliances_load',
+        'uvalue_window',
+        'thermal_bridge_shading',
+    ]
+    for param in climate_params:
+        if getattr(old_spec, param, None) != getattr(new_spec, param, None):
+            return True
+
+    # Climate parameters nested in parameters object
+    climate_parameter_fields = [
+        'infiltration_correction_factor',
+        'density_of_air',
+        'specific_heat_of_air',
+        'leakage_air_flow_dependent',
+        'heat_capacity_correction_factor',
+        'appliance_on_off',
+    ]
+    for field in climate_parameter_fields:
+        if getattr(old_spec.parameters, field, None) != getattr(new_spec.parameters, field, None):
+            return True
+
+    # Geometry specs that affect climate (building dimensions, windows, thermal properties, heat capacity)
+    geometry_specs = [
+        'building_length',
+        'building_width',
+        'building_height',
+        'floor_to_ceiling_height',
+        'heat_capacity',
+    ]
+    for spec in geometry_specs:
+        if getattr(old_spec, spec, None) != getattr(new_spec, spec, None):
+            return True
+
+    # Zone-specific specs (affect geometry)
+    zone_pattern_specs = [
+        'condition_z1', 'condition_z2', 'condition_z3', 'condition_z4', 'condition_z5',
+        'first_floor_area_z1', 'first_floor_area_z2', 'first_floor_area_z3', 'first_floor_area_z4',
+        'first_floor_area_z5',
+        'ground_floor_area_z1', 'ground_floor_area_z2', 'ground_floor_area_z3', 'ground_floor_area_z4',
+        'ground_floor_area_z5',
+        'fourth_floor_area_z1', 'fourth_floor_area_z2', 'fourth_floor_area_z3', 'fourth_floor_area_z4',
+        'fourth_floor_area_z5',
+    ]
+    for spec in zone_pattern_specs:
+        if getattr(old_spec, spec, None) != getattr(new_spec, spec, None):
+            return True
+
+    # Occupancy schedules (affect occupancy_ratio and is_occupied in cache)
+    schedule_specs = [
+        'schedule_january', 'schedule_february', 'schedule_march', 'schedule_april',
+        'schedule_may', 'schedule_june', 'schedule_july', 'schedule_august',
+        'schedule_september', 'schedule_october', 'schedule_november', 'schedule_december',
+        'holiday',
+    ]
+    for spec in schedule_specs:
+        if getattr(old_spec, spec, None) != getattr(new_spec, spec, None):
+            return True
+
+    # Occupancy zone specs (affect internal heat gains)
+    occupancy_specs = [
+        'occupancy_office', 'occupancy_teaching', 'occupancy_canteen',
+        'occupancy_common_areas', 'occupancy_other',
+        'occupancy_hours_start_office', 'occupancy_hours_end_office',
+        'occupancy_hours_start_teaching', 'occupancy_hours_end_teaching',
+        'occupancy_hours_start_canteen', 'occupancy_hours_end_canteen',
+        'occupancy_hours_start_common', 'occupancy_hours_end_common',
+        'occupancy_hours_start_other', 'occupancy_hours_end_other',
+    ]
+    for spec in occupancy_specs:
+        if getattr(old_spec, spec, None) != getattr(new_spec, spec, None):
+            return True
+
+    # Lighting specs (affect internal heat from lighting in cache)
+    for attr in dir(old_spec):
+        if attr.startswith('lighting_'):
+            if getattr(old_spec, attr, None) != getattr(new_spec, attr, None):
+                return True
+
+    # Ventilation specs (affect ventilation_air_supply_rate in cache)
+    ventilation_specs = [
+        'ventilation_system1_airflow',
+        'ventilation_system1_heat_recovery_efficiency',
+    ]
+    for spec in ventilation_specs:
+        if getattr(old_spec, spec, None) != getattr(new_spec, spec, None):
+            return True
+
+    # If we got here, no climate-affecting changes were found
+    return False
+
+
+def reset_climate_cache(climate_sim: ClimateSimulation) -> None:
+    """
+    Reset the climate simulation's intermediate cache while preserving expensive calculations.
+
+    This function clears the static cache built in _populate_cache() and removes lazy-computed
+    columns from _hours that depend on the now-stale dependent simulations. However, it preserves
+    the core hour-by-hour calculated values that feed into the iterative climate loop, which are
+    expensive to recompute.
+
+    The core values preserved are those directly computed in _calculate_hour_row() and are
+    independent of external state changes. Lazy columns (like internal_heat, solar_heat_opaque, etc.)
+    that depend on geometry/occupancy/lighting/ventilation will be recomputed when accessed.
+
+    This is useful when you want to update dependent simulations (geometry, occupancy,
+    lighting, ventilation) and have their results flow through without re-running the
+    expensive iterative climate loop.
+
+    Args:
+        climate_sim: The ClimateSimulation instance to reset
+    """
+    # Clear the static cache (will be rebuilt on next access if needed)
+    if hasattr(climate_sim, '_cache'):
+        del climate_sim._cache
+
+    # Clear lazily-computed properties so they'll be recomputed when accessed
+    lazy_properties = [
+        '_epw_data',
+        '_epw_metadata',
+        '_solar_irradiation',
+        '_heat_infiltration_window',
+        '_theta_st_partial',
+    ]
+    for prop in lazy_properties:
+        if hasattr(climate_sim, prop):
+            setattr(climate_sim, prop, None)
+
+    # Remove lazy-computed columns from _hours that depend on now-stale simulations.
+    # These will be recomputed when their properties are accessed.
+    # We preserve only the core hour-by-hour calculated values from _calculate_hour_row().
+    lazy_columns = [
+        # Set point temperatures - depend on spec
+        'min_temp_set_point', 'max_temp_set_point',
+        # EPW data derived columns - can be reloaded
+        'wind_speed', 'supply_air_temp', 'dry_bulb_temp',
+        'relative_humidity', 'wet_bulb_temp',
+        # Internal heat columns - depend on occupancy/lighting
+        'internal_heat_from_occupants', 'internal_heat_from_appliances',
+        'internal_heat_from_lighting', 'internal_heat', 'internal_heat_adjusted',
+        # Solar heat - depends on geometry
+        'solar_heat_opaque',
+        # RSE - aerodynamic resistance, depends on wind_speed (which is recomputed)
+        'rse',
+        # Thermal demand derivatives - derived from heating_cooling_demand
+        'heating_need', 'cooling_need',
+        # Theta_m - derived property
+        'theta_m',
+        # Intermediate columns set by properties, not core calculations
+        'air_flow_base',
+    ]
+
+    for col in lazy_columns:
+        if col in climate_sim._hours.columns:
+            climate_sim._hours.drop(columns=[col], inplace=True)
+
+    # Importantly, we preserve these core hour-by-hour calculated values from _calculate_hour_row():
+    # - night_ventilation_enabled
+    # - air_flow_dependent, air_flow, heat_transmission_by_ventilation
+    # - htr_1, htr_2, htr_3
+    # - solar_heat_windows, solar_heat, m, temp_st, m_tot
+    # - building_thermal_mass, building_thermal_mass_t, internal_surface_temp
+    # - air_free_temp, air_set_temp
+    # - air_free_temp_hc_0, air_free_temp_hc_10
+    # - building_thermal_mass_hc_actual, building_thermal_mass_hc_actual_t
+    # - air_free_temp_hc_actual, heating_cooling_demand

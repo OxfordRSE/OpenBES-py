@@ -11,7 +11,7 @@ from pandas import DataFrame, read_csv, Series, MultiIndex, concat, Index
 from pydantic import BaseModel, ConfigDict
 
 from .base import EnergyUseSimulation, HOURS_DF
-from .climate import ClimateSimulation
+from .climate import ClimateSimulation, specs_require_climate_rerun, reset_climate_cache
 from .cooling import CoolingSimulation, CoolingSystemSimulation
 from .geometry import BuildingGeometry
 from .heating import HeatingSimulation, HeatingSystemSimulation
@@ -1310,3 +1310,107 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 log=self.log,
             )
         return self._full_case_report
+
+    def update_spec(self, new_spec: OpenBESSpecification) -> None:
+        """
+        Update the building energy simulation with a new specification.
+
+        This method intelligently updates the simulation based on which specs have changed:
+        - If climate-affecting specs changed, resets the climate cache and rebuilds dependent simulations
+        - If only non-climate specs changed, rebuilds only the affected simulations
+        - Preserves the expensive hour-by-hour climate calculations when the climate spec hasn't changed
+
+        The climate simulation is expensive (hour-by-hour iterative calculations), so we only
+        rerun it if absolutely necessary (i.e., if specs affecting climate have changed).
+        Other simulations (heating, cooling, ventilation, lighting, etc.) are always recreated
+        to reflect the new specification.
+
+        Args:
+            new_spec: The new OpenBESSpecification to apply
+        """
+        # Check if climate needs to be rerun
+        climate_needs_rerun = specs_require_climate_rerun(self.spec, new_spec)
+
+        # Update the spec reference
+        self.spec = new_spec
+
+        if climate_needs_rerun:
+            # Climate needs to be completely recalculated
+            logger.info("Climate-affecting specs changed. Recalculating climate simulation...")
+
+            # Recreate all dependent simulations from scratch
+            self.geometry = BuildingGeometry(spec=self.spec)
+            self.occupancy = OccupationSimulation(
+                spec=self.spec, geometry=self.geometry
+            )
+            self.lighting = LightingSimulation(
+                spec=self.spec, occupancy=self.occupancy
+            )
+            self.ventilation = VentilationSimulation(
+                spec=self.spec, geometry=self.geometry, occupancy=self.occupancy
+            )
+
+            # Recreate the climate simulation
+            self.climate = ClimateSimulation(
+                self.spec,
+                geometry=self.geometry,
+                occupancy=self.occupancy,
+                lighting=self.lighting,
+                ventilation=self.ventilation,
+            )
+        else:
+            # Climate is unchanged - preserve the expensive calculations
+            logger.info("Climate specs unchanged. Reusing cached climate calculations...")
+
+            # Reset climate cache to clear intermediate computations but preserve hour-by-hour results
+            reset_climate_cache(self.climate)
+
+            # Update climate's spec reference
+            self.climate.spec = new_spec
+
+            # Recreate geometry, occupancy, lighting, and ventilation with new specs
+            self.geometry = BuildingGeometry(spec=self.spec)
+            self.occupancy = OccupationSimulation(
+                spec=self.spec, geometry=self.geometry
+            )
+            self.lighting = LightingSimulation(
+                spec=self.spec, occupancy=self.occupancy
+            )
+            self.ventilation = VentilationSimulation(
+                spec=self.spec, geometry=self.geometry, occupancy=self.occupancy
+            )
+
+            # Update climate's dependent simulations
+            self.climate.geometry = self.geometry
+            self.climate.occupancy = self.occupancy
+            self.climate.lighting = self.lighting
+            self.climate.ventilation = self.ventilation
+
+        # Always recreate heating and cooling simulations as they depend on climate
+        self.cooling = CoolingSimulation(
+            self.spec,
+            geometry=self.geometry,
+            occupancy=self.occupancy,
+            lighting=self.lighting,
+            ventilation=self.ventilation,
+            climate=self.climate,
+        )
+        self.heating = HeatingSimulation(
+            self.spec,
+            geometry=self.geometry,
+            occupancy=self.occupancy,
+            lighting=self.lighting,
+            ventilation=self.ventilation,
+            climate=self.climate,
+        )
+
+        # Recreate hot water simulation
+        self.hot_water = HotWaterSimulation(self.spec)
+
+        # Reset cached output reports since the simulation has changed
+        self._outputs = None
+        self._retrofit_report = None
+        self._full_case_report = None
+        self._timestamp = None
+
+        logger.info("Building energy simulation updated with new specification.")
