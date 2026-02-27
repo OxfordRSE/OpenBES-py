@@ -9,13 +9,20 @@ from urllib.request import urlopen
 from pandas import DataFrame, Series
 from pvlib.iotools import read_epw
 
+from .base import HOURS_DF, SimulationError
+from .reporting import find_hour_peak, output_precision, to_output_csv
 from .solar_irradiation import SolarIrradiationSimulation
+from ..schemas import LocationSimulationOutput
 from ..types import OpenBESSpecification
 
 
 def get_available_epw_files() -> list[str]:
     climate_data_dir = files("openbes.simulations.climate_data")
     return [f"openbes://{f.name}" for f in climate_data_dir.iterdir() if f.name.endswith(".epw")]
+
+
+class LocationSimulationError(SimulationError):
+    """Raised when location report generation fails."""
 
 
 class LocationSimulation:
@@ -113,3 +120,87 @@ class LocationSimulation:
                 epw_metadata=self.epw_metadata,
             )
         return self._solar_irradiation
+
+    @property
+    def _hourly_dry_bulb_temp(self) -> Series:
+        return Series(self.dry_bulb_temp.values, index=HOURS_DF.index)
+
+    @property
+    def _hourly_ghi(self) -> Series:
+        return Series(
+            self.solar_irradiation.ghi.values,
+            index=HOURS_DF.index,
+            name="global_horizontal_irradiance",
+        )
+
+    @property
+    def report(self) -> LocationSimulationOutput:
+        try:
+            precision = output_precision(self.spec)
+            quantiles = [
+                0,
+                0.004,
+                0.01,
+                0.02,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9,
+                0.95,
+                0.99,
+                0.996,
+                1,
+            ]
+            base_temperature = 18.0
+            max_daily_t = self._hourly_dry_bulb_temp.groupby(["month", "day"]).max()
+            min_daily_t = self._hourly_dry_bulb_temp.groupby(["month", "day"]).min()
+            avg_daily_t = (max_daily_t + min_daily_t) / 2
+            heating_dd = base_temperature - avg_daily_t
+            degree_days = DataFrame(
+                {
+                    "Heating Degree Days": heating_dd.clip(lower=0),
+                    "Cooling Degree Days": (-heating_dd).clip(lower=0),
+                },
+                index=avg_daily_t.index,
+            )
+            solstice_mask = (
+                self._hourly_ghi.index.get_level_values("month").isin([6, 12])
+            ) & (self._hourly_ghi.index.get_level_values("day").isin([172, 355]))
+            ghi = self._hourly_ghi.loc[solstice_mask].reset_index()
+            ghi["month"] = ghi["month"].map({6: "June 21", 12: "December 21"})
+            ghi = ghi.drop(columns="day").pivot(
+                index="hour", columns="month", values="global_horizontal_irradiance"
+            )
+            annual_radiation = (
+                (self.solar_irradiation.solar_irradiation.sum(axis="rows") / 1000)
+                .rename(index=lambda x: x.value)
+                .rename_axis("Compass point")
+                .to_frame(name="Annual incident solar radiation (kWh/m2)")
+            )
+            quantiles_df = (
+                self._hourly_dry_bulb_temp.quantile(quantiles)
+                .rename_axis("Quantile")
+                .to_frame(name="Temperature (C)")
+            )
+            return LocationSimulationOutput(
+                altitude=self.epw_metadata["altitude"],
+                solstice_ghr_csv=to_output_csv(ghi, precision),
+                max_outdoor_temperature=find_hour_peak(
+                    self._hourly_dry_bulb_temp, max, precision
+                ),
+                min_outdoor_temperature=find_hour_peak(
+                    self._hourly_dry_bulb_temp, min, precision
+                ),
+                climate_quantiles_csv=to_output_csv(quantiles_df, precision),
+                degree_days_csv=to_output_csv(degree_days, precision),
+                annual_incident_solar_radiation_csv=to_output_csv(
+                    annual_radiation, precision
+                ),
+            )
+        except Exception as exc:
+            raise LocationSimulationError("Failed to generate location report") from exc
