@@ -1,11 +1,16 @@
 from .. import logging
 from pandas import DataFrame
 
-from .base import EnergyUseSimulation
+from .base import EnergyUseSimulation, SimulationError
 from .occupancy import OccupationSimulation
+from ..schemas import HotWaterSimulationOutput
 from ..types import OpenBESSpecification
 
 logger = logging.getLogger(__name__)
+
+
+class HotWaterSimulationError(SimulationError):
+    """Raised when hot water report generation fails."""
 
 
 class HotWaterSimulation(EnergyUseSimulation):
@@ -82,3 +87,15 @@ class HotWaterSimulation(EnergyUseSimulation):
                 hourly_kWh
             ] * self.occupancy.is_occupied
         return self._energy_use
+
+    @property
+    def report(self) -> HotWaterSimulationOutput:
+        try:
+            area = self.occupancy.geometry.conditioned_floor_area
+            return HotWaterSimulationOutput(
+                hot_water_demand=self.energy_use.sum().sum() / area if area else None
+            )
+        except Exception as exc:
+            raise HotWaterSimulationError(
+                "Failed to generate hot water report"
+            ) from exc
