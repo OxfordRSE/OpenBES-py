@@ -1,15 +1,17 @@
 from math import atan
 from typing import Tuple
 from numpy import nan, select, array, maximum, isnan, logical_not, radians, where, outer
-from pandas import DataFrame, Series
+from pandas import DataFrame, Series, MultiIndex, Index, concat
 import os
 
-from .base import HourlySimulation
+from .base import HourlySimulation, SimulationError
 from .geometry import BuildingGeometry, THERMAL_BREAK_TRANSMITTANCE
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
 from .location import LocationSimulation
+from .reporting import MONTH_NAMES, find_hour_peak, output_precision, to_output_csv
 from .ventilation import VentilationSimulation
+from ..schemas import ClimateSimulationOutput, SpaceThermalDemandResult
 from ..types import (
     OpenBESSpecification,
     TERRAINS,
@@ -83,6 +85,10 @@ TERRAIN_VSITE_BY_VMETRO = {
 }
 
 TERRAIN_VSITE_BY_VMETRO_BY_VALUE = {k.value: v for k, v in TERRAIN_VSITE_BY_VMETRO.items()}
+
+
+class ClimateSimulationError(SimulationError):
+    """Raised when climate report generation fails."""
 
 
 @profile_or_jit(jit_kwargs={"nopython": True})
@@ -1294,6 +1300,268 @@ class ClimateSimulation(HourlySimulation):
         This is somewhat distinct from `self.cooling_demand` and used in slightly different places.
         """
         return self.zonal_heating_cooling_demand.clip(None, 0)
+
+    @property
+    def months_index(self) -> Index:
+        return Index(name="month", data=MONTH_NAMES)
+
+    @property
+    def quantiles(self) -> list[float]:
+        return [
+            0,
+            0.004,
+            0.01,
+            0.02,
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+            0.95,
+            0.99,
+            0.996,
+            1,
+        ]
+
+    @property
+    def _mdh_index(self) -> MultiIndex:
+        idx = self._hours.index.to_frame().reset_index(drop=True)
+        idx["day"] = idx["day"] - idx.groupby("month")["day"].transform("min") + 1
+        return MultiIndex.from_frame(idx)
+
+    def _space_thermal_demand_result(
+        self, zonal_demand: Series, raw_demand: Series
+    ) -> SpaceThermalDemandResult:
+        precision = output_precision(self.spec)
+        quantiles = (raw_demand * self.geometry.conditioned_floor_area / 1000).quantile(
+            self.quantiles
+        )
+        return SpaceThermalDemandResult(
+            demand_total=zonal_demand.sum(),
+            demand_scaled=zonal_demand.sum() / self.geometry.conditioned_floor_area,
+            demand_on_all_year=raw_demand.sum(),
+            load_csv=to_output_csv(
+                zonal_demand.groupby("month")
+                .sum()
+                .set_axis(self.months_index)
+                .rename("Demand (kWh)"),
+                precision,
+            ),
+            load_duraction_csv=to_output_csv(
+                quantiles.rename_axis("Quantile").to_frame(name="kW"),
+                precision,
+            ),
+        )
+
+    @property
+    def overheating_running_average(self) -> Series:
+        day_means = self.dry_bulb_temp.groupby(["month", "day"]).mean()
+        weights = array([1, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2])
+        W = weights.sum()
+        trm_daily = (
+            concat(
+                [day_means.shift(i) * w for i, w in enumerate(weights)],
+                axis=1,
+            ).sum(axis=1)
+            / W
+        ).clip(upper=30)
+        trm_daily.iloc[:5] = trm_daily.iloc[6]
+        trm_hourly = trm_daily.reindex(self.dry_bulb_temp.groupby(["month", "day"]).mean().index)
+        trm_hourly = trm_hourly.repeat(24)
+        trm_hourly.index = self.dry_bulb_temp.index[: len(trm_hourly)]
+        trm_hourly.name = "Running mean outdoor temperature (C)"
+        return trm_hourly
+
+    @property
+    def overheating_limits(self) -> DataFrame:
+        outdoor_running_mean_temp = Series([10.0, 20.0, 30.0])
+        limits = DataFrame()
+        limits["Outdoor running mean temp (C)"] = outdoor_running_mean_temp
+        limits["Category I min (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 - 3
+        limits["Category I max (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 + 2
+        limits["Category II min (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 - 4
+        limits["Category II max (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 + 3
+        limits["Category III min (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 - 5
+        limits["Category III max (C)"] = outdoor_running_mean_temp * 0.33 + 18.8 + 4
+        return limits
+
+    @property
+    def solar_heat_gains(self) -> DataFrame:
+        opaque_gains_by_orientation = (
+            (
+                self.geometry.opaque_areas.to_frame("opaque_area")
+                .groupby("compass_point")
+                .sum()
+                .apply(self.get_solar_heat_opaque, axis=1)
+            )
+            .transpose()
+            .sum()
+        )
+        opaque_gains_by_orientation["Horizontal"] = self.solar_heat_roof.sum()
+        ref_temp = 22.0
+        prev_air_free_temp = self.air_free_temp.shift(1).fillna(17.4)
+        winter = prev_air_free_temp < ref_temp
+        window_gains_by_orientation = self._solar_heat_windows["winter"].where(
+            winter, self._solar_heat_windows["summer"]
+        )
+        window_gains_by_orientation = window_gains_by_orientation.reindex(
+            columns=list(COMPASS_POINTS), fill_value=0
+        )
+        window_gains_by_orientation["Horizontal"] = 0.0
+        return (
+            DataFrame(
+                {
+                    "Opaque gains (kWh)": opaque_gains_by_orientation,
+                    "Window gains (kWh)": window_gains_by_orientation.sum(),
+                }
+            )
+            / 1000
+        )
+
+    @property
+    def report(self) -> ClimateSimulationOutput:
+        try:
+            precision = output_precision(self.spec)
+            occupation_count = self.occupancy.is_occupied.sum()
+            summer_mask = self.air_free_temp.index.get_level_values("month").isin([6, 7, 8])
+            summer_occ = self.occupancy.is_occupied.loc[summer_mask]
+            summer_occ_count = summer_occ.sum()
+            summer_temp = self.air_free_temp.loc[summer_mask]
+            heat_exchange = DataFrame(
+                {
+                    "Heat transfer (infiltration)": (
+                        self.heat_infiltration_window
+                        + (
+                            self.geometry.heat_infiltration_opaque
+                            / self.geometry.conditioned_floor_area
+                        )
+                    )
+                    * (self.air_set_temp - self.dry_bulb_temp)
+                    * -1,
+                    "Heat transfer (ventilation)": self.heat_transmission_by_ventilation
+                    * (self.air_set_temp - self.dry_bulb_temp)
+                    * -1,
+                    "Solar gains (opaque)": self.solar_heat_opaque
+                    / self.geometry.conditioned_floor_area,
+                    "Solar gains (glazing)": self.solar_heat_windows
+                    / self.geometry.conditioned_floor_area,
+                    "Heat from occupants": self.internal_heat_from_occupants,
+                    "Heat from appliances": self.internal_heat_from_appliances,
+                    "Heat from lighting": self.internal_heat_from_lighting,
+                }
+            ).groupby("month").sum().set_index(self.months_index) / 1000
+            space_thermal_demand = (
+                DataFrame(
+                    {
+                        "Heating demand (kWh/m2)": self.zonal_heating_demand.sum(axis="columns")
+                        / 1000,
+                        "Cooling demand (kWh/m2)": self.zonal_cooling_demand.sum(axis="columns")
+                        * -1
+                        / 1000,
+                    }
+                )
+                .groupby("month")
+                .sum()
+                .set_index(self.months_index)
+                / self.geometry.conditioned_floor_area
+            )
+            temp_df = DataFrame(index=self._hours.index)
+            temp_df["external_temperature_C"] = self.dry_bulb_temp
+            temp_df["internal_temperature_C"] = self.air_free_temp
+            temp_df.set_index(self._mdh_index, inplace=True)
+            geometry_by_orientation = DataFrame(
+                {
+                    "Opaque facade (m2)": (
+                        self.geometry.conditioned_facade_areas.groupby("compass_point").sum()
+                        - self.geometry.window_areas.groupby("compass_point").sum()
+                    ),
+                    "Windows (m2)": self.geometry.window_areas.groupby("compass_point").sum(),
+                }
+            )
+            geometry_by_orientation.loc["Horizontal"] = [
+                self.geometry.roof_projections.sum(),
+                0.0,
+            ]
+            return ClimateSimulationOutput(
+                external_internal_temperature_csv=to_output_csv(temp_df, precision),
+                max_indoor_temperature=find_hour_peak(self.air_free_temp, max, precision),
+                min_indoor_temperature=find_hour_peak(self.air_free_temp, min, precision),
+                mean_indoor_temperature=self.air_free_temp.mean(),
+                discomfort_hours_percent=(
+                    (
+                        occupation_count
+                        - (
+                            self.occupancy.is_occupied * self.air_free_temp
+                        )
+                        .between(18, 26, inclusive="neither")
+                        .sum()
+                    )
+                    / occupation_count
+                    * 100
+                    if occupation_count > 0
+                    else None
+                ),
+                discomfort_hours_percent_summer=(
+                    ((summer_temp * summer_occ) >= 26.0).sum() / summer_occ_count * 100
+                    if summer_occ_count > 0
+                    else None
+                ),
+                heat_exchange_breakdown_csv=to_output_csv(heat_exchange, precision),
+                space_thermal_demand_csv=to_output_csv(space_thermal_demand, precision),
+                infiltration_ach=(
+                    (
+                        self.air_flow_dependent + self.spec.leakage_air_flow_independent
+                    )
+                    / self.spec.floor_to_ceiling_height
+                ).mean(),
+                natural_ach=(
+                    self.night_ventilation_enabled
+                    * self.spec.natural_ventilation_night
+                    / self.spec.floor_to_ceiling_height
+                ).mean(),
+                heating_demand=self._space_thermal_demand_result(
+                    zonal_demand=self.zonal_heating_demand.sum(axis="columns") / 1000,
+                    raw_demand=self.heating_demand / 1000,
+                ),
+                cooling_demand=self._space_thermal_demand_result(
+                    zonal_demand=self.zonal_cooling_demand.sum(axis="columns") / 1000 * -1,
+                    raw_demand=self.cooling_demand / 1000,
+                ),
+                running_average_outside_temp_csv=to_output_csv(
+                    self.overheating_running_average, precision
+                ),
+                overheating_limits_csv=to_output_csv(
+                    self.overheating_limits, precision, index=False
+                ),
+                solar_heat_gains_csv=to_output_csv(
+                    self.solar_heat_gains.rename(
+                        index=lambda x: x.value if isinstance(x, COMPASS_POINTS) else x
+                    ).rename_axis("Compass point"),
+                    precision,
+                ),
+                window_transmissivity_coefficient_csv=to_output_csv(
+                    (
+                        (
+                            self.solar_heat_gains["Window gains (kWh)"]
+                            / geometry_by_orientation["Windows (m2)"]
+                        )
+                        / self.solar_irradiation.solar_irradiation.sum(axis="rows")
+                        * 1000
+                    )
+                    .drop(index="Horizontal")
+                    .rename(index=lambda x: x.value if isinstance(x, COMPASS_POINTS) else x)
+                    .rename_axis("Compass point")
+                    .to_frame(name="Window transmissivity coefficient")
+                    .fillna(0),
+                    precision,
+                ),
+            )
+        except Exception as exc:
+            raise ClimateSimulationError("Failed to generate climate report") from exc
 
 
 def specs_require_climate_rerun(old_spec: OpenBESSpecification, new_spec: OpenBESSpecification) -> bool:
