@@ -2,6 +2,7 @@ import unittest
 
 from openbes import OpenBESSpecification, BuildingEnergySimulation
 from openbes.types import OpenBESParameters, MONTHS, ENERGY_SOURCES
+from openbes.simulations.building_energy import BuildingEnergySimulationError
 
 
 class MiscellaneousUtilities(unittest.TestCase):
@@ -24,6 +25,16 @@ class MiscellaneousUtilities(unittest.TestCase):
                                     parameters=params)
         self.assertTrue(isinstance(spec.parameters, OpenBESParameters))
         self.assertEqual(spec.parameters.cooling_system2_number, 10)
+
+    def test_building_simulation_empty_schema_fails_gracefully(self):
+        with self.assertRaises(BuildingEnergySimulationError) as exc:
+            BuildingEnergySimulation(schema={})
+        self.assertIn("Missing required fields", str(exc.exception))
+
+    def test_building_simulation_empty_spec_dict_fails_gracefully(self):
+        with self.assertRaises(BuildingEnergySimulationError) as exc:
+            BuildingEnergySimulation(spec={})
+        self.assertIn("Missing required fields", str(exc.exception))
 
     def test_javascript_call(self):
         obj = {

@@ -101,8 +101,8 @@ class Building(BaseModel):
     height: float | None = Field(
         default=None, description="Height of the building in m."
     )
-    length: float = Field(..., description="Length of the building in m.")
-    width: float = Field(..., description="Width of the building in m.")
+    length: float | None = Field(default=None, description="Length of the building in m.")
+    width: float | None = Field(default=None, description="Width of the building in m.")
     name: str | None = Field(default=None, description="Name of the building")
     type: str | None = Field(
         default=None, description="Type of building (e.g. Office, School)."
@@ -184,16 +184,18 @@ class Duration(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    start: int = Field(..., description="Start hour (1-24).")
-    end: int = Field(..., description="End hour (1-24).")
+    start: int | None = Field(default=None, description="Start hour (1-24).")
+    end: int | None = Field(default=None, description="End hour (1-24).")
 
 
 class Zone(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    name: str = Field(..., description="Zone name")
-    areas: list[float] = Field(..., description="Zone area for each floor in m2")
+    name: str | None = Field(default=None, description="Zone name")
+    areas: list[float] | None = Field(
+        default=None, description="Zone area for each floor in m2"
+    )
     conditioned: bool | None = Field(
         default=True, description="Whether this zone uses HVAC."
     )
@@ -235,8 +237,8 @@ class Range(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    min: float = Field(..., description="Minimum value of the range.")
-    max: float = Field(..., description="Maximum value of the range.")
+    min: float | None = Field(default=None, description="Minimum value of the range.")
+    max: float | None = Field(default=None, description="Maximum value of the range.")
 
 
 class Consumption(BaseModel):
@@ -262,16 +264,20 @@ class HeatingSystem(BaseModel):
         extra="forbid",
     )
     type: HEATINGSYSTEMTYPES | None = None
-    energy_source: ENERGYSOURCES = Field(
-        ..., description="Energy source for this heating system."
+    energy_source: ENERGYSOURCES | None = Field(
+        default=None, description="Energy source for this heating system."
     )
-    efficiency_cop: float = Field(..., description="COP or efficiency (if applicable).")
+    efficiency_cop: float | None = Field(
+        default=None, description="COP or efficiency (if applicable)."
+    )
     min_demand: float | None = Field(
         default=0.0, description="Minimum demand threshold."
     )
-    nominal_capacity: float = Field(..., description="Nominal capacity.")
+    nominal_capacity: float | None = Field(default=None, description="Nominal capacity.")
     count: int | None = Field(default=1, description="Number of identical units.")
-    active_hours: Duration = Field(..., description="Times the system is on each day.")
+    active_hours: Duration | None = Field(
+        default=None, description="Times the system is on each day."
+    )
     simultaneity: ZoneSimultaneity | None = None
 
 
@@ -280,15 +286,19 @@ class CoolingSystem(BaseModel):
         extra="forbid",
     )
     type: COOLINGSYSTEMTYPES | None = None
-    energy_source: ENERGYSOURCES
-    efficiency_ratio: float = Field(
-        ..., description="EER/COP or energy efficiency ratio."
+    energy_source: ENERGYSOURCES | None = None
+    efficiency_ratio: float | None = Field(
+        default=None, description="EER/COP or energy efficiency ratio."
     )
     min_demand: float | None = Field(default=None, description="Minimum demand.")
-    nominal_capacity: float = Field(..., description="Nominal capacity.")
-    sensible_nominal_capacity: float = Field(..., description="Sensible capacity.")
+    nominal_capacity: float | None = Field(default=None, description="Nominal capacity.")
+    sensible_nominal_capacity: float | None = Field(
+        default=None, description="Sensible capacity."
+    )
     count: int | None = Field(default=1, description="Number of identical units.")
-    active_hours: Duration = Field(..., description="Times the system is on each day.")
+    active_hours: Duration | None = Field(
+        default=None, description="Times the system is on each day."
+    )
     simultaneity: ZoneSimultaneity | None = None
 
 
@@ -297,8 +307,8 @@ class VentilationSystem(BaseModel):
         extra="forbid",
     )
     type: float | None = Field(default=None, description="Optional numeric type code.")
-    energy_source: ENERGYSOURCES
-    airflow: float = Field(..., description="Airflow (m3/s).")
+    energy_source: ENERGYSOURCES | None = None
+    airflow: float | None = Field(default=None, description="Airflow (m3/s).")
     heat_recovery_efficiency: float | None = Field(
         default=None, description="Heat recovery efficiency."
     )
@@ -336,17 +346,21 @@ class HotWaterSystem(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    demand: Consumption = Field(..., description="Hot water demand (litres).")
-    reference_temperature: float = Field(..., description="Reference temperature (°C).")
-    supply_temperature: float = Field(..., description="Supply temperature (°C).")
-    energy_source: ENERGYSOURCES = Field(
-        ..., description="Energy source for this hot water system."
+    demand: Consumption | None = Field(default=None, description="Hot water demand (litres).")
+    reference_temperature: float | None = Field(
+        default=None, description="Reference temperature (°C)."
     )
-    efficiency_cop: float = Field(
-        ..., description="Efficiency of the hot water system."
+    supply_temperature: float | None = Field(
+        default=None, description="Supply temperature (°C)."
     )
-    nominal_capacity: float = Field(
-        ..., description="Nominal capacity of the hot water system."
+    energy_source: ENERGYSOURCES | None = Field(
+        default=None, description="Energy source for this hot water system."
+    )
+    efficiency_cop: float | None = Field(
+        default=None, description="Efficiency of the hot water system."
+    )
+    nominal_capacity: float | None = Field(
+        default=None, description="Nominal capacity of the hot water system."
     )
     type: float | None = Field(default=None, description="[UNUSED]")
 
@@ -355,8 +369,8 @@ class Courtyard(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    length: float = Field(..., description="Courtyard length (m).")
-    width: float = Field(..., description="Courtyard width (m).")
+    length: float | None = Field(default=None, description="Courtyard length (m).")
+    width: float | None = Field(default=None, description="Courtyard width (m).")
     count: int | None = Field(
         default=1, description="How many courtyards of this geometry exist."
     )
@@ -366,7 +380,7 @@ class OpenCourtyard(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    depth: float = Field(..., description="Courtyard depth (m).")
+    depth: float | None = Field(default=None, description="Courtyard depth (m).")
     count: int | None = Field(
         default=1, description="How many courtyards of this geometry exist."
     )
@@ -386,8 +400,8 @@ class HeatCapacity(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    Am: float = Field(..., description="Mass factor??????")
-    Cm: float = Field(..., description="Capacitance??????")
+    Am: float | None = Field(default=None, description="Mass factor??????")
+    Cm: float | None = Field(default=None, description="Capacitance??????")
 
 
 class OpenBESParameters(BaseModel):
@@ -772,22 +786,24 @@ class LightingSystem(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    tech: LightingSystemTech
+    tech: LightingSystemTech | None = None
     ballast: Ballast | None = Field(default=None, description="Ballast type.")
-    lamp_number: int = Field(..., description="Number of lamps.")
-    lamp_power: float = Field(..., description="Lamp power (W).")
-    luminary_number: int = Field(..., description="Number of luminaires.")
+    lamp_number: int | None = Field(default=None, description="Number of lamps.")
+    lamp_power: float | None = Field(default=None, description="Lamp power (W).")
+    luminary_number: int | None = Field(
+        default=None, description="Number of luminaires."
+    )
     name: str | None = Field(
         default=None, description="Optional human label for the system."
     )
-    active_hours: Duration = Field(
-        ..., description="Times the lighting is on each day."
+    active_hours: Duration | None = Field(
+        default=None, description="Times the lighting is on each day."
     )
     count: int | None = Field(
         default=1, description="Count of similar lighting systems aggregated together."
     )
-    simultaneity_factor: float = Field(
-        ..., description="Simultaneity factor (fraction)."
+    simultaneity_factor: float | None = Field(
+        default=None, description="Simultaneity factor (fraction)."
     )
 
 
@@ -799,8 +815,10 @@ class OpenBESSpecification(BaseModel):
         default=None,
         description="Collapsed parameters object. Use this to hold heating/cooling/ventilation/lighting/courtyards arrays.",
     )
-    building: Building = Field(..., description="Building general information.")
-    zones: list[Zone] = Field(..., description="Zones in the building.")
+    building: Building | None = Field(
+        default=None, description="Building general information."
+    )
+    zones: list[Zone] | None = Field(default=None, description="Zones in the building.")
     occupation_schedule: OccupationSchedule | None = Field(
         default=None, description="Occupation schedule for the building."
     )
@@ -836,7 +854,7 @@ class OpenBESSpecification(BaseModel):
         description="Amount of biomass pellets consumed by the building. [UNUSED]",
     )
     building_standby_electricity_consumption: Consumption | None = Field(
-        default_factory=lambda: Consumption.model_validate(0.0),
+        default_factory=Consumption,
         description="Electrical standby load for the building.",
     )
     diesel_consumption: Consumption | None = Field(
@@ -898,8 +916,8 @@ class OpenBESSpecification(BaseModel):
         default=None,
         description="Maximum occupancy of the building in number of people.",
     )
-    meteorological_file_path: METEOROLOGICALFILE = Field(
-        ..., description="Meteorological filename or identifier."
+    meteorological_file_path: METEOROLOGICALFILE | None = Field(
+        default=None, description="Meteorological filename or identifier."
     )
     natural_ventilation_night: float | None = Field(
         default=None, description="Night-time natural ventilation rate."
@@ -977,7 +995,7 @@ class OpenBESCase(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
-    inputs: OpenBESSpecification
+    inputs: OpenBESSpecification | None = None
     outputs: OpenBESOutput | None = None
     log: list[str] | None = Field(
         default=None, description="Log output from the simulation run."

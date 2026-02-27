@@ -13,8 +13,10 @@ from typing import Any, List, Tuple, Dict
 
 
 from openbes.schemas import (
+    Building,
     CoolingSystem,
     HeatingSystem,
+    OpenBESParametersV2,
     VentilationSystem,
 )
 from openbes.schemas.conversion.toml_to_json import monthly_average_to_consumption
@@ -61,6 +63,11 @@ def json_to_toml(
         spec = OpenBESSpecificationV2(**json.loads(spec))
     elif isinstance(spec, dict):
         spec = OpenBESSpecificationV2(**spec)
+    parameters = spec.parameters or OpenBESParametersV2()
+    building = spec.building or Building()
+    window_optical_coefficients = parameters.window_angular_correction_factors or [
+        None
+    ] * 5
 
     def annual_consumption(consumption: Consumption):
         if consumption is None:
@@ -330,8 +337,8 @@ def json_to_toml(
             for o_code, o_name in orientations:
                 value = ""
                 key = f"i.window_number_{floor}_{o_code}1"
-                if spec.building and spec.building.window_counts:
-                    window_count = dict(spec.building.window_counts).get(o_name, [])
+                if building.window_counts:
+                    window_count = dict(building.window_counts).get(o_name, [])
                     if len(window_count) >= f:
                         value = window_count[f - 1] or ""
                 out[key] = value
@@ -385,9 +392,9 @@ def json_to_toml(
         "d.advanced_heat_capacity_am": spec.heat_capacity.Am
         if hc_class == "Custom Value"
         else "",
-        "d.altitude": spec.parameters.altitude or "",
-        "d.appliance_on_off": 1 if spec.parameters.include_appliances else 0,
-        "d.cooling_load_factor": spec.parameters.cooling_load_factor or "",
+        "d.altitude": parameters.altitude or "",
+        "d.appliance_on_off": 1 if parameters.include_appliances else 0,
+        "d.cooling_load_factor": parameters.cooling_load_factor or "",
         "d.cooling_system1_min_demand": spec.cooling_systems[0].min_demand
         if _len(spec.cooling_systems) >= 1
         else "",
@@ -395,28 +402,28 @@ def json_to_toml(
             spec.cooling_systems[1] if _len(spec.cooling_systems) >= 2 else None, n=2
         ),
         **courtyards,
-        "d.density_of_air": spec.parameters.density_of_air or "",
-        "d.facade_absorption_coefficient": spec.parameters.facade_absorption_coefficient
+        "d.density_of_air": parameters.density_of_air or "",
+        "d.facade_absorption_coefficient": parameters.facade_absorption_coefficient
         or "",
-        "d.facade_correction_factor": spec.parameters.facade_correction_factor or "",
-        "d.facade_emissivity": spec.parameters.facade_emissivity or "",
-        "d.floor_correction_factor": spec.parameters.floor_correction_factor or "",
-        "d.heat_capacity_correction_factor": spec.parameters.heat_capacity_correction_factor
+        "d.facade_correction_factor": parameters.facade_correction_factor or "",
+        "d.facade_emissivity": parameters.facade_emissivity or "",
+        "d.floor_correction_factor": parameters.floor_correction_factor or "",
+        "d.heat_capacity_correction_factor": parameters.heat_capacity_correction_factor
         or "",
-        "d.heat_capacity_joule": spec.parameters.heat_capacity_joule or "",
-        "d.heating_load_factor": spec.parameters.heating_load_factor or "",
+        "d.heat_capacity_joule": parameters.heat_capacity_joule or "",
+        "d.heating_load_factor": parameters.heating_load_factor or "",
         "d.heating_system1_min_demand": spec.heating_systems[0].min_demand
         if _len(spec.heating_systems) >= 1
         else "",
         **heating_system_to_toml(
             spec.heating_systems[1] if _len(spec.heating_systems) >= 2 else None, n=2
         ),
-        "d.infiltration_correction_factor": spec.parameters.infiltration_correction_factor
+        "d.infiltration_correction_factor": parameters.infiltration_correction_factor
         or "",
-        "d.leakage_air_flow_dependent": spec.parameters.leakage_air_flow_dependent
+        "d.leakage_air_flow_dependent": parameters.leakage_air_flow_dependent
         or "",
-        "d.lighting_on_off": 1 if spec.parameters.include_lighting else 0,
-        "d.nia_gba_ratio": spec.parameters.nia_gba_ratio or "",
+        "d.lighting_on_off": 1 if parameters.include_lighting else 0,
+        "d.nia_gba_ratio": parameters.nia_gba_ratio or "",
         **{
             f"d.occupancy_close_{zone_map[i]['default_name']}": zone_map[i][
                 "zone"
@@ -426,7 +433,7 @@ def json_to_toml(
             else ""
             for i in [3, 4]  # Last two zone occupancies are parameters
         },
-        "d.occupancy_on_off": 1 if spec.parameters.include_occupancy else 0,
+        "d.occupancy_on_off": 1 if parameters.include_occupancy else 0,
         **{
             f"d.occupancy_open_{zone_map[i]['default_name']}": zone_map[i][
                 "zone"
@@ -460,24 +467,22 @@ def json_to_toml(
         "d.open_courtyard_number_d1": spec.open_courtyards.left.count
         if spec.open_courtyards is not None and spec.open_courtyards.left is not None
         else 0,
-        "d.pressure_of_air": spec.parameters.pressure_of_air or "",
-        "d.roof_absorption_coefficient": spec.parameters.roof_absorption_coefficient
+        "d.pressure_of_air": parameters.pressure_of_air or "",
+        "d.roof_absorption_coefficient": parameters.roof_absorption_coefficient
         or "",
-        "d.roof_correction_factor": spec.parameters.roof_correction_factor or "",
-        "d.roof_emissivity": spec.parameters.roof_emissivity or "",
-        "d.shading_correction_factor": spec.parameters.shading_correction_factor or "",
-        "d.specific_heat_of_air": spec.parameters.specific_heat_of_air or "",
+        "d.roof_correction_factor": parameters.roof_correction_factor or "",
+        "d.roof_emissivity": parameters.roof_emissivity or "",
+        "d.shading_correction_factor": parameters.shading_correction_factor or "",
+        "d.specific_heat_of_air": parameters.specific_heat_of_air or "",
         **ventilation_system_to_toml(
             spec.ventilation_systems[1] if _len(spec.ventilation_systems) > 1 else None,
             n=2,
         ),
-        "d.view_factor_to_sky_facade": spec.parameters.view_factor_to_sky_facade or "",
-        "d.view_factor_to_sky_roof": spec.parameters.view_factor_to_sky_roof or "",
-        "d.window_correction_factor": spec.parameters.window_correction_factor or "",
+        "d.view_factor_to_sky_facade": parameters.view_factor_to_sky_facade or "",
+        "d.view_factor_to_sky_roof": parameters.view_factor_to_sky_roof or "",
+        "d.window_correction_factor": parameters.window_correction_factor or "",
         **{
-            f"d.window_optical_c{idx + 1}": spec.parameters.window_angular_correction_factors[
-                idx
-            ]
+            f"d.window_optical_c{idx + 1}": window_optical_coefficients[idx]
             or ""
             for idx in range(5)
         },
@@ -486,17 +491,17 @@ def json_to_toml(
         "i.biomass_annual": annual_consumption(spec.biomass_consumption) or "",
         "i.biomass_pellets_annual": annual_consumption(spec.biomass_pellets_consumption)
         or "",
-        "i.building_area": spec.building.area or "",
-        "i.building_height": spec.building.height or "",
-        "i.building_length": spec.building.length or "",
-        "i.building_name": spec.building.name or "",
+        "i.building_area": building.area or "",
+        "i.building_height": building.height or "",
+        "i.building_length": building.length or "",
+        "i.building_name": building.name or "",
         "i.building_standby_load": annual_consumption(
             spec.building_standby_electricity_consumption
         )
         / 12
         or "",
-        "i.building_type": spec.building.type or "",
-        "i.building_width": spec.building.width or "",
+        "i.building_type": building.type or "",
+        "i.building_width": building.width or "",
         **{
             f"i.condition_z{idx + 1}": get_zone_condition(idx)
             for idx in range(len(zone_map))
@@ -516,7 +521,7 @@ def json_to_toml(
         "i.energy_generated": annual_consumption(spec.energy_generated),
         "i.energy_used": annual_consumption(spec.energy_used),
         **get_zone_floor_areas("first", 1),
-        "i.floor_to_ceiling_height": spec.building.floor_to_ceiling_height or "",
+        "i.floor_to_ceiling_height": building.floor_to_ceiling_height or "",
         **get_zone_floor_areas("fourth", 4),
         **{
             f"i.gas_{month.lower()}": v
@@ -571,14 +576,14 @@ def json_to_toml(
                 3
             )  # Only first 3 zones have occupancy_open in spec, last two are handled above
         },
-        "i.orientation_angle": spec.building.orientation_angle or "",
+        "i.orientation_angle": building.orientation_angle or "",
         "i.other_electricity_usage": (
             annual_consumption(spec.other_electricity_consumption) or 0
         )
         / 12
         or "",
         "i.other_gas_usage": (annual_consumption(spec.other_gas_consumption) or 0) / 12,
-        "i.roof_angle": spec.building.roof_angle or "",
+        "i.roof_angle": building.roof_angle or "",
         **get_occupation_schedule(),
         **get_zone_floor_areas("second", 2),
         "i.setpoint_summer_day": (spec.setpoint_temperature_day.min or "")
@@ -593,33 +598,33 @@ def json_to_toml(
         "i.setpoint_winter_night": (spec.setpoint_temperature_night.max or "")
         if spec.setpoint_temperature_night
         else "",
-        "i.slab_thickness": spec.building.slab_thickness or "",
-        "i.solar_external_shading_summer": spec.building.solar_external_shading_summer
+        "i.slab_thickness": building.slab_thickness or "",
+        "i.solar_external_shading_summer": building.solar_external_shading_summer
         or "",
-        "i.solar_external_shading_winter": spec.building.solar_external_shading_winter
+        "i.solar_external_shading_winter": building.solar_external_shading_winter
         or "",
-        "i.terrain_class": spec.building.terrain_class or "",
+        "i.terrain_class": building.terrain_class or "",
         "i.thermal_bridge_facade_ground": "Yes"
-        if spec.building.thermal_bridge_facade_ground
+        if building.thermal_bridge_facade_ground
         else "No",
         "i.thermal_bridge_facade_intermediate": "Yes"
-        if spec.building.thermal_bridge_facade_intermediate
+        if building.thermal_bridge_facade_intermediate
         else "No",
         "i.thermal_bridge_facade_roof": "Yes"
-        if spec.building.thermal_bridge_facade_roof
+        if building.thermal_bridge_facade_roof
         else "No",
         "i.thermal_bridge_shading": "Yes"
-        if spec.building.thermal_bridge_shading
+        if building.thermal_bridge_shading
         else "No",
         "i.thermal_bridge_window": "Yes"
-        if spec.building.thermal_bridge_window
+        if building.thermal_bridge_window
         else "No",
         **get_zone_floor_areas("third", 3),
         "i.typical_occupation": spec.typical_occupation or "",
-        "i.uvalue_facade": spec.building.uvalue_facade or "",
-        "i.uvalue_floor": spec.building.uvalue_floor or "",
-        "i.uvalue_roof": spec.building.uvalue_roof or "",
-        "i.uvalue_window": spec.building.uvalue_window or "",
+        "i.uvalue_facade": building.uvalue_facade or "",
+        "i.uvalue_floor": building.uvalue_floor or "",
+        "i.uvalue_roof": building.uvalue_roof or "",
+        "i.uvalue_window": building.uvalue_window or "",
         **ventilation_system_to_toml(
             spec.ventilation_systems[0]
             if _len(spec.ventilation_systems) >= 1
@@ -627,10 +632,10 @@ def json_to_toml(
             n=1,
         ),
         **hot_water_systems_to_toml(),
-        "i.window_frame_factor": spec.building.window_frame_factor or "",
-        "i.window_gvalue": spec.building.window_gvalue or "",
-        "i.window_height": spec.building.window_height or "",
-        "i.window_length": spec.building.window_length or "",
+        "i.window_frame_factor": building.window_frame_factor or "",
+        "i.window_gvalue": building.window_gvalue or "",
+        "i.window_height": building.window_height or "",
+        "i.window_length": building.window_length or "",
         **get_window_counts(),
         **{
             f"i.zone_name_z{idx + 1}": zone_map[idx]["zone"].name

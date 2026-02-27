@@ -251,10 +251,6 @@
           "additionalProperties": false
         }
       },
-      "required": [
-        "length",
-        "width"
-      ],
       "additionalProperties": false
     },
     "Duration": {
@@ -269,10 +265,6 @@
           "description": "End hour (1-24)."
         }
       },
-      "required": [
-        "start",
-        "end"
-      ],
       "additionalProperties": false,
       "description": "Duration object representing a time period within a day. Systems come on at the beginning of their Start hour and switch off at the end of their End hour."
     },
@@ -301,10 +293,6 @@
           "$comment": "Mapped to e.g. occupancy_open_office + occupancy_close_office"
         }
       },
-      "required": [
-        "name",
-        "areas"
-      ],
       "additionalProperties": false
     },
     "ZoneSimultaneity": {
@@ -409,10 +397,6 @@
           "description": "Maximum value of the range."
         }
       },
-      "required": [
-        "min",
-        "max"
-      ],
       "additionalProperties": false,
       "description": "A numeric range with minimum and maximum values."
     },
@@ -508,12 +492,6 @@
           "$ref": "#/definitions/ZoneSimultaneity"
         }
       },
-      "required": [
-        "energy_source",
-        "efficiency_cop",
-        "active_hours",
-        "nominal_capacity"
-      ],
       "additionalProperties": false
     },
     "CoolingSystem": {
@@ -555,13 +533,6 @@
           "$ref": "#/definitions/ZoneSimultaneity"
         }
       },
-      "required": [
-        "energy_source",
-        "efficiency_ratio",
-        "active_hours",
-        "nominal_capacity",
-        "sensible_nominal_capacity"
-      ],
       "additionalProperties": false
     },
     "VentilationSystem": {
@@ -601,10 +572,6 @@
           }
         }
       },
-      "required": [
-        "energy_source",
-        "airflow"
-      ],
       "additionalProperties": false
     },
     "LightingSystem": {
@@ -653,14 +620,6 @@
           "description": "Simultaneity factor (fraction)."
         }
       },
-      "required": [
-        "tech",
-        "lamp_number",
-        "lamp_power",
-        "luminary_number",
-        "active_hours",
-        "simultaneity_factor"
-      ],
       "additionalProperties": false
     },
     "LightingSystemTech": {
@@ -712,14 +671,6 @@
           "description": "[UNUSED]"
         }
       },
-      "required": [
-        "demand",
-        "reference_temperature",
-        "supply_temperature",
-        "energy_source",
-        "efficiency_cop",
-        "nominal_capacity"
-      ],
       "additionalProperties": false
     },
     "Courtyard": {
@@ -740,10 +691,6 @@
           "default": 1
         }
       },
-      "required": [
-        "length",
-        "width"
-      ],
       "additionalProperties": false
     },
     "OpenCourtyard": {
@@ -760,9 +707,6 @@
           "default": 1
         }
       },
-      "required": [
-        "depth"
-      ],
       "additionalProperties": false
     },
     "OpenCourtyardMap": {
@@ -798,10 +742,6 @@
           "description": "Capacitance??????"
         }
       },
-      "required": [
-        "Am",
-        "Cm"
-      ],
       "additionalProperties": false
     },
     "OpenBESParameters": {
@@ -1150,12 +1090,7 @@
           "description": "Typical occupancy of the building in number of people."
         }
       },
-      "additionalProperties": false,
-      "required": [
-        "building",
-        "zones",
-        "meteorological_file_path"
-      ]
+      "additionalProperties": false
     },
     "SpaceThermalDemandResult": {
       "type": "object",
@@ -1632,8 +1567,5 @@
       "$ref": "#/definitions/OpenBESMetaData"
     }
   },
-  "required": [
-    "inputs"
-  ],
   "additionalProperties": false
 }

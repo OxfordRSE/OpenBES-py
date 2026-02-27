@@ -5,7 +5,7 @@ from copy import deepcopy
 from datetime import datetime, UTC
 from importlib.metadata import metadata
 from importlib.resources import files
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 
 from pandas import DataFrame, read_csv, Series, MultiIndex, concat, Index
 from pydantic import BaseModel, ConfigDict
@@ -116,9 +116,63 @@ class BuildingEnergySimulation(EnergyUseSimulation):
     ```
     """
 
+    _REQUIRED_SPEC_FIELDS = (
+        "building_length",
+        "building_width",
+        "meteorological_file_path",
+    )
+
+    @staticmethod
+    def _coerce_spec(
+        spec: OpenBESSpecification | dict[str, Any] | None,
+        schema: dict[str, Any] | None = None,
+    ) -> OpenBESSpecification:
+        if schema is not None:
+            if spec is not None:
+                raise BuildingEnergySimulationError(
+                    "Pass either `spec` or `schema`, not both."
+                )
+            spec = schema
+
+        if isinstance(spec, OpenBESSpecification):
+            return spec
+        if isinstance(spec, dict):
+            try:
+                return OpenBESSpecification(**spec)
+            except Exception as exc:
+                raise BuildingEnergySimulationError(
+                    "Invalid schema/spec mapping passed to BuildingEnergySimulation."
+                ) from exc
+        raise BuildingEnergySimulationError(
+            "BuildingEnergySimulation requires `spec` (or alias `schema`) as "
+            "an OpenBESSpecification or dict."
+        )
+
+    @classmethod
+    def _validate_required_spec_fields(cls, spec: OpenBESSpecification) -> None:
+        missing = [
+            field
+            for field in cls._REQUIRED_SPEC_FIELDS
+            if getattr(spec, field, None) in [None, ""]
+        ]
+        if missing:
+            raise BuildingEnergySimulationError(
+                "Cannot run simulation with empty or incomplete input. "
+                f"Missing required fields: {', '.join(missing)}."
+            )
+
+    @staticmethod
+    def _build_simulation(name: str, simulation_cls, *args, **kwargs):
+        try:
+            return simulation_cls(*args, **kwargs)
+        except Exception as exc:
+            raise BuildingEnergySimulationError(
+                f"Failed to initialize {name} simulation."
+            ) from exc
+
     def __init__(
         self,
-        spec: OpenBESSpecification,
+        spec: OpenBESSpecification | dict[str, Any] | None = None,
         hot_water: HotWaterSimulation = None,
         geometry: BuildingGeometry = None,
         occupancy: OccupationSimulation = None,
@@ -130,8 +184,11 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         heating: HeatingSimulation = None,
         log_prefix: str = "",
         parent_log: Optional[list[str]] = None,
+        schema: dict[str, Any] | None = None,
     ):
-        super().__init__(spec)
+        resolved_spec = self._coerce_spec(spec=spec, schema=schema)
+        self._validate_required_spec_fields(resolved_spec)
+        super().__init__(resolved_spec)
         self.log_prefix = log_prefix
         self.log: list[str] = parent_log or []
         if parent_log is None:
@@ -144,45 +201,61 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         self._timestamp: Optional[str] = None
         self._standby_energy_use = self._energy_use.copy()
         self._standby_energy_use[ENERGY_SOURCES.Electricity] = (
-            spec.building_standby_load * 12
+            self.spec.building_standby_load * 12
         ) / len(self._energy_use)
         self._other_energy_use = self._energy_use.copy()
         self._other_energy_use[ENERGY_SOURCES.Electricity] = (
-            spec.other_electricity_usage * 12
+            self.spec.other_electricity_usage * 12
         ) / len(self._energy_use)
         self._other_energy_use[ENERGY_SOURCES.Natural_gas] = (
-            spec.other_gas_usage * 12
+            self.spec.other_gas_usage * 12
         ) / len(self._energy_use)
-        self.hot_water = hot_water or HotWaterSimulation(self.spec)
-        self.geometry = geometry or BuildingGeometry(self.spec)
-        self.occupancy = occupancy or OccupationSimulation(
-            self.spec, geometry=self.geometry
+        self.hot_water = hot_water or self._build_simulation(
+            "hot water", HotWaterSimulation, self.spec
         )
-        self.lighting = lighting or LightingSimulation(
-            self.spec, occupancy=self.occupancy
+        self.geometry = geometry or self._build_simulation(
+            "geometry", BuildingGeometry, self.spec
         )
-        self.ventilation = ventilation or VentilationSimulation(
-            self.spec, occupancy=self.occupancy, geometry=self.geometry
+        self.occupancy = occupancy or self._build_simulation(
+            "occupancy", OccupationSimulation, self.spec, geometry=self.geometry
         )
-        self.location = location or LocationSimulation(self.spec)
-        self.climate = climate or ClimateSimulation(
-            spec,
+        self.lighting = lighting or self._build_simulation(
+            "lighting", LightingSimulation, self.spec, occupancy=self.occupancy
+        )
+        self.ventilation = ventilation or self._build_simulation(
+            "ventilation",
+            VentilationSimulation,
+            self.spec,
+            occupancy=self.occupancy,
+            geometry=self.geometry,
+        )
+        self.location = location or self._build_simulation(
+            "location", LocationSimulation, self.spec
+        )
+        self.climate = climate or self._build_simulation(
+            "climate",
+            ClimateSimulation,
+            self.spec,
             geometry=self.geometry,
             occupancy=self.occupancy,
             lighting=self.lighting,
             ventilation=self.ventilation,
             location=self.location,
         )
-        self.cooling = cooling or CoolingSimulation(
-            spec,
+        self.cooling = cooling or self._build_simulation(
+            "cooling",
+            CoolingSimulation,
+            self.spec,
             geometry=self.geometry,
             occupancy=self.occupancy,
             lighting=self.lighting,
             ventilation=self.ventilation,
             climate=self.climate,
         )
-        self.heating = heating or HeatingSimulation(
-            spec,
+        self.heating = heating or self._build_simulation(
+            "heating",
+            HeatingSimulation,
+            self.spec,
             geometry=self.geometry,
             occupancy=self.occupancy,
             lighting=self.lighting,

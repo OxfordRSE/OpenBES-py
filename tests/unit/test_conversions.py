@@ -68,6 +68,20 @@ class Conversions(unittest.TestCase):
     def test_schema_is_valid(self):
         jsonschema.validators.Draft202012Validator.check_schema(SPECIFICATION)
 
+    def test_empty_case_validates_against_exported_schema(self):
+        jsonschema.validate(
+            instance={},
+            schema=SPECIFICATION,
+            cls=jsonschema.validators.Draft202012Validator,
+        )
+
+    def test_empty_inputs_validate_against_exported_schema(self):
+        jsonschema.validate(
+            instance={"inputs": {}},
+            schema=SPECIFICATION,
+            cls=jsonschema.validators.Draft202012Validator,
+        )
+
     def test_spec_vs_exported_schema(self):
         spec = OpenBESSpecificationV2(**self.json)
         spec_dump = {"inputs": spec.model_dump()}
@@ -88,12 +102,40 @@ class Conversions(unittest.TestCase):
             cls=jsonschema.validators.Draft202012Validator,
         )
 
+    def test_empty_json_toml_round_trip(self):
+        toml_spec = json_to_toml({})
+        json_spec = toml_to_json(toml_spec)
+        parsed = OpenBESSpecificationV2(**json_spec)
+        self.assertIsInstance(parsed, OpenBESSpecificationV2)
+        jsonschema.validate(
+            instance={"inputs": parsed.model_dump(exclude_none=True)},
+            schema=SPECIFICATION,
+            cls=jsonschema.validators.Draft202012Validator,
+        )
+
+    def test_empty_toml_json_round_trip(self):
+        json_spec = toml_to_json({})
+        parsed = OpenBESSpecificationV2(**json_spec)
+        self.assertIsInstance(parsed, OpenBESSpecificationV2)
+        toml_spec = json_to_toml(json_spec)
+        self.assertIsInstance(toml_spec, dict)
+
     def test_mismatched_zone_numbers(self):
         json_spec = self.json.copy()
         json_spec["zones"].pop()
         json_spec["zones"].pop()
         spec = OpenBESSpecificationV2(**json_spec)
         json_to_toml(spec)
+
+    def test_pyodide_invocation(self):
+        # This test is a sanity check to ensure that the conversion functions can be called without error.
+        # It does not assert any specific output, as the main goal is to verify that no exceptions are raised.
+        json_spec = self.json.copy()
+        try:
+            toml_spec = json_to_toml(json_spec)
+            json_spec_converted = toml_to_json(toml_spec)
+        except Exception as e:
+            self.fail(f"Conversion functions raised an exception: {e}")
 
 
 if __name__ == "__main__":
