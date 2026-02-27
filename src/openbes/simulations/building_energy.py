@@ -1230,7 +1230,6 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         self._other_energy_use[ENERGY_SOURCES.Natural_gas] = (
             self.spec.other_gas_usage * 12
         ) / len(self._energy_use)
-
         # Reset cached output reports since the simulation has changed
         self._outputs = None
         self._retrofit_report = None
