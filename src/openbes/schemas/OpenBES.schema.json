@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.1.6/OpenBES.schema.json",
+  "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.4.0/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.3.1",
+  "$version": "0.3.0",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -41,10 +41,10 @@
     "METEOROLOGICAL_FILE": {
       "type": "string",
       "enum": [
-        "USA_Denver_725650TYCST.epw",
-        "UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw",
-        "SPAIN_Sevilla.083910_SWEC.epw",
-        "SPAIN_Madrid.082210_SWEC.epw"
+        "openbes://USA_Denver_725650TYCST.epw",
+        "openbes://UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw",
+        "openbes://SPAIN_Sevilla.083910_SWEC.epw",
+        "openbes://SPAIN_Madrid.082210_SWEC.epw"
       ],
       "description": "Meteorological file."
     },
@@ -689,11 +689,11 @@
         },
         "reference_temperature": {
           "type": "number",
-          "description": "Reference temperature (°C)."
+          "description": "Reference temperature (\u00b0C)."
         },
         "supply_temperature": {
           "type": "number",
-          "description": "Supply temperature (°C)."
+          "description": "Supply temperature (\u00b0C)."
         },
         "energy_source": {
           "$ref": "#/definitions/ENERGY_SOURCES",
@@ -1121,7 +1121,7 @@
           "type": "integer",
           "description": "Maximum occupancy of the building in number of people."
         },
-        "meteorological_file": {
+        "meteorological_file_path": {
           "$ref": "#/definitions/METEOROLOGICAL_FILE",
           "description": "Meteorological filename or identifier."
         },
@@ -1154,7 +1154,7 @@
       "required": [
         "building",
         "zones",
-        "meteorological_file"
+        "meteorological_file_path"
       ]
     },
     "SpaceThermalDemandResult": {
@@ -1466,7 +1466,7 @@
         "gas_validation": {
           "$ref": "#/definitions/ModelValidation"
         },
-        "climate_percentiles_csv": {
+        "climate_quantiles_csv": {
           "type": "string",
           "description": "Outdoor air temperature percentiles from climate data."
         },
@@ -1484,7 +1484,7 @@
         },
         "overheating_limits_csv": {
           "type": "string",
-          "description": "Category I, II, and III overheating limits in °C at different outdoor temperatures."
+          "description": "Category I, II, and III overheating limits in \u00b0C at different outdoor temperatures."
         },
         "building_geometry_csv": {
           "type": "string",
@@ -1547,4 +1547,3 @@
   ],
   "additionalProperties": false
 }
-

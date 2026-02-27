@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict
 
 from .base import EnergyUseSimulation, HOURS_DF
 from .climate import ClimateSimulation, specs_require_climate_rerun, reset_climate_cache
+from .location import LocationSimulation
 from .cooling import CoolingSimulation, CoolingSystemSimulation
 from .geometry import BuildingGeometry
 from .heating import HeatingSimulation, HeatingSystemSimulation
@@ -109,6 +110,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         occupancy: OccupationSimulation = None,
         lighting: LightingSimulation = None,
         ventilation: VentilationSimulation = None,
+        location: LocationSimulation = None,
         climate: ClimateSimulation = None,
         cooling: CoolingSimulation = None,
         heating: HeatingSimulation = None,
@@ -148,12 +150,14 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         self.ventilation = ventilation or VentilationSimulation(
             self.spec, occupancy=self.occupancy, geometry=self.geometry
         )
+        self.location = location or LocationSimulation(self.spec)
         self.climate = climate or ClimateSimulation(
             spec,
             geometry=self.geometry,
             occupancy=self.occupancy,
             lighting=self.lighting,
             ventilation=self.ventilation,
+            location=self.location,
         )
         self.cooling = cooling or CoolingSimulation(
             spec,
@@ -202,6 +206,10 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             if self.spec.building_name not in ["", None]
             else "This building"
         )
+
+    @property
+    def epw_file_checksum(self) -> str:
+        return self.location.epw_file_checksum
 
     @property
     def per_FEC_coefficients(self) -> DataFrame:
@@ -1350,13 +1358,15 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 spec=self.spec, geometry=self.geometry, occupancy=self.occupancy
             )
 
-            # Recreate the climate simulation
+            # Recreate location and climate simulations
+            self.location = LocationSimulation(self.spec)
             self.climate = ClimateSimulation(
                 self.spec,
                 geometry=self.geometry,
                 occupancy=self.occupancy,
                 lighting=self.lighting,
                 ventilation=self.ventilation,
+                location=self.location,
             )
         else:
             # Climate is unchanged - preserve the expensive calculations
@@ -1365,7 +1375,8 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             # Reset climate cache to clear intermediate computations but preserve hour-by-hour results
             reset_climate_cache(self.climate)
 
-            # Update climate's spec reference
+            # Update location/climate spec references
+            self.location.spec = new_spec
             self.climate.spec = new_spec
 
             # Recreate geometry, occupancy, lighting, and ventilation with new specs
@@ -1385,6 +1396,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             self.climate.occupancy = self.occupancy
             self.climate.lighting = self.lighting
             self.climate.ventilation = self.ventilation
+            self.climate.location = self.location
 
         # Always recreate heating and cooling simulations as they depend on climate
         self.cooling = CoolingSimulation(
@@ -1406,6 +1418,20 @@ class BuildingEnergySimulation(EnergyUseSimulation):
 
         # Recreate hot water simulation
         self.hot_water = HotWaterSimulation(self.spec)
+
+        # Reset aggregate energy caches so energy_use is recomputed from rebuilt simulations
+        self._energy_use.loc[:, :] = np.nan
+        self._standby_energy_use = self._energy_use.copy()
+        self._standby_energy_use[ENERGY_SOURCES.Electricity] = (
+            self.spec.building_standby_load * 12
+        ) / len(self._energy_use)
+        self._other_energy_use = self._energy_use.copy()
+        self._other_energy_use[ENERGY_SOURCES.Electricity] = (
+            self.spec.other_electricity_usage * 12
+        ) / len(self._energy_use)
+        self._other_energy_use[ENERGY_SOURCES.Natural_gas] = (
+            self.spec.other_gas_usage * 12
+        ) / len(self._energy_use)
 
         # Reset cached output reports since the simulation has changed
         self._outputs = None

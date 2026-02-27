@@ -23,7 +23,7 @@ from openbes.schemas import (
     OpenBESSpecificationV2,
     ZoneSimultaneity,
 )
-from openbes.types import get_meteorological_name
+from openbes.types import meteorological_file_path_to_toml_value
 
 
 def _len(obj: Any) -> int:
@@ -544,8 +544,8 @@ def json_to_toml(
         "i.location": spec.location or "",
         "i.LPG_annual": annual_consumption(spec.LPG_consumption) or "",
         "i.max_building_occupation": spec.max_building_occupation or "",
-        "i.meteorological_file": get_meteorological_name(
-            spec.meteorological_file or ""
+        "i.meteorological_file": meteorological_file_path_to_toml_value(
+            getattr(spec, "meteorological_file_path", None) or getattr(spec, "meteorological_file", "")
         ),
         "i.natural_gas_annual": "",
         "i.natural_ventilation_night": spec.natural_ventilation_night or "",

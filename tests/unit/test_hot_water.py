@@ -2,8 +2,8 @@ import copy
 import unittest
 from pandas import Series
 
-from src.openbes.simulations.hot_water import HotWaterSimulation
-from src.openbes.types import MONTHS
+from openbes.simulations.hot_water import HotWaterSimulation
+from openbes.types import MONTHS
 from tests.unit.utils import OpenBESTestCase
 
 

@@ -1,12 +1,12 @@
 import unittest
 
-from src.openbes.simulations.climate import ClimateSimulation
-from src.openbes.simulations.heating import HeatingSimulation
-from src.openbes.simulations.geometry import BuildingGeometry
-from src.openbes.simulations.lighting import LightingSimulation
-from src.openbes.simulations.occupancy import OccupationSimulation
+from openbes.simulations.climate import ClimateSimulation
+from openbes.simulations.heating import HeatingSimulation
+from openbes.simulations.geometry import BuildingGeometry
+from openbes.simulations.lighting import LightingSimulation
+from openbes.simulations.occupancy import OccupationSimulation
 from tests.unit.utils import OpenBESTestCase
-from src.openbes.examples import HOLYWELL_HOUSE_SPEC
+from openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
 class Heating(OpenBESTestCase):

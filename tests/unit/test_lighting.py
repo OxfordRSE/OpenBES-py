@@ -1,9 +1,9 @@
 import unittest
 from pandas import DataFrame, Series
 
-from src.openbes.simulations.base import HOURS_DF
-from src.openbes.simulations.lighting import LightingSimulation
-from src.openbes.types import (
+from openbes.simulations.base import HOURS_DF
+from openbes.simulations.lighting import LightingSimulation
+from openbes.types import (
     MONTHS,
     OpenBESSpecification,
     LIGHTING_TECHNOLOGIES,
@@ -27,7 +27,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_power_z1=50,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 100.0,
@@ -40,7 +40,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_power_z1=75,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 300.0,
@@ -53,7 +53,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_power_z1=100,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 100.0,
@@ -66,7 +66,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_power_z1=13,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 39.0,
@@ -79,7 +79,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_power_z1=35,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 72.0,
@@ -92,7 +92,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_power_z1=40,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 90.0,
@@ -106,7 +106,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_ballast_z1=LIGHTING_BALLASTS.BE,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 186.0,
@@ -119,7 +119,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_power_z1=150,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 324.0,
@@ -132,7 +132,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_power_z1=120,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 126.0,
@@ -145,7 +145,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_power_z1=400,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 419.70,
@@ -158,7 +158,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_power_z1=70,
                     building_length=1.0,
                     building_width=1.0,
-                    meteorological_file="None.epw"
+                    meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 83.0,
@@ -180,7 +180,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_number_z1=3,
                     lighting_system_lamp_power_z1=999,
                     building_length=1.0,
-                    building_width=1.0, meteorological_file="None.epw"
+                    building_width=1.0, meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 0.0,
@@ -192,7 +192,7 @@ class LightingWattPerLuminaire(OpenBESTestCase):
                     lighting_system_lamp_number_z1=3,
                     lighting_system_lamp_power_z1=50,
                     building_length=1.0,
-                    building_width=1.0, meteorological_file="None.epw"
+                    building_width=1.0, meteorological_file_path="None.epw"
                 ),
                 "zone": 1,
                 "expected": 0.0,
@@ -283,7 +283,7 @@ class LightingPipeline(OpenBESTestCase):
                 spec=OpenBESSpecification(
                     parameters=OpenBESParameters(lighting_on_off=False),
                     building_length=1.0,
-                    building_width=1.0, meteorological_file="None.epw"
+                    building_width=1.0, meteorological_file_path="None.epw"
                 )
             )
             self.assertEqual(0.0, simulation.parasitic_heat)
@@ -298,7 +298,7 @@ class LightingPipeline(OpenBESTestCase):
                 spec=OpenBESSpecification(
                     parameters=OpenBESParameters(lighting_on_off=False),
                     building_length=1.0,
-                    building_width=1.0, meteorological_file="None.epw"
+                    building_width=1.0, meteorological_file_path="None.epw"
                 )
             )
             self.assertEqual(0.0, simulation.lighting_heat)

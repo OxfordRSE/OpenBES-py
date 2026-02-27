@@ -52,11 +52,11 @@ class TestSpecUpdateWithClimateChange(OpenBESTestCase):
         """Climate should be recalculated when meteorological file changes."""
         new_spec = deepcopy(self.spec)
         # Change to a different EPW file
-        original_file = new_spec.meteorological_file
+        original_file = new_spec.meteorological_file_path
         if "Oxford" in original_file:
-            new_spec.meteorological_file = "USA_Denver_725650TYCST.epw"
+            new_spec.meteorological_file_path = "openbes://USA_Denver_725650TYCST.epw"
         else:
-            new_spec.meteorological_file = "UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw"
+            new_spec.meteorological_file_path = "openbes://UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw"
 
         # Verify this would require climate rerun
         self.assertTrue(specs_require_climate_rerun(self.spec, new_spec))
@@ -271,8 +271,8 @@ class TestSpecUpdateCachedReportsCleared(OpenBESTestCase):
         new_spec = deepcopy(self.spec)
         new_spec.heating_system1_efficiency_cop = 5.0
 
-        # Access report to populate cache
-        original_report = self.sim.report
+        # Access retrofit report to populate cache
+        original_report = self.sim.retrofit_report
 
         # Verify cache is populated
         self.assertIsNotNone(self.sim._retrofit_report)

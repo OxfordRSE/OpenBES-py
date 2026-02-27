@@ -3,13 +3,13 @@ from copy import copy
 
 from pandas import DataFrame, Series
 
-from src.openbes.simulations.geometry import (
+from openbes.simulations.geometry import (
     Rectangle,
     BuildingGeometry,
 )
-from src.openbes.types import FLOORS, COMPASS_POINTS, ORIENTATIONS
+from openbes.types import FLOORS, COMPASS_POINTS, ORIENTATIONS
 from tests.unit.utils import OpenBESTestCase
-from src.openbes.examples import HOLYWELL_HOUSE_SPEC
+from openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
 class Geometry(OpenBESTestCase):

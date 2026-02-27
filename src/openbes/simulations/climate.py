@@ -1,9 +1,6 @@
-from importlib.resources import files
 from math import atan
-from pathlib import Path
 from typing import Tuple
 from numpy import nan, select, array, maximum, isnan, logical_not, radians, where, outer
-from pvlib.iotools import read_epw
 from pandas import DataFrame, Series
 import os
 
@@ -11,7 +8,7 @@ from .base import HourlySimulation
 from .geometry import BuildingGeometry, THERMAL_BREAK_TRANSMITTANCE
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
-from .solar_irradiation import SolarIrradiationSimulation
+from .location import LocationSimulation
 from .ventilation import VentilationSimulation
 from ..types import (
     OpenBESSpecification,
@@ -85,13 +82,7 @@ TERRAIN_VSITE_BY_VMETRO = {
     TERRAINS.Urban: 0.8,
 }
 
-
-def get_available_epw_files() -> list[str]:
-    """
-    Returns a list of available EPW climate data files.
-    """
-    climate_data_dir = Path(str(files("openbes.simulations.climate_data")))
-    return [f for f in os.listdir(climate_data_dir) if f.endswith(".epw")]
+TERRAIN_VSITE_BY_VMETRO_BY_VALUE = {k.value: v for k, v in TERRAIN_VSITE_BY_VMETRO.items()}
 
 
 @profile_or_jit(jit_kwargs={"nopython": True})
@@ -184,9 +175,6 @@ class ClimateSimulation(HourlySimulation):
     occupancy: OccupationSimulation
     lighting: LightingSimulation
     ventilation: VentilationSimulation
-    _solar_irradiation: SolarIrradiationSimulation
-    _epw_metadata: dict
-    _epw_data: DataFrame
     _heating_and_cooling_degree_days: DataFrame
     _heat_infiltration_window: float
     _heat_infiltration_opaque: float
@@ -202,6 +190,7 @@ class ClimateSimulation(HourlySimulation):
         occupancy: OccupationSimulation = None,
         lighting: LightingSimulation = None,
         ventilation: VentilationSimulation = None,
+        location: LocationSimulation = None,
     ):
         """
         Unlike other simulations, ClimateSimulation's Hourly data depend on the previous hourly data.
@@ -220,6 +209,7 @@ class ClimateSimulation(HourlySimulation):
         self.ventilation = ventilation or VentilationSimulation(
             spec=spec, geometry=self.geometry, occupancy=self.occupancy
         )
+        self.location = location or LocationSimulation(spec=spec)
         # Pre-calculate all hour-dependent values in sequence
         n = len(self._hours)
         results = []
@@ -345,7 +335,10 @@ class ClimateSimulation(HourlySimulation):
                 logger.info("Terrain class not specified, defaulting to 'Open'")
             vsite_by_vmetro = TERRAIN_VSITE_BY_VMETRO[TERRAINS.Open]
         else:
-            vsite_by_vmetro = TERRAIN_VSITE_BY_VMETRO[self.spec.terrain_class]  # JE104
+            terrain_key = getattr(self.spec.terrain_class, "value", self.spec.terrain_class)
+            vsite_by_vmetro = TERRAIN_VSITE_BY_VMETRO_BY_VALUE.get(
+                terrain_key, TERRAIN_VSITE_BY_VMETRO[TERRAINS.Country]
+            )  # JE104
         qv_wind = (
             0.0769
             * q4pa
@@ -590,29 +583,17 @@ class ClimateSimulation(HourlySimulation):
     @property
     def epw_data(self) -> DataFrame:
         """DataFrame with EPW climate data for the specified location."""
-        if not hasattr(self, "_epw_data") or self._epw_data is None:
-            file_name = self.spec.meteorological_file
-            path = Path(str(files("openbes.simulations.climate_data") / file_name))
-            self._epw_data, self._epw_metadata = read_epw(path)
-            self._hours["wind_speed"] = array(self._epw_data["wind_speed"])
-        return self._epw_data
+        return self.location.epw_data
 
     @property
     def epw_metadata(self) -> dict:
         """Dict with EPW metadata for the specified location."""
-        if not hasattr(self, "_epw_metadata") or self._epw_metadata is None:
-            assert self.epw_data is not None  # Trigger loading of EPW data and metadata
-        return self._epw_metadata
+        return self.location.epw_metadata
 
     @property
-    def solar_irradiation(self) -> SolarIrradiationSimulation:
+    def solar_irradiation(self):
         """Solar irradiation simulation for the building."""
-        if not hasattr(self, "_solar_irradiation") or self._solar_irradiation is None:
-            self._solar_irradiation = SolarIrradiationSimulation(
-                epw_data=self.epw_data,
-                epw_metadata=self.epw_metadata,
-            )
-        return self._solar_irradiation
+        return self.location.solar_irradiation
 
     def get_heating_and_cooling_degrees_days(
         self, base_temperature: float = 18.0
@@ -736,14 +717,14 @@ class ClimateSimulation(HourlySimulation):
         Ѳsup = Te [Hourly simulation column AG]
         """
         if "supply_air_temp" not in self._hours.columns:
-            self._hours["supply_air_temp"] = array(self.epw_data["temp_air"])
+            self._hours["supply_air_temp"] = array(self.location.supply_air_temp.values)
         return self._hours["supply_air_temp"]
 
     @property
     def relative_humidity(self) -> "Series[float]":
         """Relative humidity for each hour of the year."""
         if "relative_humidity" not in self._hours.columns:
-            relative_humidity = self.epw_data["relative_humidity"]
+            relative_humidity = self.location.relative_humidity.copy()
             relative_humidity.index = self._hours.index
             self._hours["relative_humidity"] = relative_humidity
         return self._hours["relative_humidity"]
@@ -755,7 +736,7 @@ class ClimateSimulation(HourlySimulation):
         """
         if "wet_bulb_temp" not in self._hours.columns:
             df = self.relative_humidity.to_frame()
-            df["temp_air"] = list(self.epw_data["temp_air"])
+            df["temp_air"] = list(self.location.dry_bulb_temp)
             self._hours["wet_bulb_temp"] = df.apply(
                 lambda row: (
                         row["temp_air"]
@@ -777,7 +758,7 @@ class ClimateSimulation(HourlySimulation):
         [Hourly simulation column I]
         """
         if "dry_bulb_temp" not in self._hours.columns:
-            self._hours["dry_bulb_temp"] = array(self.epw_data["temp_air"])
+            self._hours["dry_bulb_temp"] = array(self.location.dry_bulb_temp.values)
         return self._hours["dry_bulb_temp"]
 
     @property
@@ -833,7 +814,7 @@ class ClimateSimulation(HourlySimulation):
         [Hourly simulation column W]
         """
         if "wind_speed" not in self._hours.columns:
-            self._hours["wind_speed"] = array(self.epw_data["wind_speed"])
+            self._hours["wind_speed"] = array(self.location.wind_speed.values)
         return self._hours["wind_speed"]
 
     @property
@@ -1338,7 +1319,7 @@ def specs_require_climate_rerun(old_spec: OpenBESSpecification, new_spec: OpenBE
         bool: True if climate simulation needs to be rerun, False otherwise
     """
     # Meteorological file - CRITICAL: Different climate data
-    if old_spec.meteorological_file != new_spec.meteorological_file:
+    if old_spec.meteorological_file_path != new_spec.meteorological_file_path:
         return True
 
     # Climate-specific parameters that directly affect _populate_cache()
@@ -1467,9 +1448,6 @@ def reset_climate_cache(climate_sim: ClimateSimulation) -> None:
 
     # Clear lazily-computed properties so they'll be recomputed when accessed
     lazy_properties = [
-        '_epw_data',
-        '_epw_metadata',
-        '_solar_irradiation',
         '_heat_infiltration_window',
         '_theta_st_partial',
     ]

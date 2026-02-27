@@ -2,8 +2,8 @@ import unittest
 
 from pandas import Series
 
-from src.openbes.simulations.building_energy import BuildingEnergySimulation
-from src.openbes.types import ENERGY_SOURCES, ENERGY_USE_CATEGORIES
+from openbes.simulations.building_energy import BuildingEnergySimulation
+from openbes.types import ENERGY_SOURCES, ENERGY_USE_CATEGORIES
 from tests.unit.utils import OpenBESTestCase
 
 

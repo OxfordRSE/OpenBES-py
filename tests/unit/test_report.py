@@ -111,7 +111,7 @@ class TestOpenBESReport(OpenBESTestCase):
         spec = OpenBESSpecification.from_toml({
             "i.building_length": 20.0,
             "i.building_width": 10.0,
-            "i.meteorological_file": HOLYWELL_HOUSE_SPEC.meteorological_file,
+            "i.meteorological_file": HOLYWELL_HOUSE_SPEC.meteorological_file_path,
         })
         sim = BuildingEnergySimulation(spec=spec)
         outputs = sim.outputs

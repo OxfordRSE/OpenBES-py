@@ -4,7 +4,7 @@ from typing import Union, Optional
 import pandas as pd
 import os
 
-from src.openbes.examples import HOLYWELL_HOUSE_SPEC
+from openbes.examples import get_holywell_house_spec
 
 
 def describe_differences(
@@ -59,7 +59,7 @@ class OpenBESTestCase(unittest.TestCase):
     decimal_places = 6  # Legacy test methods below use decimal_places
 
     def setUp(self):
-        self.spec = HOLYWELL_HOUSE_SPEC
+        self.spec = get_holywell_house_spec()
 
     @classmethod
     def read_csv(cls, relative_path: str) -> pd.DataFrame:
