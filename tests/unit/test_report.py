@@ -106,6 +106,26 @@ class TestOpenBESReport(OpenBESTestCase):
                 calculated_first_row = df.iloc[0]
             self.check_series_versus_values(calculated_first_row, expected_first_row)
 
+    def flatten_outputs(self, outputs):
+        flattened = {}
+        for section_name in [
+            "location_simulation_output",
+            "geometry_simulation_output",
+            "climate_simulation_output",
+            "ventilation_simulation_output",
+            "heating_simulation_output",
+            "cooling_simulation_output",
+            "lighting_simulation_output",
+            "hot_water_simulation_output",
+            "building_energy_simulation_output",
+        ]:
+            section = getattr(outputs, section_name)
+            if section is None:
+                continue
+            for field in section.__class__.model_fields:
+                flattened[field] = getattr(section, field)
+        return flattened
+
     def test_end2end_with_minimal_inputs(self):
         # This test runs the full simulation and checks that we're tolerant to missing input values
         spec = OpenBESSpecification.from_toml({
@@ -123,6 +143,7 @@ class TestOpenBESReport(OpenBESTestCase):
 
     def test_outputs(self):
         outputs = self.sim.outputs
+        flat_outputs = self.flatten_outputs(outputs)
         expected_scalars = {
             "altitude": 68.9,
             "gross_building_area": 1153.9,
@@ -152,7 +173,7 @@ class TestOpenBESReport(OpenBESTestCase):
         }
         for key, expected_value in expected_scalars.items():
             with self.subTest(key):
-                calculated_value = getattr(outputs, key)
+                calculated_value = flat_outputs[key]
                 self.assertAlmostEqual(calculated_value, expected_value, places=1)
 
         expected_peaks = {
@@ -172,7 +193,7 @@ class TestOpenBESReport(OpenBESTestCase):
             },
         }
         for property, expected_info in expected_peaks.items():
-            calculated_info = getattr(outputs, property)
+            calculated_info = flat_outputs[property]
             for key in expected_info.keys():
                 with self.subTest(a=property, b=key):
                     self.assertAlmostEqual(
@@ -212,7 +233,7 @@ class TestOpenBESReport(OpenBESTestCase):
             },
         }
         for domain in expected_thermal_demands.keys():
-            tdr = getattr(outputs, domain)
+            tdr = flat_outputs[domain]
             expected = expected_thermal_demands[domain]
             with self.subTest(a=domain, b="demand_total"):
                 self.assertAlmostEqual(
@@ -365,10 +386,10 @@ class TestOpenBESReport(OpenBESTestCase):
         }
         for key, expected_info in expected_csvs.items():
             with self.subTest(key):
-                self.check_csv(getattr(outputs, key), expected_info)
+                self.check_csv(flat_outputs[key], expected_info)
 
         with self.subTest("ventilation_systems"):
-            vs = outputs.ventilation_systems
+            vs = flat_outputs["ventilation_systems"]
             self.assertEqual(len(vs), 1)
             s = vs[0]
             self.assertAlmostEqual(s.energy_demand, 3.75, places=self.decimal_places)
@@ -382,7 +403,7 @@ class TestOpenBESReport(OpenBESTestCase):
             )
             self.assertAlmostEqual(s.ach, 0.02359216099177, places=self.decimal_places)
         with self.subTest("heating_systems"):
-            hs = outputs.heating_systems
+            hs = flat_outputs["heating_systems"]
             self.assertEqual(len(hs), 1)
             s = hs[0]
             self.assertAlmostEqual(
@@ -407,7 +428,7 @@ class TestOpenBESReport(OpenBESTestCase):
                 with self.subTest(a="heating_systems", b=prop):
                     self.assertEqual(getattr(s.peak_load, prop), value)
         with self.subTest("cooling_systems"):
-            cs = outputs.cooling_systems
+            cs = flat_outputs["cooling_systems"]
             self.assertEqual(len(cs), 1)
             s = cs[0]
             self.assertAlmostEqual(
@@ -456,7 +477,7 @@ class TestOpenBESReport(OpenBESTestCase):
         }
         for key, expected_info in expected_validations.items():
             with self.subTest(key):
-                calculated_info = getattr(outputs, key)
+                calculated_info = flat_outputs[key]
                 self.assertAlmostEqual(
                     calculated_info.nmbe, expected_info["nmbe"], places=6
                 )
