@@ -4,12 +4,17 @@ from pandas import Series
 from .. import logging
 from pandas import DataFrame
 
-from .base import EnergyUseSimulation, EnergyUseSimulationInitError
+from .base import EnergyUseSimulation, EnergyUseSimulationInitError, SimulationError
 from .geometry import BuildingGeometry
 from .occupancy import OccupationSimulation
+from ..schemas import VentilationSimulationOutput, VentilationSystemResult
 from ..types import OpenBESSpecification
 
 logger = logging.getLogger(__name__)
+
+
+class VentilationSimulationError(SimulationError):
+    """Raised when ventilation report generation fails."""
 
 
 class VentilationSystemSimulation(EnergyUseSimulation):
@@ -176,3 +181,31 @@ class VentilationSimulation(EnergyUseSimulation):
         if len(self.ventilation_simulations) == 0:
             return self._energy_use.fillna(0.0)
         return sum([x.energy_use for x in self.ventilation_simulations])
+
+    @property
+    def report(self) -> VentilationSimulationOutput:
+        try:
+            systems = []
+            for vs in self.ventilation_simulations:
+                hourly_energy = vs.energy_use.sum(axis="columns")
+                ach_hours = (vs.air_supply_rate != 0).sum()
+                systems.append(
+                    VentilationSystemResult(
+                        energy_demand=vs.energy_use.sum().sum() / vs.ventilated_area,
+                        peak_load=max(hourly_energy),
+                        sfp=max(hourly_energy) / (vs.airflow / 3600),
+                        mechanical_ventilation_rate=vs.airflow / vs.ventilated_area,
+                        ventilation_rate=vs.airflow / vs.ventilated_area / 3.6,
+                        ach=(
+                            (vs.air_supply_rate / self.spec.floor_to_ceiling_height).sum()
+                            / ach_hours
+                            if ach_hours > 0
+                            else None
+                        ),
+                    )
+                )
+            return VentilationSimulationOutput(ventilation_systems=systems)
+        except Exception as exc:
+            raise VentilationSimulationError(
+                "Failed to generate ventilation report"
+            ) from exc

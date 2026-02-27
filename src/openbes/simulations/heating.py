@@ -4,18 +4,24 @@ from typing import List
 import numpy as np
 from pandas import Series
 
-from .base import EnergyUseSimulation, EnergyUseSimulationInitError
+from .base import EnergyUseSimulation, EnergyUseSimulationInitError, SimulationError
 from .climate import ClimateSimulation
 from .geometry import BuildingGeometry
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
+from .reporting import find_hour_peak, output_precision
 from .ventilation import VentilationSimulation
+from ..schemas import HeatingSimulationOutput, ThermalSystemResult
 from ..types import (
     OpenBESSpecification,
     HEATING_SYSTEM_TYPES,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class HeatingSimulationError(SimulationError):
+    """Raised when heating report generation fails."""
 
 MIN_HEATING_CAPACITY = 0.01  # [Hardcoded in Inputs cell F287]
 MAX_HEATING_CAPACITY_LIMIT = 1.5  # [Hardcoded in Hourly Simulation cell ES114]
@@ -354,3 +360,28 @@ class HeatingSimulation(EnergyUseSimulation):
         if len(self.heating_simulations) == 0:
             return self._energy_use.fillna(0.0)
         return sum([x.energy_use for x in self.heating_simulations])
+
+    @property
+    def report(self) -> HeatingSimulationOutput:
+        try:
+            systems = []
+            precision = output_precision(self.spec)
+            area = self.climate_simulation.geometry.conditioned_floor_area
+            demand = self.climate_simulation.heating_demand * area / 1000
+            quantile = demand.quantile(0.996)
+            for sys in self.heating_simulations:
+                energy_use = sys.energy_use.sum().sum()
+                capacity = sys.nominal_capacity
+                systems.append(
+                    ThermalSystemResult(
+                        conditioned_area=sys.area,
+                        energy_demand=energy_use / sys.area if sys.area else None,
+                        system_usage=sys.demand.sum() / area if area else None,
+                        peak_load=find_hour_peak(demand, max, precision),
+                        peak_capacity=capacity,
+                        peak_ratio=capacity / quantile if quantile else None,
+                    )
+                )
+            return HeatingSimulationOutput(heating_systems=systems)
+        except Exception as exc:
+            raise HeatingSimulationError("Failed to generate heating report") from exc

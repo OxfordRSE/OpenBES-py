@@ -4,6 +4,9 @@ import logging
 
 from pandas import MultiIndex, DataFrame, Series
 
+from .base import SimulationError
+from .reporting import output_precision, to_output_csv
+from ..schemas import GeometrySimulationOutput
 from ..types import (
     OpenBESSpecification,
     OCCUPATION_ZONES,
@@ -16,6 +19,10 @@ from ..types import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class GeometrySimulationError(SimulationError):
+    """Raised when geometry report generation fails."""
 
 
 THERMAL_BREAK_TRANSMITTANCE = {
@@ -627,6 +634,62 @@ class BuildingGeometry:
                 / self.conditioned_floor_area
             )
         return self._heat_transfer_rate_windows
+
+    @property
+    def report(self) -> GeometrySimulationOutput:
+        try:
+            precision = output_precision(self.spec)
+            window_area = self.window_areas.groupby("floor").sum()
+            opaque_facade_area = (
+                self.conditioned_facade_areas.groupby("floor").sum() - window_area
+            )
+            wwr = window_area / (window_area + opaque_facade_area)
+            by_floor = DataFrame(
+                {
+                    "Opaque facade (m2)": opaque_facade_area,
+                    "Roof (m2)": self.roof_projections,
+                    "Floor (m2)": self.conditioned_floor_areas.groupby("floor").sum(),
+                    "Windows (m2)": window_area,
+                    "Window-to-Wall Ratio": wwr,
+                }
+            )
+            window_area_by_orientation = self.window_areas.groupby("compass_point").sum()
+            opaque_by_orientation = (
+                self.conditioned_facade_areas.groupby("compass_point").sum()
+                - window_area_by_orientation
+            )
+            opaque_by_orientation["Horizontal"] = self.roof_projections.sum()
+            window_area_by_orientation["Horizontal"] = 0.0
+            by_orientation = DataFrame(
+                {
+                    "Opaque facade (m2)": opaque_by_orientation,
+                    "Windows (m2)": window_area_by_orientation,
+                }
+            )
+            return GeometrySimulationOutput(
+                gross_building_area=self.gross_floor_area,
+                conditioned_floor_area=self.conditioned_floor_area,
+                indoor_air_volume=self.spec.floor_to_ceiling_height
+                * self.conditioned_floor_area,
+                indoor_air_heat_capacity=(
+                    self.spec.parameters.density_of_air
+                    * self.spec.parameters.specific_heat_of_air
+                    * self.spec.floor_to_ceiling_height
+                    * self.conditioned_floor_area
+                ),
+                building_geometry_csv=to_output_csv(
+                    by_floor.rename(index=lambda x: x.value).rename_axis("Floor"),
+                    precision,
+                ),
+                building_geometry_orientation_csv=to_output_csv(
+                    by_orientation.rename(
+                        index=lambda x: x.value if isinstance(x, COMPASS_POINTS) else x
+                    ).rename_axis("Compass point"),
+                    precision,
+                ),
+            )
+        except Exception as exc:
+            raise GeometrySimulationError("Failed to generate geometry report") from exc
 
     @property
     def conditioned_floor_perimeters(self) -> "Series[float]":

@@ -4,12 +4,12 @@ from pandas import Series, IndexSlice
 from pvlib.iotools import read_epw
 import unittest
 
-from src.openbes.simulations.solar_irradiation import SolarIrradiationSimulation
-from src.openbes.types import COMPASS_POINTS
+from openbes.simulations.solar_irradiation import SolarIrradiationSimulation
+from openbes.types import COMPASS_POINTS
 from tests.unit.utils import (
     OpenBESTestCase,
 )
-from src.openbes.examples import HOLYWELL_HOUSE_SPEC
+from openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
 class SolarIrradiation(OpenBESTestCase):
@@ -18,7 +18,7 @@ class SolarIrradiation(OpenBESTestCase):
             os.path.dirname(__file__), "../../src/openbes/simulations/climate_data"
         )
         data, metadata = read_epw(
-            os.path.join(climate_dir_path, HOLYWELL_HOUSE_SPEC.meteorological_file)
+            os.path.join(climate_dir_path, HOLYWELL_HOUSE_SPEC.meteorological_file_path.replace("openbes://", ""))
         )
         self.sim = SolarIrradiationSimulation(epw_data=data, epw_metadata=metadata)
         self.decimal_places_or_tolerance = 1e-10

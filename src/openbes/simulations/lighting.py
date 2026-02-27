@@ -4,8 +4,9 @@ from numpy import logical_and
 from pandas import DataFrame, read_csv, Series
 from .. import logging
 
-from .base import EnergyUseSimulation
+from .base import EnergyUseSimulation, SimulationError
 from .occupancy import OccupationSimulation
+from ..schemas import LightingSimulationOutput
 from ..types import (
     OpenBESSpecification,
     LIGHTING_TECHNOLOGIES,
@@ -15,6 +16,10 @@ from ..types import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class LightingSimulationError(SimulationError):
+    """Raised when lighting report generation fails."""
 
 
 class LightingSimulation(EnergyUseSimulation):
@@ -255,3 +260,24 @@ class LightingSimulation(EnergyUseSimulation):
                 self.get_kwh_per_month().sum().sum() / len(self._energy_use)
             )
         return self._energy_use
+
+    @property
+    def report(self) -> LightingSimulationOutput:
+        try:
+            peak_load = 0.0
+            for z in range(1, 7):
+                try:
+                    peak_load += (
+                        self.get_w_per_luminaire(zone=z)
+                        * getattr(self.spec, f"lighting_system_luminary_number_z{z}")
+                    ) / 1000
+                except (AttributeError, TypeError):
+                    continue
+            area = self.occupancy.geometry.conditioned_floor_area
+            return LightingSimulationOutput(
+                lighting_demand=self.energy_use.sum().sum() / area if area else None,
+                lighting_peak_load=peak_load,
+                lighting_load_ratio=peak_load * 1000 / area if area else None,
+            )
+        except Exception as exc:
+            raise LightingSimulationError("Failed to generate lighting report") from exc

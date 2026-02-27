@@ -14,13 +14,13 @@ class MiscellaneousUtilities(unittest.TestCase):
     def test_listable_enum_from_str(self):
         spec = OpenBESSpecification(cooling_system1_energy_source="Natural gas",
                                     building_length=1.0,
-                                    building_width=1.0, meteorological_file="None.epw")
+                                    building_width=1.0, meteorological_file_path="None.epw")
         self.assertEqual(spec.cooling_system1_energy_source, ENERGY_SOURCES.Natural_gas)
         self.assertTrue(isinstance(spec.cooling_system1_energy_source, ENERGY_SOURCES))
 
     def test_spec_with_param_dict(self):
         params = {"cooling_system2_number": 10}
-        spec = OpenBESSpecification(building_width=1.0, building_length=1.0, meteorological_file="None.epw",
+        spec = OpenBESSpecification(building_width=1.0, building_length=1.0, meteorological_file_path="None.epw",
                                     parameters=params)
         self.assertTrue(isinstance(spec.parameters, OpenBESParameters))
         self.assertEqual(spec.parameters.cooling_system2_number, 10)
@@ -62,7 +62,7 @@ class MiscellaneousUtilities(unittest.TestCase):
             "slab_thickness": 0.2,
             "orientation_angle": 0,
             "location": "Denver",
-            "meteorological_file": "USA_Denver_725650TYCST.epw",
+            "meteorological_file_path": "USA_Denver_725650TYCST.epw",
             "roof_angle": 25,
             "terrain_class": "Urban",
             "heat_capacity": "Medium",
