@@ -67,7 +67,11 @@ class HourlySimulation:
         self._hours = HOURS_DF.copy()
 
 
-class EnergyUseSimulationInitError(ValueError):
+class SimulationError(RuntimeError):
+    """Base exception for simulation-level failures."""
+
+
+class EnergyUseSimulationInitError(SimulationError, ValueError):
     pass
 
 
