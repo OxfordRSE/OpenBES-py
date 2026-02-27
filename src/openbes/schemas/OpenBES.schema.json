@@ -1304,14 +1304,43 @@
       },
       "additionalProperties": false
     },
-    "OpenBESOutput": {
+    "LocationSimulationOutput": {
       "type": "object",
-      "description": "Open BES produces many outputs, including individual values and tabular data. Tabular outputs end with _csv and are in CSV format. Headers starting with _ indicate an index column. Outputs that are not possible to generate given the inputs are omitted.",
+      "description": "Outputs produced by the location simulation using EPW-derived data.",
       "properties": {
         "altitude": {
           "type": "number",
           "description": "Altitude as read from the weather file."
         },
+        "solstice_ghr_csv": {
+          "type": "string",
+          "description": "Global Horizontal Radiation (Wh/m2) for the longest and shortest days of the year (21 Dec, 21 Jun)."
+        },
+        "max_outdoor_temperature": {
+          "$ref": "#/definitions/HourPeak"
+        },
+        "min_outdoor_temperature": {
+          "$ref": "#/definitions/HourPeak"
+        },
+        "climate_quantiles_csv": {
+          "type": "string",
+          "description": "Outdoor air temperature percentiles from climate data."
+        },
+        "degree_days_csv": {
+          "type": "string",
+          "description": "Heating/cooling degree days by month."
+        },
+        "annual_incident_solar_radiation_csv": {
+          "type": "string",
+          "description": "Annual incident solar radiation in kWh/m2 for each 1/8th compass point."
+        }
+      },
+      "additionalProperties": false
+    },
+    "GeometrySimulationOutput": {
+      "type": "object",
+      "description": "Outputs produced by geometry calculations.",
+      "properties": {
         "gross_building_area": {
           "type": "number",
           "description": "Total building area in m2."
@@ -1328,19 +1357,24 @@
           "type": "number",
           "description": "Indoor air heat capacity in kJ/K"
         },
-        "solstice_ghr_csv": {
+        "building_geometry_csv": {
           "type": "string",
-          "description": "Global Horizontal Radiation (Wh/m2) for the longest and shortest days of the year (21 Dec, 21 Jun)."
+          "description": "Building area by floor and category in m2, and window-to-wall ratio (unitless)."
         },
+        "building_geometry_orientation_csv": {
+          "type": "string",
+          "description": "Building facade, window, and roof area in m2 by category and orientation."
+        }
+      },
+      "additionalProperties": false
+    },
+    "ClimateSimulationOutput": {
+      "type": "object",
+      "description": "Outputs produced by the climate simulation.",
+      "properties": {
         "external_internal_temperature_csv": {
           "type": "string",
           "description": "Internal (HVAC) and external temperatures for each hour of the year."
-        },
-        "max_outdoor_temperature": {
-          "$ref": "#/definitions/HourPeak"
-        },
-        "min_outdoor_temperature": {
-          "$ref": "#/definitions/HourPeak"
         },
         "max_indoor_temperature": {
           "$ref": "#/definitions/HourPeak"
@@ -1382,24 +1416,68 @@
         "cooling_demand": {
           "$ref": "#/definitions/SpaceThermalDemandResult"
         },
+        "running_average_outside_temp_csv": {
+          "type": "string",
+          "description": "The 7-day weighted running mean of the outside temperature for each hour of the year. The first 6 days copy the value from day 7."
+        },
+        "overheating_limits_csv": {
+          "type": "string",
+          "description": "Category I, II, and III overheating limits in \u00b0C at different outdoor temperatures."
+        },
+        "solar_heat_gains_csv": {
+          "type": "string",
+          "description": "Solar heat gains in kWh by orientation and category. For kWh/m2 divide by relevant `building_facade_csv` area."
+        },
+        "window_transmissivity_coefficient_csv": {
+          "type": "string",
+          "description": "Annual transmissivity coefficient of windows by orientation."
+        }
+      },
+      "additionalProperties": false
+    },
+    "VentilationSimulationOutput": {
+      "type": "object",
+      "description": "Outputs produced by ventilation system simulations.",
+      "properties": {
         "ventilation_systems": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/VentilationSystemResult"
           }
-        },
+        }
+      },
+      "additionalProperties": false
+    },
+    "HeatingSimulationOutput": {
+      "type": "object",
+      "description": "Outputs produced by heating system simulations.",
+      "properties": {
         "heating_systems": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/ThermalSystemResult"
           }
-        },
+        }
+      },
+      "additionalProperties": false
+    },
+    "CoolingSimulationOutput": {
+      "type": "object",
+      "description": "Outputs produced by cooling system simulations.",
+      "properties": {
         "cooling_systems": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/ThermalSystemResult"
           }
-        },
+        }
+      },
+      "additionalProperties": false
+    },
+    "LightingSimulationOutput": {
+      "type": "object",
+      "description": "Outputs produced by lighting simulations.",
+      "properties": {
         "lighting_demand": {
           "type": "number",
           "description": "Energy demand for lighting in kWh/m2."
@@ -1411,11 +1489,25 @@
         "lighting_load_ratio": {
           "type": "number",
           "description": "Lighting energy required in W/m2."
-        },
+        }
+      },
+      "additionalProperties": false
+    },
+    "HotWaterSimulationOutput": {
+      "type": "object",
+      "description": "Outputs produced by hot water simulations.",
+      "properties": {
         "hot_water_demand": {
           "type": "number",
           "description": "Energy demand for water heating in kWh/m2."
-        },
+        }
+      },
+      "additionalProperties": false
+    },
+    "BuildingEnergySimulationOutput": {
+      "type": "object",
+      "description": "Outputs that require combining multiple simulation domains.",
+      "properties": {
         "other_energy_use_electricity": {
           "type": "number",
           "description": "Miscellaneous electricity use in kWh/m2."
@@ -1465,42 +1557,40 @@
         },
         "gas_validation": {
           "$ref": "#/definitions/ModelValidation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "OpenBESOutput": {
+      "type": "object",
+      "description": "Aggregate simulation outputs split by owning simulation. Outputs that are not possible to generate are omitted from their simulation section.",
+      "properties": {
+        "location_simulation_output": {
+          "$ref": "#/definitions/LocationSimulationOutput"
         },
-        "climate_quantiles_csv": {
-          "type": "string",
-          "description": "Outdoor air temperature percentiles from climate data."
+        "geometry_simulation_output": {
+          "$ref": "#/definitions/GeometrySimulationOutput"
         },
-        "degree_days_csv": {
-          "type": "string",
-          "description": "Heating/cooling degree days by month."
+        "climate_simulation_output": {
+          "$ref": "#/definitions/ClimateSimulationOutput"
         },
-        "annual_incident_solar_radiation_csv": {
-          "type": "string",
-          "description": "Annual incident solar radiation in kWh/m2 for each 1/8th compass point."
+        "ventilation_simulation_output": {
+          "$ref": "#/definitions/VentilationSimulationOutput"
         },
-        "running_average_outside_temp_csv": {
-          "type": "string",
-          "description": "The 7-day weighted running mean of the outside temperature for each hour of the year. The first 6 days copy the value from day 7."
+        "heating_simulation_output": {
+          "$ref": "#/definitions/HeatingSimulationOutput"
         },
-        "overheating_limits_csv": {
-          "type": "string",
-          "description": "Category I, II, and III overheating limits in \u00b0C at different outdoor temperatures."
+        "cooling_simulation_output": {
+          "$ref": "#/definitions/CoolingSimulationOutput"
         },
-        "building_geometry_csv": {
-          "type": "string",
-          "description": "Building area by floor and category in m2, and window-to-wall ratio (unitless)."
+        "lighting_simulation_output": {
+          "$ref": "#/definitions/LightingSimulationOutput"
         },
-        "building_geometry_orientation_csv": {
-          "type": "string",
-          "description": "Building facade, window, and roof area in m2 by category and orientation."
+        "hot_water_simulation_output": {
+          "$ref": "#/definitions/HotWaterSimulationOutput"
         },
-        "solar_heat_gains_csv": {
-          "type": "string",
-          "description": "Solar heat gains in kWh by orientation and category. For kWh/m2 divide by relevant `building_facade_csv` area."
-        },
-        "window_transmissivity_coefficient_csv": {
-          "type": "string",
-          "description": "Annual transmissivity coefficient of windows by orientation."
+        "building_energy_simulation_output": {
+          "$ref": "#/definitions/BuildingEnergySimulationOutput"
         }
       },
       "additionalProperties": false
