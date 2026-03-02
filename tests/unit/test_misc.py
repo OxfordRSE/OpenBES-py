@@ -30,13 +30,13 @@ class MiscellaneousUtilities(unittest.TestCase):
         self.assertEqual(spec.parameters.cooling_system2_number, 10)
 
     def test_building_simulation_empty_spec_dict_fails_gracefully(self):
-        spec = OpenBESSpecification({})
+        spec = OpenBESSpecification()
         with self.assertRaises(GeometrySimulationError) as exc:
             BuildingGeometry(spec)
-            self.assertIn("missing required inputs", str(exc.exception))
+        self.assertIn("missing required inputs", str(exc.exception))
         with self.assertRaises(ClimateSimulationError) as exc:
             ClimateSimulation(spec)
-            self.assertIn("missing required inputs", str(exc.exception))
+        self.assertIn("missing required inputs", str(exc.exception))
 
     def test_javascript_call(self):
         obj = {

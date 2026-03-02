@@ -163,6 +163,10 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             log_prefix: str = "",
             parent_log: Optional[list[str]] = None
     ):
+        if spec is None:
+            spec = OpenBESSpecification()
+        elif isinstance(spec, dict):
+            spec = OpenBESSpecification.from_toml(spec)
         super().__init__(spec)
         self.log_prefix = log_prefix
         self.log: list[str] = parent_log or []
@@ -1176,7 +1180,9 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 meta=OpenBESMetaData(
                     version=metadata("openbes")["Version"],
                     timestamp=self.timestamp,
-                    EPW_file_checksum=self.location.epw_file_checksum
+                    EPW_file_checksum=(
+                        self.location.epw_file_checksum if self.location is not None else None
+                    ),
                 ),
                 log=self.log,
             )
