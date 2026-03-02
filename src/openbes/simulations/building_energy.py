@@ -173,7 +173,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             "location", LocationSimulation, self.spec
         )
         if include_climate:
-            self.climate = self._build_simulation(
+            self.climate = self.climate or self._build_simulation(
                 "climate",
                 ClimateSimulation,
                 self.spec,
@@ -1228,7 +1228,10 @@ class BuildingEnergySimulation(EnergyUseSimulation):
 
         if climate_needs_rerun:
             # Climate needs to be completely recalculated
-            logger.info("Climate-affecting specs changed. Recalculating climate simulation...")
+            if self.climate is None:
+                logger.info("Updating with new specification.")
+            else:
+                logger.info("Climate-affecting specs changed. Recalculating climate simulation...")
 
             # Recreate from scratch
             out = type(self)(spec=new_spec, log_prefix=self.log_prefix)
@@ -1245,7 +1248,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             out = type(self)(spec=new_spec, log_prefix=self.log_prefix, climate=climate_sim)
             out.log = self.log  # Preserve log history
 
-            # Retroatively bind new simulations to the existing climate simulations
+            # Retroactively bind new simulations to the existing climate simulations
             out.climate.spec = new_spec
             out.climate.occupancy = out.occupancy
             out.climate.geometry = out.geometry
