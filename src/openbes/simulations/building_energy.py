@@ -148,6 +148,62 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             logger.warning(f"{name} simulation failed: {exc}")
             return None
 
+    def _initialize_simuations(self, include_climate=True):
+        """Initialize all simulations, with the option to skip climate (and therefore heating/cooling) for faster execution during testing."""
+        self.hot_water = self.hot_water or self._build_simulation(
+            "hot water", HotWaterSimulation, self.spec
+        )
+        self.geometry = self.geometry or self._build_simulation(
+            "geometry", BuildingGeometry, self.spec
+        )
+        self.occupancy = self.occupancy or self._build_simulation(
+            "occupancy", OccupationSimulation, self.spec, geometry=self.geometry
+        )
+        self.lighting = self.lighting or self._build_simulation(
+            "lighting", LightingSimulation, self.spec, occupancy=self.occupancy
+        )
+        self.ventilation = self.ventilation or self._build_simulation(
+            "ventilation",
+            VentilationSimulation,
+            self.spec,
+            occupancy=self.occupancy,
+            geometry=self.geometry,
+        )
+        self.location = self.location or self._build_simulation(
+            "location", LocationSimulation, self.spec
+        )
+        if include_climate:
+            self.climate = self._build_simulation(
+                "climate",
+                ClimateSimulation,
+                self.spec,
+                geometry=self.geometry,
+                occupancy=self.occupancy,
+                lighting=self.lighting,
+                ventilation=self.ventilation,
+                location=self.location,
+            )
+        self.cooling = self.cooling or self._build_simulation(
+            "cooling",
+            CoolingSimulation,
+            self.spec,
+            geometry=self.geometry,
+            occupancy=self.occupancy,
+            lighting=self.lighting,
+            ventilation=self.ventilation,
+            climate=self.climate,
+        )
+        self.heating = self.heating or self._build_simulation(
+            "heating",
+            HeatingSimulation,
+            self.spec,
+            geometry=self.geometry,
+            occupancy=self.occupancy,
+            lighting=self.lighting,
+            ventilation=self.ventilation,
+            climate=self.climate,
+        )
+
     def __init__(
             self,
             spec: OpenBESSpecification | dict[str, Any] | None = None,
@@ -185,58 +241,17 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         self._other_energy_use[ENERGY_SOURCES.Electricity] = self.spec.other_electricity_usage * 12 / len(
             self._energy_use)
         self._other_energy_use[ENERGY_SOURCES.Natural_gas] = self.spec.other_gas_usage * 12 / len(self._energy_use)
-        self.hot_water = hot_water or self._build_simulation(
-            "hot water", HotWaterSimulation, self.spec
-        )
-        self.geometry = geometry or self._build_simulation(
-            "geometry", BuildingGeometry, self.spec
-        )
-        self.occupancy = occupancy or self._build_simulation(
-            "occupancy", OccupationSimulation, self.spec, geometry=self.geometry
-        )
-        self.lighting = lighting or self._build_simulation(
-            "lighting", LightingSimulation, self.spec, occupancy=self.occupancy
-        )
-        self.ventilation = ventilation or self._build_simulation(
-            "ventilation",
-            VentilationSimulation,
-            self.spec,
-            occupancy=self.occupancy,
-            geometry=self.geometry,
-        )
-        self.location = location or self._build_simulation(
-            "location", LocationSimulation, self.spec
-        )
-        self.climate = climate or self._build_simulation(
-            "climate",
-            ClimateSimulation,
-            self.spec,
-            geometry=self.geometry,
-            occupancy=self.occupancy,
-            lighting=self.lighting,
-            ventilation=self.ventilation,
-            location=self.location,
-        )
-        self.cooling = cooling or self._build_simulation(
-            "cooling",
-            CoolingSimulation,
-            self.spec,
-            geometry=self.geometry,
-            occupancy=self.occupancy,
-            lighting=self.lighting,
-            ventilation=self.ventilation,
-            climate=self.climate,
-        )
-        self.heating = heating or self._build_simulation(
-            "heating",
-            HeatingSimulation,
-            self.spec,
-            geometry=self.geometry,
-            occupancy=self.occupancy,
-            lighting=self.lighting,
-            ventilation=self.ventilation,
-            climate=self.climate,
-        )
+
+        self.hot_water = hot_water
+        self.geometry = geometry
+        self.occupancy = occupancy
+        self.lighting = lighting
+        self.ventilation = ventilation
+        self.location = location
+        self.climate = climate
+        self.cooling = cooling
+        self.heating = heating
+        self._initialize_simuations()
         logger.info("Building energy simulation initialized.")
 
     def _extract_energy_use(self, key: str) -> DataFrame:
@@ -1188,7 +1203,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             )
         return self._full_case_report
 
-    def update_spec(self, new_spec: OpenBESSpecification) -> None:
+    def update_spec(self, new_spec: OpenBESSpecification) -> "BuildingEnergySimulation":
         """
         Update the building energy simulation with a new specification.
 
@@ -1215,97 +1230,31 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             # Climate needs to be completely recalculated
             logger.info("Climate-affecting specs changed. Recalculating climate simulation...")
 
-            # Recreate all dependent simulations from scratch
-            self.geometry = BuildingGeometry(spec=self.spec)
-            self.occupancy = OccupationSimulation(
-                spec=self.spec, geometry=self.geometry
-            )
-            self.lighting = LightingSimulation(
-                spec=self.spec, occupancy=self.occupancy
-            )
-            self.ventilation = VentilationSimulation(
-                spec=self.spec, geometry=self.geometry, occupancy=self.occupancy
-            )
-
-            # Recreate location and climate simulations
-            self.location = LocationSimulation(self.spec)
-            self.climate = ClimateSimulation(
-                self.spec,
-                geometry=self.geometry,
-                occupancy=self.occupancy,
-                lighting=self.lighting,
-                ventilation=self.ventilation,
-                location=self.location,
-            )
+            # Recreate from scratch
+            out = type(self)(spec=new_spec, log_prefix=self.log_prefix)
+            out.log = self.log  # Preserve log history
+            return out
         else:
             # Climate is unchanged - preserve the expensive calculations
             logger.info("Climate specs unchanged. Reusing cached climate calculations...")
 
             # Reset climate cache to clear intermediate computations but preserve hour-by-hour results
-            reset_climate_cache(self.climate)
+            if self.climate is not None:
+                climate_sim = deepcopy(self.climate)
+                reset_climate_cache(climate_sim)
+            else:
+                climate_sim = None
 
-            # Update location/climate spec references
-            self.location.spec = new_spec
-            self.climate.spec = new_spec
+            out = type(self)(spec=new_spec, log_prefix=self.log_prefix, climate=climate_sim)
+            out.log = self.log  # Preserve log history
 
-            # Recreate geometry, occupancy, lighting, and ventilation with new specs
-            self.geometry = BuildingGeometry(spec=self.spec)
-            self.occupancy = OccupationSimulation(
-                spec=self.spec, geometry=self.geometry
-            )
-            self.lighting = LightingSimulation(
-                spec=self.spec, occupancy=self.occupancy
-            )
-            self.ventilation = VentilationSimulation(
-                spec=self.spec, geometry=self.geometry, occupancy=self.occupancy
-            )
+            # Retroatively bind new simulations to the existing climate simulations
+            out.climate.spec = new_spec
+            out.climate.occupancy = out.occupancy
+            out.climate.geometry = out.geometry
+            out.climate.ventilation = out.ventilation
+            out.climate.lighting = out.lighting
+            out.climate.location = out.location
 
-            # Update climate's dependent simulations
-            self.climate.geometry = self.geometry
-            self.climate.occupancy = self.occupancy
-            self.climate.lighting = self.lighting
-            self.climate.ventilation = self.ventilation
-            self.climate.location = self.location
-
-        # Always recreate heating and cooling simulations as they depend on climate
-        self.cooling = CoolingSimulation(
-            self.spec,
-            geometry=self.geometry,
-            occupancy=self.occupancy,
-            lighting=self.lighting,
-            ventilation=self.ventilation,
-            climate=self.climate,
-        )
-        self.heating = HeatingSimulation(
-            self.spec,
-            geometry=self.geometry,
-            occupancy=self.occupancy,
-            lighting=self.lighting,
-            ventilation=self.ventilation,
-            climate=self.climate,
-        )
-
-        # Recreate hot water simulation
-        self.hot_water = HotWaterSimulation(self.spec)
-
-        # Reset aggregate energy caches so energy_use is recomputed from rebuilt simulations
-        self._energy_use.loc[:, :] = np.nan
-        self._standby_energy_use = self._energy_use.copy()
-        self._standby_energy_use[ENERGY_SOURCES.Electricity] = (
-                                                                       self.spec.building_standby_load * 12
-                                                               ) / len(self._energy_use)
-        self._other_energy_use = self._energy_use.copy()
-        self._other_energy_use[ENERGY_SOURCES.Electricity] = (
-                                                                     self.spec.other_electricity_usage * 12
-                                                             ) / len(self._energy_use)
-        self._other_energy_use[ENERGY_SOURCES.Natural_gas] = (
-                                                                     self.spec.other_gas_usage * 12
-                                                             ) / len(self._energy_use)
-
-        # Reset cached output reports since the simulation has changed
-        self._outputs = None
-        self._retrofit_report = None
-        self._full_case_report = None
-        self._timestamp = None
-
-        logger.info("Building energy simulation updated with new specification.")
+            logger.info("Building energy simulation updated with new specification.")
+            return out

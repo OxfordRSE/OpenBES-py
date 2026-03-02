@@ -41,7 +41,7 @@ class TestSpecUpdateWithClimateChange(OpenBESTestCase):
             mock_climate.return_value = mock_instance
 
             try:
-                self.sim.update_spec(new_spec)
+                self.sim = self.sim.update_spec(new_spec)
                 # Verify ClimateSimulation was called (new instance created)
                 self.assertTrue(mock_climate.called)
             except (TypeError, AttributeError):
@@ -97,7 +97,7 @@ class TestSpecUpdateWithoutClimateChange(OpenBESTestCase):
         pre_update_air_free_temp = self.sim.climate.air_free_temp.copy()
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Verify core climate calculations are preserved
         # (air_free_temp is one of the core preserved columns)
@@ -118,7 +118,7 @@ class TestSpecUpdateWithoutClimateChange(OpenBESTestCase):
         pre_update_htr_1 = self.sim.climate.htr_1.copy()
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Verify core climate calculations are preserved
         self.assertTrue(
@@ -138,7 +138,7 @@ class TestSpecUpdateWithoutClimateChange(OpenBESTestCase):
         pre_update_heating_demand = self.sim.climate.heating_cooling_demand.copy()
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Verify core climate calculations are preserved
         self.assertTrue(
@@ -157,7 +157,7 @@ class TestSpecUpdateWithoutClimateChange(OpenBESTestCase):
         original_heating_id = id(self.sim.heating)
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Verify dependent simulations were recreated (new object ids)
         self.assertNotEqual(
@@ -204,7 +204,7 @@ class TestSpecUpdateCoreColumnsPreserved(OpenBESTestCase):
                 pre_update_values[col] = self.sim.climate._hours[col].copy()
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Verify core columns are still present
         for col in core_columns:
@@ -233,7 +233,7 @@ class TestSpecUpdateCoreColumnsPreserved(OpenBESTestCase):
         self.assertIn('internal_heat', self.sim.climate._hours.columns)
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim = self.sim = self.sim.update_spec(new_spec)
 
         # Lazy column should have been removed during reset_climate_cache
         # (it will be re-added when accessed, but shouldn't be in _hours after reset)
@@ -261,7 +261,7 @@ class TestSpecUpdateCachedReportsCleared(OpenBESTestCase):
         self.assertIsNotNone(self.sim._outputs)
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Cache should be cleared
         self.assertIsNone(self.sim._outputs, "Cached outputs should be cleared")
@@ -278,7 +278,7 @@ class TestSpecUpdateCachedReportsCleared(OpenBESTestCase):
         self.assertIsNotNone(self.sim._retrofit_report)
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Caches should be cleared
         self.assertIsNone(self.sim._retrofit_report, "Cached retrofit report should be cleared")
@@ -295,7 +295,7 @@ class TestSpecUpdateCachedReportsCleared(OpenBESTestCase):
         self.assertIsNotNone(self.sim._timestamp)
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Cache should be cleared
         self.assertIsNone(self.sim._timestamp, "Cached timestamp should be cleared")
@@ -365,7 +365,7 @@ class TestUpdateSpecIntegration(OpenBESTestCase):
 
         original_energy_use = self.sim.energy_use.sum().sum()
 
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
         updated_energy_use = self.sim.energy_use.sum().sum()
 
         # Energy use should decrease with better efficiency
@@ -379,7 +379,7 @@ class TestUpdateSpecIntegration(OpenBESTestCase):
         new_spec = deepcopy(self.spec)
         new_spec.heating_system1_efficiency_cop = 10.0
 
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Verify the simulation's spec is updated
         self.assertEqual(
@@ -394,19 +394,19 @@ class TestUpdateSpecIntegration(OpenBESTestCase):
         # First update
         spec1 = deepcopy(initial_spec)
         spec1.heating_system1_efficiency_cop = initial_spec.heating_system1_efficiency_cop + 1.0
-        self.sim.update_spec(spec1)
+        self.sim = self.sim.update_spec(spec1)
         energy_use_1 = self.sim.energy_use.sum().sum()
 
         # Second update
         spec2 = deepcopy(spec1)
         spec2.heating_system1_efficiency_cop = spec1.heating_system1_efficiency_cop + 1.0
-        self.sim.update_spec(spec2)
+        self.sim = self.sim.update_spec(spec2)
         energy_use_2 = self.sim.energy_use.sum().sum()
 
         # Third update
         spec3 = deepcopy(spec2)
         spec3.heating_system1_efficiency_cop = spec2.heating_system1_efficiency_cop + 1.0
-        self.sim.update_spec(spec3)
+        self.sim = self.sim.update_spec(spec3)
         energy_use_3 = self.sim.energy_use.sum().sum()
 
         # Each update should further reduce energy use

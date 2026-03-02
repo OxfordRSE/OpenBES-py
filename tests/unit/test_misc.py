@@ -85,6 +85,12 @@ class MiscellaneousUtilities(unittest.TestCase):
         sim = BuildingEnergySimulation(spec)
         self.assertEqual(sim.energy_use.sum().sum(), 0)
 
+    def test_blank_spec_update(self):
+        sim = BuildingEnergySimulation()
+        sim.update_spec(
+            OpenBESSpecification(building_length=1.0, building_width=1.0))
+        self.assertEqual(sim.spec.building_length, 1.0)
+        self.assertEqual(sim.spec.building_width, 1.0)
 
 if __name__ == "__main__":
     unittest.main()
