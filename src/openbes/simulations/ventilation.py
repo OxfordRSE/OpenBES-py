@@ -50,7 +50,7 @@ class VentilationSystemSimulation(EnergyUseSimulation):
             self.occupancy = occupancy or OccupationSimulation(spec=self.spec)
         except SimulationError as err:
             raise EnergyUseSimulationInitError(
-                f"Failed to initialize ClimateSimulation due to error in dependent simulation: {err}"
+                f"Failed to initialize VentilationSystemSimulation due to error in dependent simulation: {err}"
             ) from err
 
     def _attr(self, attr_name: str):

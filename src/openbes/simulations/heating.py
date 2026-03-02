@@ -67,8 +67,8 @@ class HeatingSystemSimulation(EnergyUseSimulation):
         )
         try:
             self.climate = climate or ClimateSimulation(spec)
-            self.geometry = climate.geometry
-            self.occupancy = climate.occupancy
+            self.geometry = self.climate.geometry
+            self.occupancy = self.climate.occupancy
         except SimulationError as exc:
             raise EnergyUseSimulationInitError(
                 f"Failed to initialize HeatingSystemSimulation due to error in dependent simulation: {exc}"
