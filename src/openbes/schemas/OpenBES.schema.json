@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.4.0/OpenBES.schema.json",
+  "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.3.1/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.3.0",
+  "$version": "0.3.1",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -689,11 +689,11 @@
         },
         "reference_temperature": {
           "type": "number",
-          "description": "Reference temperature (\u00b0C)."
+          "description": "Reference temperature (°C)."
         },
         "supply_temperature": {
           "type": "number",
-          "description": "Supply temperature (\u00b0C)."
+          "description": "Supply temperature (°C)."
         },
         "energy_source": {
           "$ref": "#/definitions/ENERGY_SOURCES",
@@ -1150,12 +1150,7 @@
           "description": "Typical occupancy of the building in number of people."
         }
       },
-      "additionalProperties": false,
-      "required": [
-        "building",
-        "zones",
-        "meteorological_file_path"
-      ]
+      "additionalProperties": false
     },
     "SpaceThermalDemandResult": {
       "type": "object",
@@ -1606,6 +1601,10 @@
         "timestamp": {
           "type": "string",
           "description": "Timestamp of when the simulation was run."
+        },
+        "EPW_file_checksum": {
+          "type": "string",
+          "description": "MD5 Checksum of the EPW file used in the simulation."
         }
       },
       "required": [

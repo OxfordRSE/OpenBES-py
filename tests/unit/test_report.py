@@ -6,11 +6,11 @@ from pandas import DataFrame, Series
 
 from openbes import BuildingEnergySimulation, OpenBESSpecification
 from openbes.examples import HOLYWELL_HOUSE_SPEC
+from openbes.schemas import OpenBESOutput
+from openbes.simulations.building_energy import BuildingEnergySimulationError, OpenBESReport
 from tests.unit.utils import (
     OpenBESTestCase,
 )
-from importlib.metadata import metadata
-from openbes.schemas import OpenBESMetaData
 
 
 class TestOpenBESReport(OpenBESTestCase):
@@ -127,19 +127,13 @@ class TestOpenBESReport(OpenBESTestCase):
         return flattened
 
     def test_end2end_with_minimal_inputs(self):
-        # This test runs the full simulation and checks that we're tolerant to missing input values
-        spec = OpenBESSpecification.from_toml({
-            "i.building_length": 20.0,
-            "i.building_width": 10.0,
-            "i.meteorological_file": HOLYWELL_HOUSE_SPEC.meteorological_file_path,
-        })
-        sim = BuildingEnergySimulation(spec=spec)
-        outputs = sim.outputs
-        meta = OpenBESMetaData(version=metadata("openbes")["Version"], timestamp=sim.timestamp)
-        log = sim.log
-        self.assertIsNotNone(outputs)
-        self.assertIsNotNone(meta)
-        self.assertIsNotNone(log)
+        # Building-level inputs can validate, but subsystem-required inputs are now enforced.
+        spec = OpenBESSpecification.from_toml({})
+        # Building simulation should generate a blank report and a log full of issues
+        sim = BuildingEnergySimulation(spec)
+        self.assertTrue(isinstance(sim.report, OpenBESReport))
+        self.assertTrue(isinstance(sim.outputs, OpenBESOutput))
+
 
     def test_outputs(self):
         outputs = self.sim.outputs

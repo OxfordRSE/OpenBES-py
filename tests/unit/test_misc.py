@@ -1,7 +1,11 @@
 import unittest
 
 from openbes import OpenBESSpecification, BuildingEnergySimulation
+from openbes.schemas import OpenBESOutput
+from openbes.simulations.climate import ClimateSimulationError, ClimateSimulation
+from openbes.simulations.geometry import GeometrySimulationError, BuildingGeometry
 from openbes.types import OpenBESParameters, MONTHS, ENERGY_SOURCES
+from openbes.simulations.building_energy import BuildingEnergySimulationError, OpenBESReport
 
 
 class MiscellaneousUtilities(unittest.TestCase):
@@ -24,6 +28,15 @@ class MiscellaneousUtilities(unittest.TestCase):
                                     parameters=params)
         self.assertTrue(isinstance(spec.parameters, OpenBESParameters))
         self.assertEqual(spec.parameters.cooling_system2_number, 10)
+
+    def test_building_simulation_empty_spec_dict_fails_gracefully(self):
+        spec = OpenBESSpecification()
+        with self.assertRaises(GeometrySimulationError) as exc:
+            BuildingGeometry(spec)
+        self.assertIn("missing required inputs", str(exc.exception))
+        with self.assertRaises(ClimateSimulationError) as exc:
+            ClimateSimulation(spec)
+        self.assertIn("missing required inputs", str(exc.exception))
 
     def test_javascript_call(self):
         obj = {

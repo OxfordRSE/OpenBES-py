@@ -15,12 +15,19 @@ class HotWaterSimulationError(SimulationError):
 
 class HotWaterSimulation(EnergyUseSimulation):
     """Simulate hot water energy use based on building specifications and occupancy patterns."""
+    _required_inputs = ("water_system_energy_source",)
+    _required_inputs_error_cls = HotWaterSimulationError
 
     def __init__(
         self, spec: OpenBESSpecification, occupancy: OccupationSimulation = None
     ):
         super().__init__(spec=spec)
-        self.occupancy = occupancy or OccupationSimulation(spec=spec)
+        try:
+            self.occupancy = occupancy or OccupationSimulation(spec=spec)
+        except SimulationError as exc:
+            raise HotWaterSimulationError(
+                f"Failed to initialize HotWaterSimulation due to error in dependent simulation: {exc}"
+            ) from exc
 
     def get_daily_hot_water_nominal(self) -> float:
         """Calculate nominal (pre-efficiency scaling) daily hot water energy consumption.

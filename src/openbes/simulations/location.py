@@ -9,7 +9,7 @@ from urllib.request import urlopen
 from pandas import DataFrame, Series
 from pvlib.iotools import read_epw
 
-from .base import HOURS_DF, SimulationError
+from .base import HOURS_DF, SimulationError, missing_required_inputs
 from .reporting import find_hour_peak, output_precision, to_output_csv
 from .solar_irradiation import SolarIrradiationSimulation
 from ..schemas import LocationSimulationOutput
@@ -27,9 +27,15 @@ class LocationSimulationError(SimulationError):
 
 class LocationSimulation:
     """Loads EPW data and owns EPW-derived weather/solar properties."""
+    _required_inputs = ("meteorological_file_path",)
 
     def __init__(self, spec: OpenBESSpecification):
         self.spec = spec
+        missing = missing_required_inputs(self.spec, self._required_inputs)
+        if missing:
+            raise LocationSimulationError(
+                f"LocationSimulation missing required inputs: {', '.join(missing)}"
+            )
         self._source_path: str | None = None
         self._epw_data: DataFrame | None = None
         self._epw_metadata: dict | None = None

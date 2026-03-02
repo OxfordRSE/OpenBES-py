@@ -32,19 +32,26 @@ class VentilationSystemSimulation(EnergyUseSimulation):
     ):
         super().__init__(spec=spec)
         self.system_number = system_number
-        for attr in ["energy_source", "airflow"]:
-            try:
-                v = self._attr(attr)
-            except AttributeError:
-                raise EnergyUseSimulationInitError(
-                    f"Ventilation system {system_number} missing required specification attribute: {attr}"
-                )
-            if v is None:
-                raise EnergyUseSimulationInitError(
-                    f"Ventilation system {system_number} has None for required specification attribute: {attr}"
-                )
-        self.geometry = geometry or BuildingGeometry(spec=self.spec)
-        self.occupancy = occupancy or OccupationSimulation(spec=self.spec)
+        self.validate_required_inputs(
+            required_inputs=[
+                "energy_source",
+                "airflow",
+                "on_time",
+                "off_time",
+                "rated_input_power",
+                "ventilated_area",
+            ],
+            getter=self._attr,
+            context=f"Ventilation system {system_number}",
+            error_cls=EnergyUseSimulationInitError,
+        )
+        try:
+            self.geometry = geometry or BuildingGeometry(spec=self.spec)
+            self.occupancy = occupancy or OccupationSimulation(spec=self.spec)
+        except SimulationError as err:
+            raise EnergyUseSimulationInitError(
+                f"Failed to initialize VentilationSystemSimulation due to error in dependent simulation: {err}"
+            ) from err
 
     def _attr(self, attr_name: str):
         return self.get_param_or_spec(
@@ -144,10 +151,15 @@ class VentilationSimulation(EnergyUseSimulation):
         geometry: BuildingGeometry = None,
     ):
         super().__init__(spec=spec)
-        self.geometry = geometry or BuildingGeometry(spec=self.spec)
-        self.occupancy = occupancy or OccupationSimulation(
-            spec=self.spec, geometry=self.geometry
-        )
+        try:
+            self.geometry = geometry or BuildingGeometry(spec=self.spec)
+            self.occupancy = occupancy or OccupationSimulation(
+                spec=self.spec, geometry=self.geometry
+            )
+        except SimulationError as err:
+            raise EnergyUseSimulationInitError(
+                f"Failed to initialize VentilationSimulation due to error in dependent simulation: {err}"
+            ) from err
         self.ventilation_simulations = []
         while True:
             system_number = len(self.ventilation_simulations) + 1

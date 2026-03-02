@@ -57,25 +57,25 @@ class CoolingSystemSimulation(EnergyUseSimulation):
     ):
         super().__init__(spec)
         self.system_number = system_number
-        for attr in [
-            "energy_source",
-            "energy_efficifiency_ratio",
-            "nominal_capacity",
-            "sensible_nominal_capacity",
-        ]:
-            try:
-                v = self._attr(attr)
-            except AttributeError:
-                raise EnergyUseSimulationInitError(
-                    f"Cooling system {system_number} missing required specification attribute: {attr}"
-                )
-            if v is None:
-                raise EnergyUseSimulationInitError(
-                    f"Cooling system {system_number} has None for required specification attribute: {attr}"
-                )
-        self.climate = climate or ClimateSimulation(spec)
-        self.geometry = climate.geometry
-        self.occupancy = climate.occupancy
+        self.validate_required_inputs(
+            required_inputs=[
+                "energy_source",
+                "energy_efficifiency_ratio",
+                "nominal_capacity",
+                "sensible_nominal_capacity",
+            ],
+            getter=self._attr,
+            context=f"Cooling system {system_number}",
+            error_cls=EnergyUseSimulationInitError,
+        )
+        try:
+            self.climate = climate or ClimateSimulation(spec)
+            self.geometry = self.climate.geometry
+            self.occupancy = self.climate.occupancy
+        except SimulationError as exc:
+            raise EnergyUseSimulationInitError(
+                f"Failed to initialize CoolingSystemSimulation due to error in dependent simulation: {exc}"
+            ) from exc
 
     def _attr(self, attr_name: str):
         return self.get_param_or_spec(f"cooling_system{self.system_number}_{attr_name}")
@@ -353,19 +353,24 @@ class CoolingSimulation(EnergyUseSimulation):
         climate: ClimateSimulation = None,
     ):
         super().__init__(spec)
-        geometry = geometry or BuildingGeometry(self.spec)
-        occupancy = occupancy or OccupationSimulation(self.spec, geometry=geometry)
-        lighting = lighting or LightingSimulation(self.spec, occupancy=occupancy)
-        ventilation = ventilation or VentilationSimulation(
-            self.spec, occupancy=occupancy, geometry=geometry
-        )
-        self.climate_simulation = climate or ClimateSimulation(
-            spec,
-            geometry=geometry,
-            occupancy=occupancy,
-            lighting=lighting,
-            ventilation=ventilation,
-        )
+        try:
+            geometry = geometry or BuildingGeometry(self.spec)
+            occupancy = occupancy or OccupationSimulation(self.spec, geometry=geometry)
+            lighting = lighting or LightingSimulation(self.spec, occupancy=occupancy)
+            ventilation = ventilation or VentilationSimulation(
+                self.spec, occupancy=occupancy, geometry=geometry
+            )
+            self.climate_simulation = climate or ClimateSimulation(
+                spec,
+                geometry=geometry,
+                occupancy=occupancy,
+                lighting=lighting,
+                ventilation=ventilation,
+            )
+        except SimulationError as exc:
+            raise EnergyUseSimulationInitError(
+                f"Failed to initialize CoolingSimulation due to error in dependent simulation: {exc}"
+            ) from exc
         self.cooling_simulations = []
         while True:
             system_number = len(self.cooling_simulations) + 1
