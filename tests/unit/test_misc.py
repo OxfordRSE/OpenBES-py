@@ -37,10 +37,6 @@ class MiscellaneousUtilities(unittest.TestCase):
         with self.assertRaises(ClimateSimulationError) as exc:
             ClimateSimulation(spec)
             self.assertIn("missing required inputs", str(exc.exception))
-        # Building simulation should go through fine because it'll generate a blank report
-        sim = BuildingEnergySimulation(spec)
-        self.assertTrue(isinstance(sim.report, OpenBESReport))
-        self.assertTrue(isinstance(sim.outputs, OpenBESOutput))
 
     def test_javascript_call(self):
         obj = {

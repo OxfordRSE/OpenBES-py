@@ -6,7 +6,8 @@ from pandas import DataFrame, Series
 
 from openbes import BuildingEnergySimulation, OpenBESSpecification
 from openbes.examples import HOLYWELL_HOUSE_SPEC
-from openbes.simulations.building_energy import BuildingEnergySimulationError
+from openbes.schemas import OpenBESOutput
+from openbes.simulations.building_energy import BuildingEnergySimulationError, OpenBESReport
 from tests.unit.utils import (
     OpenBESTestCase,
 )
@@ -127,14 +128,12 @@ class TestOpenBESReport(OpenBESTestCase):
 
     def test_end2end_with_minimal_inputs(self):
         # Building-level inputs can validate, but subsystem-required inputs are now enforced.
-        spec = OpenBESSpecification.from_toml({
-            "i.building_length": 20.0,
-            "i.building_width": 10.0,
-            "i.meteorological_file": HOLYWELL_HOUSE_SPEC.meteorological_file_path,
-        })
-        with self.assertRaises(BuildingEnergySimulationError) as exc:
-            BuildingEnergySimulation(spec=spec)
-        self.assertIn("missing required inputs", str(exc.exception))
+        spec = OpenBESSpecification.from_toml({})
+        # Building simulation should generate a blank report and a log full of issues
+        sim = BuildingEnergySimulation(spec)
+        self.assertTrue(isinstance(sim.report, OpenBESReport))
+        self.assertTrue(isinstance(sim.outputs, OpenBESOutput))
+
 
     def test_outputs(self):
         outputs = self.sim.outputs

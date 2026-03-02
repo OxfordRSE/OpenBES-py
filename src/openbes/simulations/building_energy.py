@@ -451,8 +451,8 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         return OpenBESReport(
             primary_energy_consumption=self.primary_energy_consumption,
             final_energy_consumption_distribution=self.final_energy_consumption_distribution,
-            space_heating_demand=self.space_hvac_demand.loc["Heating"] if self.space_hvac_demand else None,
-            space_cooling_demand=self.space_hvac_demand.loc["Cooling"] if self.space_hvac_demand else None,
+            space_heating_demand=self.space_hvac_demand.loc["Heating"] if self.space_hvac_demand is not None else None,
+            space_cooling_demand=self.space_hvac_demand.loc["Cooling"] if self.space_hvac_demand is not None else None,
             passive_survivability=self.passive_survivability,
         )
 

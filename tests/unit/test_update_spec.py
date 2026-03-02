@@ -272,7 +272,7 @@ class TestSpecUpdateCachedReportsCleared(OpenBESTestCase):
         new_spec.heating_system1_efficiency_cop = 5.0
 
         # Access retrofit report to populate cache
-        original_report = self.sim.retrofit_report
+        assert self.sim.retrofit_report is not None, "Retrofit report should be generated successfully"
 
         # Verify cache is populated
         self.assertIsNotNone(self.sim._retrofit_report)
