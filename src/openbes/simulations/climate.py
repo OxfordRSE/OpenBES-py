@@ -1,5 +1,5 @@
 from math import atan
-from typing import Tuple
+from typing import Tuple, Optional
 from numpy import nan, select, array, maximum, isnan, logical_not, radians, where, outer
 from pandas import DataFrame, Series, MultiIndex, Index, concat
 import os
@@ -1703,7 +1703,7 @@ def specs_require_climate_rerun(old_spec: OpenBESSpecification, new_spec: OpenBE
     return False
 
 
-def reset_climate_cache(climate_sim: ClimateSimulation) -> None:
+def reset_climate_cache(climate_sim: Optional[ClimateSimulation]) -> None:
     """
     Reset the climate simulation's intermediate cache while preserving expensive calculations.
 
@@ -1724,6 +1724,8 @@ def reset_climate_cache(climate_sim: ClimateSimulation) -> None:
         climate_sim: The ClimateSimulation instance to reset
     """
     # Clear the static cache (will be rebuilt on next access if needed)
+    if climate_sim is None:
+        return
     if hasattr(climate_sim, '_cache'):
         del climate_sim._cache
 
