@@ -21,6 +21,7 @@ from openbes.schemas.conversion.toml_to_json import monthly_average_to_consumpti
 from openbes.schemas import (
     Consumption,
     OpenBESSpecificationV2,
+    OpenBESParametersV2,
     ZoneSimultaneity,
 )
 from openbes.types import meteorological_file_path_to_toml_value
@@ -68,6 +69,7 @@ def json_to_toml(
         return sum(dict(consumption).values())
 
     # Parameters
+    spec.parameters = spec.parameters or OpenBESParametersV2()
 
     # Map default zone names and numbers to the spec Zones with best-effort matching.
     # If there are clashes, raise an error.
