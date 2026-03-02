@@ -1,15 +1,15 @@
 import unittest
 from copy import deepcopy
 
-from src.openbes.types.enums import DAYS
-from src.openbes.simulations.occupancy import (
+from openbes.types.enums import DAYS
+from openbes.simulations.occupancy import (
     day_of_the_week,
     is_public_holiday,
     OccupationSimulation,
 )
-from src.openbes.simulations.base import HOURS_DF
+from openbes.simulations.base import HOURS_DF
 from tests.unit.utils import OpenBESTestCase
-from src.openbes.examples import HOLYWELL_HOUSE_SPEC
+from openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
 class Occupancy(OpenBESTestCase):

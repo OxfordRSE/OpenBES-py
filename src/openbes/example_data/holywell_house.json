@@ -158,7 +158,7 @@
     "start": 9,
     "end": 17
   },
-  "meteorological_file": "UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw",
+  "meteorological_file_path": "openbes://UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw",
   "setpoint_temperature_day": {
     "min": 21,
     "max": 22

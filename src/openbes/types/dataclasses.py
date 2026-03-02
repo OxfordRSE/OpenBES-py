@@ -5,6 +5,7 @@ This will be removed in v2 in favour of the schemas-driven approach.
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import Optional, Union
 import tomllib
 
@@ -153,6 +154,45 @@ def get_meteorological_name(epw_filename: str) -> str:
     return epw_filename
 
 
+def normalize_meteorological_file_path(path: str) -> str:
+    """Normalize legacy and modern meteorological path values to a canonical path string."""
+    if path is None:
+        return path
+    p = str(path).strip()
+    if not p:
+        return p
+
+    parsed = urlparse(p)
+    has_scheme = bool(parsed.scheme)
+    has_path_sep = "/" in p or "\\" in p
+
+    if has_scheme:
+        return p
+
+    # Legacy short names only apply to bare identifiers.
+    if not has_path_sep:
+        try:
+            p = get_meteorological_file(p)
+        except ValueError:
+            pass
+
+    # Raw filenames should resolve to package data by default.
+    if not has_path_sep:
+        return f"openbes://{p}"
+    return p
+
+
+def meteorological_file_path_to_toml_value(path: str) -> str:
+    """Convert canonical path to legacy TOML value conventions."""
+    if not path:
+        return ""
+    if path.startswith("openbes://"):
+        package_path = path[len("openbes://"):]
+        if "/" not in package_path and "\\" not in package_path:
+            return package_path
+    return path
+
+
 @dataclass
 class OpenBESSpecification:
     """
@@ -161,7 +201,7 @@ class OpenBESSpecification:
 
     building_length: float
     building_width: float
-    meteorological_file: str
+    meteorological_file_path: str
 
     parameters: Optional[OpenBESParameters] = field(default_factory=OpenBESParameters)
     appliances_load: float = 0.0
@@ -467,6 +507,9 @@ class OpenBESSpecification:
 
     def __post_init__(self):
         super().__init__()
+        self.meteorological_file_path = normalize_meteorological_file_path(
+            self.meteorological_file_path
+        )
         if self.parameters is not None and not isinstance(
             self.parameters, OpenBESParameters
         ):
@@ -487,10 +530,10 @@ class OpenBESSpecification:
             toml_content = toml_file
 
         filtered = {k: v for k, v in toml_content.items() if v is not None and v != ""}
-        typed = filtered
+        typed = dict(filtered)
         for k, v in typed.items():
             if k == "i.meteorological_file":
-                typed[k] = get_meteorological_file(v)
+                typed[k] = normalize_meteorological_file_path(v)
             elif isinstance(v, str) and v.lower() in ["false", "no"]:
                 typed[k] = False
             elif isinstance(v, str) and v.lower() in ["true", "yes"]:
@@ -498,6 +541,8 @@ class OpenBESSpecification:
             elif k.startswith(("i.condition_z", "d.condition_z")):
                 typed[k] = v.lower() == "conditioned"
 
-        parameters = {k[2:]: v for k, v in filtered.items() if k.startswith("d")}
-        specification = {k[2:]: v for k, v in filtered.items() if k.startswith("i")}
+        parameters = {k[2:]: v for k, v in typed.items() if k.startswith("d")}
+        specification = {k[2:]: v for k, v in typed.items() if k.startswith("i")}
+        if "meteorological_file" in specification:
+            specification["meteorological_file_path"] = specification.pop("meteorological_file")
         return cls(parameters=OpenBESParameters(**parameters), **specification)

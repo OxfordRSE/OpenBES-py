@@ -5,15 +5,21 @@ from typing import List
 import numpy as np
 from pandas import Series
 
-from .base import EnergyUseSimulation, EnergyUseSimulationInitError
+from .base import EnergyUseSimulation, EnergyUseSimulationInitError, SimulationError
 from .climate import ClimateSimulation, RELATIVE_HUMIDITY
 from .geometry import BuildingGeometry
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
+from .reporting import find_hour_peak, output_precision
 from .ventilation import VentilationSimulation
+from ..schemas import CoolingSimulationOutput, ThermalSystemResult
 from ..types import OpenBESSpecification, COOLING_SYSTEM_TYPES
 
 logger = logging.getLogger(__name__)
+
+
+class CoolingSimulationError(SimulationError):
+    """Raised when cooling report generation fails."""
 
 MIN_COOLING_CAPACITY = 0.01  # kW
 MIN_COOLING_EFFICIENCY = 0.01  # kWh
@@ -382,3 +388,28 @@ class CoolingSimulation(EnergyUseSimulation):
         if len(self.cooling_simulations) == 0:
             return self._energy_use.fillna(0.0)
         return sum([x.energy_use for x in self.cooling_simulations])
+
+    @property
+    def report(self) -> CoolingSimulationOutput:
+        try:
+            systems = []
+            precision = output_precision(self.spec)
+            area = self.climate_simulation.geometry.conditioned_floor_area
+            demand = self.climate_simulation.cooling_demand * area / 1000
+            quantile = demand.quantile(0.996)
+            for sys in self.cooling_simulations:
+                energy_use = sys.energy_use.sum().sum()
+                capacity = sys.sensible_nominal_capacity
+                systems.append(
+                    ThermalSystemResult(
+                        conditioned_area=sys.area,
+                        energy_demand=energy_use / sys.area if sys.area else None,
+                        system_usage=sys.demand.sum() / area if area else None,
+                        peak_load=find_hour_peak(demand, max, precision),
+                        peak_capacity=capacity,
+                        peak_ratio=capacity / quantile if quantile else None,
+                    )
+                )
+            return CoolingSimulationOutput(cooling_systems=systems)
+        except Exception as exc:
+            raise CoolingSimulationError("Failed to generate cooling report") from exc

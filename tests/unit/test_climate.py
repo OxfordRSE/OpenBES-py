@@ -2,12 +2,12 @@ import unittest
 from pandas import Series
 
 from openbes.types import COMPASS_POINTS
-from src.openbes.simulations.base import HOURS_DF
-from src.openbes.simulations.climate import ClimateSimulation
+from openbes.simulations.base import HOURS_DF
+from openbes.simulations.climate import ClimateSimulation
 from tests.unit.utils import (
     OpenBESTestCase,
 )
-from src.openbes.examples import HOLYWELL_HOUSE_SPEC
+from openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
 class ClimateSetup(OpenBESTestCase):

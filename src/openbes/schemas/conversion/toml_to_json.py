@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, List
 
 from openbes.schemas import OpenBESSpecificationV2
-from openbes.types import get_meteorological_file
+from openbes.types import normalize_meteorological_file_path
 
 
 def monthly_average_to_consumption(value: float = None) -> Optional[Dict[str, float]]:
@@ -247,7 +247,7 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
 
     mf = get("meteorological_file")
     if mf is not None:
-        out["meteorological_file"] = get_meteorological_file(mf)
+        out["meteorological_file_path"] = normalize_meteorological_file_path(mf)
 
     for k in ["day", "night"]:
         out[f"setpoint_temperature_{k}"] = to_range(
