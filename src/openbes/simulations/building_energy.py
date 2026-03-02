@@ -1221,7 +1221,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             new_spec: The new OpenBESSpecification to apply
         """
         # Check if climate needs to be rerun
-        climate_needs_rerun = specs_require_climate_rerun(self.spec, new_spec)
+        climate_needs_rerun = self.climate is None or specs_require_climate_rerun(self.spec, new_spec)
 
         # Update the spec reference
         self.spec = new_spec
@@ -1239,11 +1239,8 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             logger.info("Climate specs unchanged. Reusing cached climate calculations...")
 
             # Reset climate cache to clear intermediate computations but preserve hour-by-hour results
-            if self.climate is not None:
-                climate_sim = deepcopy(self.climate)
-                reset_climate_cache(climate_sim)
-            else:
-                climate_sim = None
+            climate_sim = deepcopy(self.climate)
+            reset_climate_cache(climate_sim)
 
             out = type(self)(spec=new_spec, log_prefix=self.log_prefix, climate=climate_sim)
             out.log = self.log  # Preserve log history
