@@ -12,6 +12,7 @@ digraph BuildingSimulationDAG {
     Cooling;
     Heating;
     "Hot Water";
+    Location;
 
 
     Geometry -> Ventilation;
@@ -20,7 +21,8 @@ digraph BuildingSimulationDAG {
     Lighting -> Climate;
     Ventilation -> Climate;
     Occupancy -> Climate;
-    "Solar Radiation" -> Climate;
+    "Solar Radiation" -> Location;
+    Location -> Climate;
 
     Climate -> Cooling;
     Climate -> Heating;

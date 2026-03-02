@@ -199,9 +199,9 @@ class OpenBESSpecification:
     Data class for OpenBES spec parameters.
     """
 
-    building_length: float
-    building_width: float
-    meteorological_file_path: str
+    building_length: Optional[float] = None
+    building_width: Optional[float] = None
+    meteorological_file_path: Optional[str] = None
 
     parameters: Optional[OpenBESParameters] = field(default_factory=OpenBESParameters)
     appliances_load: float = 0.0

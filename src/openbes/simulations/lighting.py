@@ -38,7 +38,12 @@ class LightingSimulation(EnergyUseSimulation):
         self, spec: OpenBESSpecification, occupancy: OccupationSimulation = None
     ):
         super().__init__(spec=spec)
-        self.occupancy = occupancy or OccupationSimulation(spec=spec)
+        try:
+            self.occupancy = occupancy or OccupationSimulation(spec=spec)
+        except SimulationError as exc:
+            raise EnergyUseSimulationInitError(
+                f"Failed to initialize LightingSimulation due to error in dependent simulation: {exc}"
+            ) from exc
 
     def get_w_per_luminaire(self, zone: int) -> float:
         """kWh per day for a specific zone based on lighting system specifications."""

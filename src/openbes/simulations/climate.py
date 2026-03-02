@@ -188,6 +188,14 @@ class ClimateSimulation(HourlySimulation):
     _theta_st_partial: float
     _solar_radiation: DataFrame = None
     _zonal_heating_cooling_demand: DataFrame = None
+    _required_inputs = (
+        "setpoint_winter_day",
+        "setpoint_winter_night",
+        "setpoint_summer_day",
+        "setpoint_summer_night",
+        "natural_ventilation_night",
+    )
+    _required_inputs_error_cls = ClimateSimulationError
 
     def __init__(
         self,
@@ -205,17 +213,22 @@ class ClimateSimulation(HourlySimulation):
         Consequently, the entire simulation is run in the __init__ method, which may take some time.
         """
         super().__init__(spec=spec)
-        self.geometry = geometry or BuildingGeometry(spec=spec)
-        self.occupancy = occupancy or OccupationSimulation(
-            spec=spec, geometry=self.geometry
-        )
-        self.lighting = lighting or LightingSimulation(
-            spec=spec, occupancy=self.occupancy
-        )
-        self.ventilation = ventilation or VentilationSimulation(
-            spec=spec, geometry=self.geometry, occupancy=self.occupancy
-        )
-        self.location = location or LocationSimulation(spec=spec)
+        try:
+            self.geometry = geometry or BuildingGeometry(spec=spec)
+            self.occupancy = occupancy or OccupationSimulation(
+                spec=spec, geometry=self.geometry
+            )
+            self.lighting = lighting or LightingSimulation(
+                spec=spec, occupancy=self.occupancy
+            )
+            self.ventilation = ventilation or VentilationSimulation(
+                spec=spec, geometry=self.geometry, occupancy=self.occupancy
+            )
+            self.location = location or LocationSimulation(spec=spec)
+        except SimulationError as err:
+            raise ClimateSimulationError(
+                f"Failed to initialize ClimateSimulation due to error in dependent simulation: {err}"
+            ) from err
         # Pre-calculate all hour-dependent values in sequence
         n = len(self._hours)
         results = []

@@ -1150,12 +1150,7 @@
           "description": "Typical occupancy of the building in number of people."
         }
       },
-      "additionalProperties": false,
-      "required": [
-        "building",
-        "zones",
-        "meteorological_file_path"
-      ]
+      "additionalProperties": false
     },
     "SpaceThermalDemandResult": {
       "type": "object",
@@ -1606,6 +1601,10 @@
         "timestamp": {
           "type": "string",
           "description": "Timestamp of when the simulation was run."
+        },
+        "EPW_file_checksum": {
+          "type": "string",
+          "description": "MD5 Checksum of the EPW file used in the simulation."
         }
       },
       "required": [

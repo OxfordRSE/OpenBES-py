@@ -4,7 +4,7 @@ import logging
 
 from pandas import MultiIndex, DataFrame, Series
 
-from .base import SimulationError
+from .base import SimulationError, missing_required_inputs
 from .reporting import output_precision, to_output_csv
 from ..schemas import GeometrySimulationOutput
 from ..types import (
@@ -111,9 +111,15 @@ class BuildingGeometry:
     _building_mass_factor: float
     _heat_capacity_am: float
     _heat_capacity_cm: float
+    _required_inputs = ("building_length", "building_width")
 
     def __init__(self, spec: OpenBESSpecification):
         self.spec = spec
+        missing = missing_required_inputs(self.spec, self._required_inputs)
+        if missing:
+            raise GeometrySimulationError(
+                f"BuildingGeometry missing required inputs: {', '.join(missing)}"
+            )
         self._rectangles = ZONAL_RECTANGLES.copy()
         self._orientation_facade = ORIENTATION_FACADE.copy()
         self._compass_point_facade = COMPASS_POINT_FACADE.copy()

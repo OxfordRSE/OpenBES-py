@@ -46,6 +46,45 @@ HOURS_DF = DataFrame(
 ).set_index(["month", "day", "hour"])
 
 
+class SimulationError(RuntimeError):
+    """Base exception for simulation-level failures."""
+
+
+class SimulationRequiredInputsError(SimulationError, ValueError):
+    """Raised when required specification inputs are missing for a simulation."""
+
+
+class EnergyUseSimulationInitError(SimulationError, ValueError):
+    pass
+
+
+def _resolve_required_input(spec: OpenBESSpecification, key: str):
+    value = spec
+    for part in key.split("."):
+        value = getattr(value, part)
+    return value
+
+
+def missing_required_inputs(
+    spec: OpenBESSpecification,
+    required_inputs: list[str] | tuple[str, ...],
+    getter=None,
+) -> list[str]:
+    if not required_inputs:
+        return []
+    resolver = getter or (lambda k: _resolve_required_input(spec, k))
+    missing = []
+    for key in required_inputs:
+        try:
+            value = resolver(key)
+        except (AttributeError, KeyError, TypeError):
+            missing.append(key)
+            continue
+        if value is None or value == "":
+            missing.append(key)
+    return missing
+
+
 class HourlySimulation:
     """
     Base class for hourly simulations.
@@ -61,18 +100,29 @@ class HourlySimulation:
 
     spec: OpenBESSpecification
     _hours: DataFrame
+    _required_inputs: tuple[str, ...] = ()
+    _required_inputs_error_cls = SimulationRequiredInputsError
 
     def __init__(self, spec: OpenBESSpecification):
         self.spec = spec
+        self.validate_required_inputs()
         self._hours = HOURS_DF.copy()
 
-
-class SimulationError(RuntimeError):
-    """Base exception for simulation-level failures."""
-
-
-class EnergyUseSimulationInitError(SimulationError, ValueError):
-    pass
+    def validate_required_inputs(
+        self,
+        required_inputs: list[str] | tuple[str, ...] | None = None,
+        *,
+        getter=None,
+        context: str | None = None,
+        error_cls=None,
+    ) -> None:
+        required = self._required_inputs if required_inputs is None else required_inputs
+        missing = missing_required_inputs(self.spec, required, getter=getter)
+        if not missing:
+            return
+        label = context or self.__class__.__name__
+        exc_cls = error_cls or self._required_inputs_error_cls
+        raise exc_cls(f"{label} missing required inputs: {', '.join(missing)}")
 
 
 class EnergyUseSimulation(HourlySimulation):
@@ -85,6 +135,7 @@ class EnergyUseSimulation(HourlySimulation):
     The _energy_use property is initialized as a DataFrame of NaNs with the same index as _hours
     and columns for each ENERGY_SOURCES. self.energy_use should populate this DataFrame appropriately.
     """
+    _required_inputs_error_cls = EnergyUseSimulationInitError
 
     def __init__(self, spec: OpenBESSpecification):
         super().__init__(spec)
