@@ -4,13 +4,7 @@ from hashlib import md5
 from importlib.resources import files
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
-
-try:
-    from pyodide.http import pyxhr
-
-    urlopen = pyxhr.get
-except ImportError:
-    from urllib.request import urlopen
+from urllib.request import urlopen
 
 from pandas import DataFrame, Series
 from pvlib.iotools import read_epw
