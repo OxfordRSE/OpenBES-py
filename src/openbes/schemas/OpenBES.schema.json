@@ -1038,8 +1038,7 @@
         },
         "building_standby_electricity_consumption": {
           "$ref": "#/definitions/Consumption",
-          "description": "Electrical standby load for the building.",
-          "default": 0.0
+          "description": "Electrical standby load for the building."
         },
         "diesel_consumption": {
           "$ref": "#/definitions/Consumption",
@@ -1122,7 +1121,7 @@
           "description": "Maximum occupancy of the building in number of people."
         },
         "meteorological_file_path": {
-          "oneOf": [
+          "anyOf": [
             {
               "$ref": "#/definitions/METEOROLOGICAL_FILE"
             },
