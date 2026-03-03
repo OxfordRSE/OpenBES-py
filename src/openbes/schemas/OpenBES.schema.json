@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.3.1/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.3.1",
+  "$version": "0.3.2",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -1122,7 +1122,14 @@
           "description": "Maximum occupancy of the building in number of people."
         },
         "meteorological_file_path": {
-          "$ref": "#/definitions/METEOROLOGICAL_FILE",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/METEOROLOGICAL_FILE"
+            },
+            {
+              "type": "string"
+            }
+          ],
           "description": "Meteorological filename or identifier."
         },
         "natural_ventilation_night": {
