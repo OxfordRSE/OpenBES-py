@@ -5,6 +5,11 @@ from importlib.resources import files
 from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 
+try:
+    from pyodide.http import pyxhr as urlopen
+except ImportError:
+    from urllib.request import urlopen
+
 from pandas import DataFrame, Series
 from pvlib.iotools import read_epw
 
@@ -59,10 +64,6 @@ class LocationSimulation:
         parsed = urlparse(source)
         if parsed.scheme in ("http", "https", "ftp"):
             # Try to load pyodide.http packages to check if we're in a Pyodide environment.
-            try:
-                from pyodide.http import pyxhr as urlopen
-            except ImportError:
-                from urllib.request import urlopen
             try:
                 with urlopen(source) as response:
                     content = response.read()
