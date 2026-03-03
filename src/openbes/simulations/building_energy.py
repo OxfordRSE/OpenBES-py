@@ -988,21 +988,16 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         try:
             return fn()
         except Exception as e:
-            self._log_output_issue(f"Could not calculate {key}: {e}")
+            logger.info(f"Could not calculate {key}: {e}")
             return None
-
-    def _log_output_issue(self, message: str) -> None:
-        logger.info(message)
-        if hasattr(self, "log"):
-            self.log.append(message)
 
     def _report_or_empty(self, simulation: str, fn: callable, empty_cls: type):
         try:
             return fn()
         except SimulationError as exc:
-            self._log_output_issue(f"{simulation} report failed: {exc}")
+            logger.info(f"{simulation} report failed: {exc}")
         except Exception as exc:
-            self._log_output_issue(f"{simulation} report failed unexpectedly: {exc}")
+            logger.warning(f"{simulation} report failed unexpectedly: {exc}")
         return empty_cls()
 
     def _building_energy_output(self) -> BuildingEnergySimulationOutput:
@@ -1253,6 +1248,6 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             out.climate.location = out.location
 
             logger.info("Building energy simulation updated with new specification.")
-            
+
         out.log = [*self.log, *out.log]  # Preserve log history
         return out
