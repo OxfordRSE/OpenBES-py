@@ -83,10 +83,16 @@ class LocationSimulation:
             self._epw_file_checksum = md5(content).hexdigest()
             return
 
-        raise ValueError(
-            "meteorological_file_path must be a remote URL (http/https/ftp) or openbes:// path. "
-            f"Got: {source}"
-        )
+        # Local file access is allowed
+        try:
+            self._epw_data, self._epw_metadata = read_epw(source)
+            with open(source, "rb") as f:
+                content = f.read()
+                self._epw_file_checksum = md5(content).hexdigest()
+        except Exception as exc:
+            raise type(exc)(
+                f"Could not load {source} as a local EPW file. Ensure the path is correct and accessible."
+            ) from exc
 
     @property
     def epw_data(self) -> DataFrame:
