@@ -36,7 +36,6 @@ from ..schemas import (
     OpenBESMetaData,
     HourPeak,
     SpaceThermalDemandResult,
-    VentilationSystemResult,
     ThermalSystemResult,
     VentilationSimulationOutput,
     ModelValidation,
@@ -1235,8 +1234,6 @@ class BuildingEnergySimulation(EnergyUseSimulation):
 
             # Recreate from scratch
             out = type(self)(spec=new_spec, log_prefix=self.log_prefix)
-            out.log = self.log  # Preserve log history
-            return out
         else:
             # Climate is unchanged - preserve the expensive calculations
             logger.info("Climate specs unchanged. Reusing cached climate calculations...")
@@ -1246,7 +1243,6 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             reset_climate_cache(climate_sim)
 
             out = type(self)(spec=new_spec, log_prefix=self.log_prefix, climate=climate_sim)
-            out.log = self.log  # Preserve log history
 
             # Retroactively bind new simulations to the existing climate simulations
             out.climate.spec = new_spec
@@ -1257,4 +1253,6 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             out.climate.location = out.location
 
             logger.info("Building energy simulation updated with new specification.")
-            return out
+            
+        out.log = [*self.log, *out.log]  # Preserve log history
+        return out
