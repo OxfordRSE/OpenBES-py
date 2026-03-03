@@ -22,9 +22,9 @@ class TestLocationSimulation(unittest.TestCase):
         self.assertIn("latitude", sim.epw_metadata)
         self.assertEqual(len(sim.epw_file_checksum), 32)
 
-    def test_local_path_raises(self):
+    def test_local_path_accepted(self):
         sim = LocationSimulation(self._spec("src/openbes/simulations/climate_data/USA_Denver_725650TYCST.epw"))
-        with self.assertRaises(ValueError):
+        with self.assertRaises(FileNotFoundError):
             _ = sim.epw_data
 
     @patch("openbes.simulations.location.urlopen")
