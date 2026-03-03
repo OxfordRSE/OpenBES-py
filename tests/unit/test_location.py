@@ -23,7 +23,7 @@ class TestLocationSimulation(unittest.TestCase):
         self.assertEqual(len(sim.epw_file_checksum), 32)
 
     def test_local_path_accepted(self):
-        sim = LocationSimulation(self._spec("src/openbes/simulations/climate_data/USA_Denver_725650TYCST.epw"))
+        sim = LocationSimulation(self._spec("no/file/here.epw"))
         with self.assertRaises(FileNotFoundError):
             _ = sim.epw_data
 
