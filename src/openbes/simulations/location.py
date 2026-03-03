@@ -6,7 +6,9 @@ from tempfile import NamedTemporaryFile
 from urllib.parse import urlparse
 
 try:
-    from pyodide.http import pyxhr as urlopen
+    from pyodide.http import pyxhr
+
+    urlopen = pyxhr.get
 except ImportError:
     from urllib.request import urlopen
 
