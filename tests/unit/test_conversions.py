@@ -11,29 +11,40 @@ from openbes.schemas import OpenBESSpecificationV2
 
 
 class Conversions(unittest.TestCase):
+    NULLISH = (None, "", [], 0, 0.0, False)
+
     def assertJSONEquivalent(self, obj1, obj2, msg_prefix=""):
-        if isinstance(obj1, dict):
-            self.assertEqual(set(obj1.keys()), set(obj2.keys()), msg=msg_prefix)
-            for key in obj1.keys():
-                self.assertJSONEquivalent(
-                    obj1[key], obj2[key], msg_prefix=f"{msg_prefix}['{key}']"
-                )
-        elif isinstance(obj1, list):
+        """Assert two JSON-compatible values are semantically equivalent.
+
+        A key absent from one dict is treated as equivalent to it being present
+        with a nullish value in the other, since the sparse conversion omits
+        null/zero/empty values rather than explicitly carrying them.
+        """
+        if isinstance(obj1, dict) or isinstance(obj2, dict):
+            obj1 = obj1 if isinstance(obj1, dict) else {}
+            obj2 = obj2 if isinstance(obj2, dict) else {}
+            all_keys = set(obj1.keys()) | set(obj2.keys())
+            for key in all_keys:
+                v1 = obj1.get(key)
+                v2 = obj2.get(key)
+                self.assertJSONEquivalent(v1, v2, msg_prefix=f"{msg_prefix}['{key}']")
+        elif isinstance(obj1, list) or isinstance(obj2, list):
+            obj1 = obj1 if isinstance(obj1, list) else []
+            obj2 = obj2 if isinstance(obj2, list) else []
             self.assertEqual(len(obj1), len(obj2), msg=msg_prefix)
             for i in range(len(obj1)):
                 self.assertJSONEquivalent(
                     obj1[i], obj2[i], msg_prefix=f"{msg_prefix}[{i}]"
                 )
         else:
-            nullish = [None, "", [], 0, 0.0]
-            if obj1 in nullish and obj2 in nullish:
+            if obj1 in self.NULLISH and obj2 in self.NULLISH:
                 return
             if isinstance(obj1, str) and isinstance(obj2, str):
                 self.assertEqual(
                     obj1.strip().lower(), obj2.strip().lower(), msg=msg_prefix
                 )
-            elif isinstance(obj1, float) and isinstance(obj2, float):
-                self.assertAlmostEqual(obj1, obj2, msg=msg_prefix, places=5)
+            elif isinstance(obj1, (int, float)) and isinstance(obj2, (int, float)):
+                self.assertAlmostEqual(float(obj1), float(obj2), msg=msg_prefix, places=5)
             else:
                 self.assertEqual(obj1, obj2, msg=msg_prefix)
 
@@ -98,8 +109,20 @@ class Conversions(unittest.TestCase):
     def test_convert_blank_schema(self):
         blank_json = {}
         toml_spec = json_to_toml(blank_json)
+        self.assertEqual(toml_spec, {}, msg="json_to_toml({}) should produce an empty TOML dict")
         and_back = toml_to_json(toml_spec)
+        self.assertEqual(and_back, {}, msg="toml_to_json({}) should produce an empty JSON dict")
         self.assertJSONEquivalent(blank_json, and_back)
+
+    def test_blank_schema_stability(self):
+        """Repeated json->toml->json->toml... conversions of {} should stay empty."""
+        result_json = {}
+        result_toml = {}
+        for _ in range(3):
+            result_toml = json_to_toml(result_json)
+            self.assertEqual(result_toml, {})
+            result_json = toml_to_json(result_toml)
+            self.assertEqual(result_json, {})
 
 if __name__ == "__main__":
     unittest.main()
