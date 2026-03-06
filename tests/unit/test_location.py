@@ -1,17 +1,14 @@
 import unittest
 from unittest.mock import patch
 
+from openbes.schemas import LocationSimulationOutput
 from openbes.simulations.location import LocationSimulation, get_available_epw_files
 from openbes.types import OpenBESSpecification
 
 
 class TestLocationSimulation(unittest.TestCase):
     def _spec(self, path: str) -> OpenBESSpecification:
-        return OpenBESSpecification(
-            building_length=10.0,
-            building_width=10.0,
-            meteorological_file_path=path,
-        )
+        return OpenBESSpecification(meteorological_file_path=path)
 
     def test_available_files_use_openbes_prefix(self):
         files = get_available_epw_files()
@@ -35,6 +32,9 @@ class TestLocationSimulation(unittest.TestCase):
             _ = sim.epw_data
         self.assertIn("download the file locally", str(ctx.exception))
 
+    def test_report(self):
+        sim = LocationSimulation(self._spec("openbes://USA_Denver_725650TYCST.epw"))
+        LocationSimulationOutput.model_validate(sim.report)
 
 if __name__ == "__main__":
     unittest.main()

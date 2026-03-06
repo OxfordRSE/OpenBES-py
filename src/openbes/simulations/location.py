@@ -202,6 +202,11 @@ class LocationSimulation:
             )
             return LocationSimulationOutput(
                 altitude=self.epw_metadata["altitude"],
+                latitude=self.epw_metadata["lat"],
+                longitude=self.epw_metadata["lon"],
+                city=self.epw_metadata["city"],
+                country=self.epw_metadata["country"],
+                state_province=self.epw_metadata["state-province"],
                 solstice_ghr_csv=to_output_csv(ghi, precision),
                 max_outdoor_temperature=find_hour_peak(
                     self._hourly_dry_bulb_temp, max, precision

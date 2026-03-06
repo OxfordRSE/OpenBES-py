@@ -1197,7 +1197,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             )
         return self._full_case_report
 
-    def update_spec(self, new_spec: OpenBESSpecification) -> "BuildingEnergySimulation":
+    def update_spec(self, new_spec: OpenBESSpecification, preserve_log: bool = True) -> "BuildingEnergySimulation":
         """
         Update the building energy simulation with a new specification.
 
@@ -1249,5 +1249,6 @@ class BuildingEnergySimulation(EnergyUseSimulation):
 
             logger.info("Building energy simulation updated with new specification.")
 
-        out.log = [*self.log, *out.log]  # Preserve log history
+        if preserve_log:
+            out.log = [*self.log, *out.log]
         return out

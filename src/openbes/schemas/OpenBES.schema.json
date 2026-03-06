@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.3.1/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.3.2",
+  "$version": "0.3.3",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -1312,6 +1312,26 @@
         "altitude": {
           "type": "number",
           "description": "Altitude as read from the weather file."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Latitude as read from the weather file."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude as read from the weather file."
+        },
+        "city": {
+          "type": "string",
+          "description": "City as read from the weather file."
+        },
+        "country": {
+          "type": "string",
+          "description": "Country as read from the weather file."
+        },
+        "state_province": {
+          "type": "string",
+          "description": "State/province as read from the weather file."
         },
         "solstice_ghr_csv": {
           "type": "string",
