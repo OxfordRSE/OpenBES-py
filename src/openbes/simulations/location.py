@@ -10,7 +10,7 @@ from pandas import DataFrame, Series
 from pvlib.iotools import read_epw
 
 from .base import HOURS_DF, SimulationError, missing_required_inputs
-from .reporting import find_hour_peak, output_precision, to_output_csv
+from .reporting import find_hour_peak, output_precision, to_output_csv, find_day_peak
 from .solar_irradiation import SolarIrradiationSimulation
 from ..schemas import LocationSimulationOutput
 from ..types import OpenBESSpecification
@@ -213,6 +213,16 @@ class LocationSimulation:
                 ),
                 min_outdoor_temperature=find_hour_peak(
                     self._hourly_dry_bulb_temp, min, precision
+                ),
+                mean_outdoor_temperature=round(self._hourly_dry_bulb_temp.mean(), precision),
+                max_outdoor_day_temperature=find_day_peak(
+                    self._hourly_dry_bulb_temp, max, precision
+                ),
+                min_outdoor_day_temperature=find_day_peak(
+                    self._hourly_dry_bulb_temp, min, precision
+                ),
+                mean_outdoor_day_temperature=round(
+                    self._hourly_dry_bulb_temp.groupby(["month", "day"]).mean().mean(), precision
                 ),
                 climate_quantiles_csv=to_output_csv(quantiles_df, precision),
                 degree_days_csv=to_output_csv(degree_days, precision),

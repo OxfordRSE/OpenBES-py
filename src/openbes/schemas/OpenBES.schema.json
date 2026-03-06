@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.3.1/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.3.3",
+  "$version": "0.3.4",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -1269,6 +1269,38 @@
       },
       "additionalProperties": false
     },
+    "DayPeak": {
+      "type": "object",
+      "description": "A statistic with the month, and day at which it occurred.",
+      "properties": {
+        "value": {
+          "type": "number",
+          "description": "The statistic in question."
+        },
+        "month": {
+          "type": "string",
+          "enum": [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December"
+          ]
+        },
+        "day": {
+          "type": "number",
+          "description": "Day of the month."
+        }
+      },
+      "additionalProperties": false
+    },
     "HourPeak": {
       "type": "object",
       "description": "A statistic with the month, day, and hour at which it occurred.",
@@ -1342,6 +1374,22 @@
         },
         "min_outdoor_temperature": {
           "$ref": "#/definitions/HourPeak"
+        },
+        "mean_outdoor_temperature": {
+          "type": "number",
+          "description": "Mean outdoor temperature over the year."
+        },
+        "max_outdoor_day_temperature": {
+          "$ref": "#/definitions/DayPeak",
+          "description": "Maximum mean outdoor temperature over the course of a day."
+        },
+        "min_outdoor_day_temperature": {
+          "$ref": "#/definitions/DayPeak",
+          "description": "Minimum mean outdoor temperature over the course of a day."
+        },
+        "mean_outdoor_day_temperature": {
+          "type": "number",
+          "description": "Mean of the mean outdoor temperature for each day over the year."
         },
         "climate_quantiles_csv": {
           "type": "string",
