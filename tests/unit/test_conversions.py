@@ -95,6 +95,11 @@ class Conversions(unittest.TestCase):
         spec = OpenBESSpecificationV2(**json_spec)
         json_to_toml(spec)
 
+    def test_convert_blank_schema(self):
+        blank_json = {}
+        toml_spec = json_to_toml(blank_json)
+        and_back = toml_to_json(toml_spec)
+        self.assertJSONEquivalent(blank_json, and_back)
 
 if __name__ == "__main__":
     unittest.main()

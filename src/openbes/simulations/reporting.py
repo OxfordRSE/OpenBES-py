@@ -79,15 +79,10 @@ def find_hour_peak(series: Series, fn: Callable, precision: int) -> HourPeak:
 
 
 def find_day_peak(series: Series, fn: Callable, precision: int) -> DayPeak:
-    series = series.groupby(["month", "day"]).mean()
     peak_value = fn(series)
     peak_index = series[series == peak_value].index[0]
-    if isinstance(peak_index, tuple):
-        month = int(peak_index[0])
-        day = day_of_the_month(int(peak_index[1]), month)
-    else:
-        month = int(peak_index.month)
-        day = int(peak_index.day)
+    month = int(peak_index[0])
+    day = day_of_the_month(int(peak_index[1]), month)
     return DayPeak(
         month=MONTH_NAMES[month - 1],
         day=day,

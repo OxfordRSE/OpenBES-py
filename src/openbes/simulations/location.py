@@ -216,13 +216,13 @@ class LocationSimulation:
                 ),
                 mean_outdoor_temperature=round(self._hourly_dry_bulb_temp.mean(), precision),
                 max_outdoor_day_temperature=find_day_peak(
-                    self._hourly_dry_bulb_temp, max, precision
+                    avg_daily_t, max, precision
                 ),
                 min_outdoor_day_temperature=find_day_peak(
-                    self._hourly_dry_bulb_temp, min, precision
+                    avg_daily_t, min, precision
                 ),
                 mean_outdoor_day_temperature=round(
-                    self._hourly_dry_bulb_temp.groupby(["month", "day"]).mean().mean(), precision
+                    avg_daily_t.groupby(["month", "day"]).mean().mean(), precision
                 ),
                 climate_quantiles_csv=to_output_csv(quantiles_df, precision),
                 degree_days_csv=to_output_csv(degree_days, precision),

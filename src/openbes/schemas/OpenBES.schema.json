@@ -1381,15 +1381,15 @@
         },
         "max_outdoor_day_temperature": {
           "$ref": "#/definitions/DayPeak",
-          "description": "Maximum mean outdoor temperature over the course of a day."
+          "description": "Hottest day of the year where the temperature is the mean of the hottest hour plus and coldest hour."
         },
         "min_outdoor_day_temperature": {
           "$ref": "#/definitions/DayPeak",
-          "description": "Minimum mean outdoor temperature over the course of a day."
+          "description": "Coldest day of the year where the temperature is the mean of the hottest hour plus and coldest hour."
         },
         "mean_outdoor_day_temperature": {
           "type": "number",
-          "description": "Mean of the mean outdoor temperature for each day over the year."
+          "description": "Mean daily temperature given by the mean of the hottest hour plus and coldest hour."
         },
         "climate_quantiles_csv": {
           "type": "string",
