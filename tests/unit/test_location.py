@@ -35,6 +35,21 @@ class TestLocationSimulation(unittest.TestCase):
     def test_report(self):
         sim = LocationSimulation(self._spec("openbes://USA_Denver_725650TYCST.epw"))
         LocationSimulationOutput.model_validate(sim.report)
+        for k in [
+            "altitude",
+            "latitude",
+            "longitude",
+            "city",
+            "country",
+            "state_province",
+            "solstice_ghr_csv",
+            "max_outdoor_temperature",
+            "min_outdoor_temperature",
+            "climate_quantiles_csv",
+            "degree_days_csv",
+            "annual_incident_solar_radiation_csv",
+        ]:
+            self.assertIsNotNone(getattr(sim.report, k, None))
 
 if __name__ == "__main__":
     unittest.main()
