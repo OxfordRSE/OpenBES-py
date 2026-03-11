@@ -712,7 +712,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             .set_axis(self.months_index)
             .rename("Demand (kWh)")
             .to_csv(header=True),
-            load_duraction_csv=quantiles.rename_axis(  # zonal_demand.quantile(self.quantiles)
+            load_duration_csv=quantiles.rename_axis(  # zonal_demand.quantile(self.quantiles)
                 "Quantile"
             )
             .to_frame(name="kW")

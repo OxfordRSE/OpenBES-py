@@ -503,7 +503,7 @@ class SpaceThermalDemandResult(BaseModel):
     load_csv: str | None = Field(
         default=None, description="Load in kWh/m2 by calendar month."
     )
-    load_duraction_csv: str | None = Field(
+    load_duration_csv: str | None = Field(
         default=None, description="Load in kW by annual percentile."
     )
 

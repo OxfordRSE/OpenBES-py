@@ -1364,7 +1364,7 @@ class ClimateSimulation(HourlySimulation):
                 .rename("Demand (kWh)"),
                 precision,
             ),
-            load_duraction_csv=to_output_csv(
+            load_duration_csv=to_output_csv(
                 quantiles.rename_axis("Quantile").to_frame(name="kW"),
                 precision,
             ),

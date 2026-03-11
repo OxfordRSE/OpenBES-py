@@ -204,7 +204,7 @@ class TestOpenBESReport(OpenBESTestCase):
                     "num_rows": 12,
                     "first_row": ["January", 9624.76],
                 },
-                "load_duraction_csv": {
+                "load_duration_csv": {
                     "headers": ["Quantile", "kW"],
                     "num_rows": 17,
                     "first_row": [0, 0.0],
@@ -219,7 +219,7 @@ class TestOpenBESReport(OpenBESTestCase):
                     "num_rows": 12,
                     "first_row": ["January", 0.0],
                 },
-                "load_duraction_csv": {
+                "load_duration_csv": {
                     "headers": ["Quantile", "kW"],
                     "num_rows": 17,
                     "first_row": [0, 0.0],
@@ -243,8 +243,8 @@ class TestOpenBESReport(OpenBESTestCase):
                 )
             with self.subTest(a=domain, b="load_csv"):
                 self.check_csv(tdr.load_csv, expected["load_csv"])
-            with self.subTest(a=domain, b="load_duraction_csv"):
-                self.check_csv(tdr.load_duraction_csv, expected["load_duraction_csv"])
+            with self.subTest(a=domain, b="load_duration_csv"):
+                self.check_csv(tdr.load_duration_csv, expected["load_duration_csv"])
 
         expected_csvs = {
             "solstice_ghr_csv": {
