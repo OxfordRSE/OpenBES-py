@@ -194,7 +194,6 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         "leakage_air_flow_independent",
         "lighting_control",
         "lighting_simultaneity_factor",
-        "location",
         "max_building_occupation",
         "natural_ventilation_night",
         "typical_occupation",

@@ -237,7 +237,6 @@ def json_to_toml(
         ("leakage_air_flow_independent", "i.leakage_air_flow_independent"),
         ("lighting_control", "i.lighting_control"),
         ("lighting_simultaneity_factor", "i.lighting_simultaneity_factor"),
-        ("location", "i.location"),
         ("max_building_occupation", "i.max_building_occupation"),
         ("natural_ventilation_night", "i.natural_ventilation_night"),
         ("typical_occupation", "i.typical_occupation"),

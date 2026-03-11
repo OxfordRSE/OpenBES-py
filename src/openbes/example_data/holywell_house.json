@@ -34,7 +34,6 @@
   "leakage_air_flow_independent": 0.45,
   "lighting_control": "Manual",
   "lighting_simultaneity_factor": 0.2,
-  "location": "Oxford",
   "max_building_occupation": 150,
   "natural_ventilation_night": 0,
   "typical_occupation": 75,
