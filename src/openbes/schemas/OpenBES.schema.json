@@ -59,7 +59,7 @@
     },
     "SUPPORTED_COUNTRIES": {
       "type": "string",
-      "description": "Country in which the building is.",
+      "description": "Country in which the building is. [Used for lookup tables concerning e.g. CO2eq/kwH. Will eventually deprecate in favour of EPW file country.]",
       "enum": [
         "Spain",
         "USA",
