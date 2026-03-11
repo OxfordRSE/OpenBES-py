@@ -339,6 +339,7 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
     # ── zones ─────────────────────────────────────────────────────────────────
     zone_map = ["office", "teaching", "canteen", "common", "other"]
     zones = []
+    floor_count = 0
     for i, z in enumerate(zone_map, start=1):
         zone_name = get(f"zone_name_z{i}")
         if zone_name is None:
@@ -348,6 +349,7 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
             get(f"{f}_floor_area_z{i}", 0.0)
             for f in ["ground", "first", "second", "third", "fourth"]
         ]
+        floor_count = max(floor_count, sum(1 for a in zone_areas if a is not None and a > 0))
         zone: dict = {
             "name": zone_name,
             "areas": zone_areas,
@@ -362,6 +364,9 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
 
     if zones:
         out["zones"] = zones
+
+    if floor_count > 0:
+        out["building"]["floor_count"] = floor_count
 
     # ── occupation_schedule ────────────────────────────────────────────────────
     schedule_keys = [
