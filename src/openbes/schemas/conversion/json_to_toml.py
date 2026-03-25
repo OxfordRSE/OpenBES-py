@@ -240,7 +240,7 @@ def json_to_toml(
 
     # ── heat capacity ──────────────────────────────────────────────────────────
     if spec.heat_capacity is not None:
-        hc = spec.heat_capacity
+        hc = spec.heat_capacity.root
         if isinstance(hc, str):
             # PresetHeatCapacity — pass the string value through directly
             toml["i.heat_capacity"] = hc
