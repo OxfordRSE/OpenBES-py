@@ -789,8 +789,30 @@
       "additionalProperties": false
     },
     "HeatCapacity": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/PresetHeatCapacity"
+        },
+        {
+          "$ref": "#/definitions/CustomHeatCapacity"
+        }
+      ],
+      "description": "Heat capacity of the building, either as a preset class or custom Am/Cm values."
+    },
+    "PresetHeatCapacity": {
+      "type": "string",
+      "description": "Preset heat capacity classes.",
+      "enum": [
+        "Very light",
+        "Light",
+        "Medium",
+        "Heavy",
+        "Very heavy"
+      ]
+    },
+    "CustomHeatCapacity": {
       "type": "object",
-      "description": "Heat capacity properties of the building.",
+      "description": "Custom heat capacity properties.",
       "$comment": "Determined via lookup in Excel, or via special-case calculation from advanced_heat_capacity_am and air_heat_capacity * heat_capacity_joule. These underlying values are not guaranteed to be recoverable from Am and Cm alone.",
       "properties": {
         "Am": {

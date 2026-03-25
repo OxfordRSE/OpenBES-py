@@ -179,7 +179,9 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
     # was explicitly set in the TOML.
     wacf_raw = [get(f"window_optical_c{i}") for i in range(1, 6)]
     if any(v is not None for v in wacf_raw):
-        parameters["window_angular_correction_factors"] = [v if v is not None else 0.0 for v in wacf_raw]
+        parameters["window_angular_correction_factors"] = [
+            v if v is not None else 0.0 for v in wacf_raw
+        ]
 
     if parameters:
         out["parameters"] = parameters
@@ -246,8 +248,8 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
 
     building_standby_raw = get("building_standby_load")
     if building_standby_raw is not None:
-        out["building_standby_electricity_consumption"] = monthly_average_to_consumption(
-            building_standby_raw
+        out["building_standby_electricity_consumption"] = (
+            monthly_average_to_consumption(building_standby_raw)
         )
 
     for k in ["energy_generated", "energy_used"]:
@@ -257,18 +259,10 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
 
     # ── heat_capacity ──────────────────────────────────────────────────────────
     heat_capacity = get("heat_capacity")
-    if heat_capacity == "Very light":
-        out["heat_capacity"] = {"Am": 2.5, "Cm": 80_000.0}
-    elif heat_capacity == "Light":
-        out["heat_capacity"] = {"Am": 2.5, "Cm": 110_000.0}
-    elif heat_capacity == "Medium":
-        out["heat_capacity"] = {"Am": 2.5, "Cm": 165_000.0}
-    elif heat_capacity == "Heavy":
-        out["heat_capacity"] = {"Am": 3.0, "Cm": 260_000.0}
-    elif heat_capacity == "Very heavy":
-        out["heat_capacity"] = {"Am": 3.5, "Cm": 370_000.0}
+    if heat_capacity in ("Very light", "Light", "Medium", "Heavy", "Very heavy"):
+        out["heat_capacity"] = heat_capacity
     elif heat_capacity is not None:
-        # Custom numeric value — only emit if we actually have it
+        # Custom numeric value — only emit Am; Cm must be provided separately
         out["heat_capacity"] = {"Am": heat_capacity, "Cm": None}
 
     # ── lighting active hours ──────────────────────────────────────────────────
@@ -331,7 +325,9 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
     ]:
         floors = ["ground", "first", "second", "third", "fourth"]
         if any(present(f"window_number_{f}_{o_code}1") for f in floors):
-            window_counts[o_name] = [get(f"window_number_{f}_{o_code}1", 0) for f in floors]
+            window_counts[o_name] = [
+                get(f"window_number_{f}_{o_code}1", 0) for f in floors
+            ]
     if window_counts:
         building["window_counts"] = window_counts
 
@@ -351,7 +347,9 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
             get(f"{f}_floor_area_z{i}", 0.0)
             for f in ["ground", "first", "second", "third", "fourth"]
         ]
-        floor_count = max(floor_count, sum(1 for a in zone_areas if a is not None and a > 0))
+        floor_count = max(
+            floor_count, sum(1 for a in zone_areas if a is not None and a > 0)
+        )
         zone: dict = {
             "name": zone_name,
             "areas": zone_areas,
@@ -372,9 +370,25 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
 
     # ── occupation_schedule ────────────────────────────────────────────────────
     schedule_keys = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December",
-        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
     ]
     occupation_schedule = {}
     for k in schedule_keys:
@@ -509,7 +523,9 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
     hot_water_systems = []
     water_demand_raw = get("water_demand")
     hot_water_system = {
-        "demand": annual_to_consumption(water_demand_raw * 365) if water_demand_raw is not None else None,
+        "demand": annual_to_consumption(water_demand_raw * 365)
+        if water_demand_raw is not None
+        else None,
         "reference_temperature": get("water_reference_temperature"),
         "supply_temperature": get("water_supply_temperature"),
         "energy_source": get("water_system_energy_source"),

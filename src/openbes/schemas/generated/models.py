@@ -380,12 +380,23 @@ class OpenCourtyardMap(BaseModel):
     right: OpenCourtyard | None = None
 
 
-class HeatCapacity(BaseModel):
+class PresetHeatCapacity(StrEnum):
+    Very_light = "Very light"
+    Light = "Light"
+    Medium = "Medium"
+    Heavy = "Heavy"
+    Very_heavy = "Very heavy"
+
+
+class CustomHeatCapacity(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
     Am: float = Field(..., description="Mass factor")
     Cm: float = Field(..., description="Areal heat capacity (J/m2K)")
+
+
+HeatCapacity = PresetHeatCapacity | CustomHeatCapacity
 
 
 class OpenBESParameters(BaseModel):

@@ -149,10 +149,7 @@
     "November": 0,
     "December": 0
   },
-  "heat_capacity": {
-    "Am": 2.5,
-    "Cm": 165000.0
-  },
+  "heat_capacity": "Medium",
   "lighting_active_hours": {
     "start": 9,
     "end": 17

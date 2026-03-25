@@ -106,7 +106,10 @@ def json_to_toml(
         if "include_occupancy" in pset:
             toml["d.occupancy_on_off"] = 1 if p.include_occupancy else 0
 
-        if "window_angular_correction_factors" in pset and p.window_angular_correction_factors:
+        if (
+            "window_angular_correction_factors" in pset
+            and p.window_angular_correction_factors
+        ):
             for idx, val in enumerate(p.window_angular_correction_factors):
                 set_if(f"d.window_optical_c{idx + 1}", val)
 
@@ -149,7 +152,10 @@ def json_to_toml(
         # thermal_bridge booleans: only emit when explicitly set
         for attr, toml_key in [
             ("thermal_bridge_facade_ground", "i.thermal_bridge_facade_ground"),
-            ("thermal_bridge_facade_intermediate", "i.thermal_bridge_facade_intermediate"),
+            (
+                "thermal_bridge_facade_intermediate",
+                "i.thermal_bridge_facade_intermediate",
+            ),
             ("thermal_bridge_facade_roof", "i.thermal_bridge_facade_roof"),
             ("thermal_bridge_shading", "i.thermal_bridge_shading"),
             ("thermal_bridge_window", "i.thermal_bridge_window"),
@@ -158,7 +164,12 @@ def json_to_toml(
                 toml[toml_key] = "Yes" if getattr(b, attr) else "No"
 
         if "window_counts" in bset and b.window_counts is not None:
-            for o_code, o_name in [("a", "front"), ("b", "right"), ("c", "back"), ("d", "left")]:
+            for o_code, o_name in [
+                ("a", "front"),
+                ("b", "right"),
+                ("c", "back"),
+                ("d", "left"),
+            ]:
                 counts = getattr(b.window_counts, o_name, None)
                 if counts is not None:  # emit even if all-zero; None means side not set
                     floors = ["ground", "first", "second", "third", "fourth"]
@@ -169,15 +180,31 @@ def json_to_toml(
 
     # ── zones ──────────────────────────────────────────────────────────────────
     zone_map = [
-        {"default_name": "office", "default_str": "Office area",
-         "zone": spec.zones[0] if _len(spec.zones) >= 1 else None},
-        {"default_name": "teaching", "default_str": "Teaching",
-         "zone": spec.zones[1] if _len(spec.zones) >= 2 else None},
-        {"default_name": "canteen", "default_str": "Canteen", "zone": spec.zones[2] if _len(spec.zones) >= 3 else None},
-        {"default_name": "common", "default_str": "Common areas",
-         "zone": spec.zones[3] if _len(spec.zones) >= 4 else None},
-        {"default_name": "other", "default_str": "Other spaces",
-         "zone": spec.zones[4] if _len(spec.zones) >= 5 else None},
+        {
+            "default_name": "office",
+            "default_str": "Office area",
+            "zone": spec.zones[0] if _len(spec.zones) >= 1 else None,
+        },
+        {
+            "default_name": "teaching",
+            "default_str": "Teaching",
+            "zone": spec.zones[1] if _len(spec.zones) >= 2 else None,
+        },
+        {
+            "default_name": "canteen",
+            "default_str": "Canteen",
+            "zone": spec.zones[2] if _len(spec.zones) >= 3 else None,
+        },
+        {
+            "default_name": "common",
+            "default_str": "Common areas",
+            "zone": spec.zones[3] if _len(spec.zones) >= 4 else None,
+        },
+        {
+            "default_name": "other",
+            "default_str": "Other spaces",
+            "zone": spec.zones[4] if _len(spec.zones) >= 5 else None,
+        },
     ]
 
     if spec.zones:
@@ -189,7 +216,9 @@ def json_to_toml(
             toml[f"i.zone_name_z{n}"] = zone.name
             zset = zone.model_fields_set
             if "conditioned" in zset:
-                toml[f"i.condition_z{n}"] = "Conditioned" if zone.conditioned else "Unconditioned"
+                toml[f"i.condition_z{n}"] = (
+                    "Conditioned" if zone.conditioned else "Unconditioned"
+                )
             if "active_hours" in zset and zone.active_hours is not None:
                 z_name = zm["default_name"]
                 # First 3 zones: i. prefix; last 2: d. prefix
@@ -212,20 +241,25 @@ def json_to_toml(
     # ── heat capacity ──────────────────────────────────────────────────────────
     if spec.heat_capacity is not None:
         hc = spec.heat_capacity
-        if hc.Am is not None:
-            if hc.Cm == 80_000.0:
-                toml["i.heat_capacity"] = "Very light"
-            elif hc.Cm == 110_000.0:
-                toml["i.heat_capacity"] = "Light"
-            elif hc.Cm == 165_000.0:
-                toml["i.heat_capacity"] = "Medium"
-            elif hc.Cm == 260_000.0:
-                toml["i.heat_capacity"] = "Heavy"
-            elif hc.Cm == 370_000.0:
-                toml["i.heat_capacity"] = "Very heavy"
-            else:
-                toml["i.heat_capacity"] = "Custom Value"
-                toml["d.advanced_heat_capacity_am"] = hc.Am
+        if isinstance(hc, str):
+            # PresetHeatCapacity — pass the string value through directly
+            toml["i.heat_capacity"] = hc
+        else:
+            # CustomHeatCapacity object — reverse-lookup by Cm value
+            if hc.Am is not None:
+                if hc.Cm == 80_000.0:
+                    toml["i.heat_capacity"] = "Very light"
+                elif hc.Cm == 110_000.0:
+                    toml["i.heat_capacity"] = "Light"
+                elif hc.Cm == 165_000.0:
+                    toml["i.heat_capacity"] = "Medium"
+                elif hc.Cm == 260_000.0:
+                    toml["i.heat_capacity"] = "Heavy"
+                elif hc.Cm == 370_000.0:
+                    toml["i.heat_capacity"] = "Very heavy"
+                else:
+                    toml["i.heat_capacity"] = "Custom Value"
+                    toml["d.advanced_heat_capacity_am"] = hc.Am
 
     # ── simple top-level scalars ───────────────────────────────────────────────
     sset = spec.model_fields_set
@@ -252,15 +286,19 @@ def json_to_toml(
         toml["i.lighting_off_time"] = spec.lighting_active_hours.end
 
     if "meteorological_file_path" in sset:
-        set_if("i.meteorological_file", meteorological_file_path_to_toml_value(
-            spec.meteorological_file_path
-        ))
+        set_if(
+            "i.meteorological_file",
+            meteorological_file_path_to_toml_value(spec.meteorological_file_path),
+        )
 
     if "setpoint_temperature_day" in sset and spec.setpoint_temperature_day is not None:
         set_if("i.setpoint_summer_day", spec.setpoint_temperature_day.min)
         set_if("i.setpoint_winter_day", spec.setpoint_temperature_day.max)
 
-    if "setpoint_temperature_night" in sset and spec.setpoint_temperature_night is not None:
+    if (
+        "setpoint_temperature_night" in sset
+        and spec.setpoint_temperature_night is not None
+    ):
         set_if("i.setpoint_summer_night", spec.setpoint_temperature_night.min)
         set_if("i.setpoint_winter_night", spec.setpoint_temperature_night.max)
 
@@ -282,14 +320,24 @@ def json_to_toml(
         for month, v in dict(spec.natural_gas_consumption).items():
             set_if(f"i.gas_{month.lower()}", v)
 
-    if "other_electricity_consumption" in sset and spec.other_electricity_consumption is not None:
-        toml["i.other_electricity_usage"] = annual_consumption(spec.other_electricity_consumption) / 12
+    if (
+        "other_electricity_consumption" in sset
+        and spec.other_electricity_consumption is not None
+    ):
+        toml["i.other_electricity_usage"] = (
+            annual_consumption(spec.other_electricity_consumption) / 12
+        )
 
     if "other_gas_consumption" in sset and spec.other_gas_consumption is not None:
         toml["i.other_gas_usage"] = annual_consumption(spec.other_gas_consumption) / 12
 
-    if "building_standby_electricity_consumption" in sset and spec.building_standby_electricity_consumption is not None:
-        toml["i.building_standby_load"] = annual_consumption(spec.building_standby_electricity_consumption) / 12
+    if (
+        "building_standby_electricity_consumption" in sset
+        and spec.building_standby_electricity_consumption is not None
+    ):
+        toml["i.building_standby_load"] = (
+            annual_consumption(spec.building_standby_electricity_consumption) / 12
+        )
 
     if "energy_generated" in sset and spec.energy_generated is not None:
         toml["i.energy_generated"] = annual_consumption(spec.energy_generated)
@@ -332,7 +380,10 @@ def json_to_toml(
         set_if(f"{d}.cooling_system{n}_energy_source", cs.energy_source)
         set_if(f"{d}.cooling_system{n}_energy_efficifiency_ratio", cs.efficiency_ratio)
         set_if(f"{d}.cooling_system{n}_nominal_capacity", cs.nominal_capacity)
-        set_if(f"{d}.cooling_system{n}_sensible_nominal_capacity", cs.sensible_nominal_capacity)
+        set_if(
+            f"{d}.cooling_system{n}_sensible_nominal_capacity",
+            cs.sensible_nominal_capacity,
+        )
         # min_demand is always a d. (parameter) key regardless of system number.
         set_if(f"d.cooling_system{n}_min_demand", cs.min_demand)
         set_if(f"{d}.cooling_system{n}_number", cs.count)
@@ -352,7 +403,10 @@ def json_to_toml(
         d = "d" if n == 2 else "i"
         set_if(f"{d}.ventilation_system{n}_energy_source", vs.energy_source)
         set_if(f"{d}.ventilation_system{n}_airflow", vs.airflow)
-        set_if(f"{d}.ventilation_system{n}_heat_recovery_efficiency", vs.heat_recovery_efficiency)
+        set_if(
+            f"{d}.ventilation_system{n}_heat_recovery_efficiency",
+            vs.heat_recovery_efficiency,
+        )
         set_if(f"{d}.ventilation_system{n}_rated_input_power", vs.rated_input_power)
         set_if(f"{d}.ventilation_system{n}_type", vs.type)
         set_if(f"{d}.ventilation_system{n}_ventilated_area", vs.ventilated_area)
@@ -374,9 +428,13 @@ def json_to_toml(
             set_if(f"i.lighting_system_luminary_number_z{i}", ls.luminary_number)
             set_if(f"i.lighting_system_name_z{i}", ls.name)
             set_if(f"i.lighting_system_similar_zone_number_z{i}", ls.count)
-            set_if(f"i.lighting_system_simultaneity_factor_z{i}", ls.simultaneity_factor)
+            set_if(
+                f"i.lighting_system_simultaneity_factor_z{i}", ls.simultaneity_factor
+            )
             if ls.active_hours is not None:
-                toml[f"i.lighting_system_operating_hours_z{i}"] = ls.active_hours.end - ls.active_hours.start
+                toml[f"i.lighting_system_operating_hours_z{i}"] = (
+                    ls.active_hours.end - ls.active_hours.start
+                )
 
     # ── hot water systems ──────────────────────────────────────────────────────
     if spec.hot_water_systems:
@@ -393,7 +451,9 @@ def json_to_toml(
     # ── courtyards ─────────────────────────────────────────────────────────────
     if spec.courtyards:
         if len(spec.courtyards) > 1:
-            toml["d.courtyard_length"] = sum(c.length * c.count for c in spec.courtyards)
+            toml["d.courtyard_length"] = sum(
+                c.length * c.count for c in spec.courtyards
+            )
             toml["d.courtyard_width"] = sum(c.width * c.count for c in spec.courtyards)
             toml["d.courtyard_number"] = 1
         else:
@@ -404,7 +464,12 @@ def json_to_toml(
 
     # ── open courtyards ────────────────────────────────────────────────────────
     if spec.open_courtyards is not None:
-        for o_code, o_name in [("a", "front"), ("b", "right"), ("c", "back"), ("d", "left")]:
+        for o_code, o_name in [
+            ("a", "front"),
+            ("b", "right"),
+            ("c", "back"),
+            ("d", "left"),
+        ]:
             oc = getattr(spec.open_courtyards, o_name, None)
             if oc is not None:
                 toml[f"d.open_courtyard_depth_{o_code}1"] = oc.depth
