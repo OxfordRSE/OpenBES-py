@@ -10,7 +10,7 @@ from importlib.resources import files
 from pathlib import Path
 from typing import List, Dict
 
-from .schemas import OpenBESSpecificationV2
+from .schemas import OpenBESSpecificationV2, toml_to_json
 from .schemas.conversion import json_to_toml
 from .types import OpenBESSpecification
 
@@ -68,10 +68,12 @@ def load_example(name: str) -> OpenBESSpecification:
     if not f:
         raise NotImplementedError(f"Example '{name}' does not have a specification file defined yet.")
     example_path = Path(str(files("openbes.example_data") / f))
-    with open(example_path) as f:
-        if str(example_path).endswith(".json"):
+    j = None
+    if str(example_path).endswith(".toml"):
+        j = toml_to_json(example_path)
+    else:
+        with open(example_path) as f:
             j = json.load(f)
-            t = json_to_toml(j)
-        else:
-            t = f.read()
-    return OpenBESSpecification.from_toml(t)
+    if j is None:
+        raise ValueError(f"Error reading specification from {example_path}")
+    return OpenBESSpecification.from_toml(j)
