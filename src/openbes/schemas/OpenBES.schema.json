@@ -807,10 +807,6 @@
       "description": "Parameters of the simulation. These do not normally need to be adjusted, and many refer to physical constants.",
       "additionalProperties": false,
       "properties": {
-        "elevation": {
-          "type": "number",
-          "description": "Elevation above sea level (m)."
-        },
         "include_appliances": {
           "type": "boolean",
           "description": "Model appliance consumption.",
@@ -959,6 +955,10 @@
         "parameters": {
           "$ref": "#/definitions/OpenBESParameters",
           "description": "Collapsed parameters object. Use this to hold heating/cooling/ventilation/lighting/courtyards arrays."
+        },
+        "elevation": {
+          "type": "number",
+          "description": "Elevation above sea level (m)."
         },
         "building": {
           "$ref": "#/definitions/Building",
@@ -1335,9 +1335,9 @@
       "type": "object",
       "description": "Outputs produced by the location simulation using EPW-derived data.",
       "properties": {
-        "altitude": {
+        "elevation": {
           "type": "number",
-          "description": "Altitude as read from the weather file."
+          "description": "Elevation above sea level (m)."
         },
         "latitude": {
           "type": "number",

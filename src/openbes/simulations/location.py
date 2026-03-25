@@ -105,6 +105,10 @@ class LocationSimulation:
         return self._epw_metadata
 
     @property
+    def elevation(self) -> float:
+        return self.spec.parameters.altitude or self.epw_metadata.get("altitude", 0.0)
+
+    @property
     def epw_file_checksum(self) -> str:
         self._ensure_loaded()
         return self._epw_file_checksum
@@ -131,6 +135,7 @@ class LocationSimulation:
             self._solar_irradiation = SolarIrradiationSimulation(
                 epw_data=self.epw_data,
                 epw_metadata=self.epw_metadata,
+                elevation=self.elevation
             )
         return self._solar_irradiation
 
@@ -201,7 +206,7 @@ class LocationSimulation:
                 .to_frame(name="Temperature (C)")
             )
             return LocationSimulationOutput(
-                altitude=self.epw_metadata["altitude"],
+                elevation=self.elevation,
                 latitude=self.epw_metadata["latitude"],
                 longitude=self.epw_metadata["longitude"],
                 city=self.epw_metadata["city"],

@@ -140,7 +140,6 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
     parameters: dict = {}
 
     for k in [
-        "altitude",
         "cooling_load_factor",
         "density_of_air",
         "facade_absorption_coefficient",
@@ -201,6 +200,9 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         v = get(k)
         if v is not None:
             out[k] = v
+
+    if get("altitude") is not None:
+        out["elevation"] = get("altitude")
 
     # ── consumption fields ─────────────────────────────────────────────────────
     for k in [

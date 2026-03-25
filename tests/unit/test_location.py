@@ -36,7 +36,7 @@ class TestLocationSimulation(unittest.TestCase):
         sim = LocationSimulation(self._spec("openbes://USA_Denver_725650TYCST.epw"))
         LocationSimulationOutput.model_validate(sim.report)
         for k in [
-            "altitude",
+            "elevation",
             "latitude",
             "longitude",
             "city",

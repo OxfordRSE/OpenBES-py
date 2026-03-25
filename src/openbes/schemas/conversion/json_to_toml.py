@@ -73,7 +73,7 @@ def json_to_toml(
 
         # Each parameter field maps 1-to-1 to a TOML d. key.
         for attr, toml_key in [
-            ("altitude", "d.altitude"),
+            ("elevation", "d.altitude"),
             ("cooling_load_factor", "d.cooling_load_factor"),
             ("density_of_air", "d.density_of_air"),
             ("facade_absorption_coefficient", "d.facade_absorption_coefficient"),

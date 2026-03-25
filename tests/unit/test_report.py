@@ -139,7 +139,7 @@ class TestOpenBESReport(OpenBESTestCase):
         outputs = self.sim.outputs
         flat_outputs = self.flatten_outputs(outputs)
         expected_scalars = {
-            "altitude": 68.9,
+            "elevation": 68.9,
             "gross_building_area": 1153.9,
             "conditioned_floor_area": 1096.2,
             "indoor_air_volume": 3179.0,

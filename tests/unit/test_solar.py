@@ -20,7 +20,7 @@ class SolarIrradiation(OpenBESTestCase):
         data, metadata = read_epw(
             os.path.join(epw_dir_path, HOLYWELL_HOUSE_SPEC.meteorological_file_path.replace("openbes://", ""))
         )
-        self.sim = SolarIrradiationSimulation(epw_data=data, epw_metadata=metadata)
+        self.sim = SolarIrradiationSimulation(epw_data=data, epw_metadata=metadata, elevation=metadata["altitude"])
         self.decimal_places_or_tolerance = 1e-10
 
     def test_lon(self):

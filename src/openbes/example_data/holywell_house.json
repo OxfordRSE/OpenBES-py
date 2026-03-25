@@ -1,6 +1,5 @@
 {
   "parameters": {
-    "altitude": null,
     "cooling_load_factor": 1,
     "density_of_air": null,
     "facade_absorption_coefficient": 0.6,
@@ -27,6 +26,7 @@
     "include_occupancy": 1,
     "include_appliances": 1
   },
+  "elevation": null,
   "appliances_load": 1.0,
   "country": "UK",
   "holiday": false,
