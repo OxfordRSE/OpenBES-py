@@ -51,8 +51,6 @@ class METEOROLOGICALFILE(StrEnum):
     openbes___UK_Oxford_GBR_ENG_RAF_Benson_036580_TMYx_2007_2021_epw = (
         "openbes://UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw"
     )
-    openbes___SPAIN_Sevilla_083910_SWEC_epw = "openbes://SPAIN_Sevilla.083910_SWEC.epw"
-    openbes___SPAIN_Madrid_082210_SWEC_epw = "openbes://SPAIN_Madrid.082210_SWEC.epw"
 
 
 class TERRAINCLASS(StrEnum):

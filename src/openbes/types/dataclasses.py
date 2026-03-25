@@ -135,10 +135,6 @@ def get_meteorological_file(filename: str) -> str:
         return "USA_Denver_725650TYCST.epw"
     if "Oxford" in filename:
         return "UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw"
-    if "Sevilla" in filename:
-        return "SPAIN_Sevilla.083910_SWEC.epw"
-    if "Madrid" in filename:
-        return "SPAIN_Madrid.082210_SWEC.epw"
     raise ValueError(f"Unknown meteorological file: {filename}")
 
 
@@ -147,10 +143,6 @@ def get_meteorological_name(epw_filename: str) -> str:
         return "725650_Denver"
     if "Oxford" in epw_filename:
         return "Oxford"
-    if "Sevilla" in epw_filename:
-        return "Sevilla"
-    if "Madrid" in epw_filename:
-        return "Madrid"
     return epw_filename
 
 
