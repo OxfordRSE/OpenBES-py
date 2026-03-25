@@ -76,4 +76,4 @@ def load_example(name: str) -> OpenBESSpecification:
             j = json.load(f)
     if j is None:
         raise ValueError(f"Error reading specification from {example_path}")
-    return OpenBESSpecification.from_toml(j)
+    return OpenBESSpecificationV2(**j)
