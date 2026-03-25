@@ -127,13 +127,17 @@
           "type": "number",
           "description": "External solar shading factor for summer (Summer = air temp > 22C).",
           "$comment": "Mapped without building_ prefix",
-          "default": 0.0
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0
         },
         "solar_external_shading_winter": {
           "type": "number",
           "description": "External solar shading factor for winter (Winter = air temp <= 22C).",
           "$comment": "Mapped without building_ prefix",
-          "default": 0.0
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0
         },
         "terrain_class": {
           "$ref": "#/definitions/TERRAIN_CLASS",
@@ -193,7 +197,9 @@
           "type": "number",
           "description": "Window frame factor (fraction).",
           "$comment": "Mapped without building_ prefix",
-          "default": 0.0
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0
         },
         "window_gvalue": {
           "type": "number",
