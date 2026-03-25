@@ -17,8 +17,8 @@ from ..types import OpenBESSpecification
 
 
 def get_available_epw_files() -> list[str]:
-    climate_data_dir = files("openbes.simulations.climate_data")
-    return [f"openbes://{f.name}" for f in climate_data_dir.iterdir() if f.name.endswith(".epw")]
+    epw_data_dir = files("openbes.simulations.epw_data")
+    return [f"openbes://{f.name}" for f in epw_data_dir.iterdir() if f.name.endswith(".epw")]
 
 
 class LocationSimulationError(SimulationError):
@@ -77,7 +77,7 @@ class LocationSimulation:
 
         if source.startswith("openbes://"):
             package_path = source[len("openbes://"):]
-            epw_path = files("openbes.simulations.climate_data") / package_path
+            epw_path = files("openbes.simulations.epw_data") / package_path
             content = epw_path.read_bytes()
             self._epw_data, self._epw_metadata = read_epw(str(epw_path))
             self._epw_file_checksum = md5(content).hexdigest()
@@ -224,7 +224,7 @@ class LocationSimulation:
                 mean_outdoor_day_temperature=round(
                     avg_daily_t.groupby(["month", "day"]).mean().mean(), precision
                 ),
-                climate_quantiles_csv=to_output_csv(quantiles_df, precision),
+                temperature_quantiles_csv=to_output_csv(quantiles_df, precision),
                 degree_days_csv=to_output_csv(degree_days, precision),
                 annual_incident_solar_radiation_csv=to_output_csv(
                     annual_radiation, precision

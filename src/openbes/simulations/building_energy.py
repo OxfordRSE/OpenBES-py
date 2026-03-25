@@ -11,7 +11,7 @@ from pandas import DataFrame, read_csv, Series, MultiIndex, concat, Index
 from pydantic import BaseModel, ConfigDict
 
 from .base import EnergyUseSimulation, HOURS_DF, SimulationError
-from .climate import ClimateSimulation, specs_require_climate_rerun, reset_climate_cache
+from .thermal import ThermalSimulation, specs_require_thermal_rerun, reset_thermal_cache
 from .location import LocationSimulation
 from .cooling import CoolingSimulation, CoolingSystemSimulation
 from .geometry import BuildingGeometry
@@ -24,7 +24,7 @@ from .ventilation import VentilationSimulation
 from ..logging import LogPrefix
 from ..schemas import (
     BuildingEnergySimulationOutput,
-    ClimateSimulationOutput,
+    ThermalSimulationOutput,
     CoolingSimulationOutput,
     GeometrySimulationOutput,
     HeatingSimulationOutput,
@@ -82,19 +82,19 @@ class BuildingEnergySimulation(EnergyUseSimulation):
     - Ventilation
     - Lighting
     - Hot Water
-    - Climate
+    - Thermal
     - Heating
     - Cooling
 
     Some simulations depend up on others, meaing they can be executed in the following order:
     0: Geometry, Occupancy, Solar Radiation
     1: Ventilation, Lighting, Hot Water
-    2: Climate
+    2: Thermal
     3: Heating, Cooling
 
     For a full relationship diagram, see `./simulation_dag_full.png` in the repository.
 
-    The Climate Simulation takes almost all of the computational time, and is run immediately upon instantiation
+    The Thermal Simulation takes almost all of the computational time, and is run immediately upon instantiation
     of the class.
 
     Because of the aggressive caching of results, simulations should be considered immutable.
@@ -108,10 +108,10 @@ class BuildingEnergySimulation(EnergyUseSimulation):
     report = sim.report()  # generate the report (instantaneous after the initial simulation)
 
     # We can also inspect various Pandas Series/DataFrames for more detailed analysis:
-    sim.climate.air_free_temp  # hourly internal temperature without HVAC
+    sim.thermal.air_free_temp  # hourly internal temperature without HVAC
 
     # If necessary, we can dig in to the internals of a simulation:
-    sim.climate._hours  # the full hourly DataFrame used for climate calculations
+    sim.thermal._hours  # the full hourly DataFrame used for thermal calculations
     ```
     """
 
@@ -147,8 +147,8 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             logger.warning(f"{name} simulation failed: {exc}")
             return None
 
-    def _initialize_simuations(self, include_climate=True):
-        """Initialize all simulations, with the option to skip climate (and therefore heating/cooling) for faster execution during testing."""
+    def _initialize_simuations(self, include_thermal=True):
+        """Initialize all simulations, with the option to skip thermal (and therefore heating/cooling) for faster execution during testing."""
         self.hot_water = self.hot_water or self._build_simulation(
             "hot water", HotWaterSimulation, self.spec
         )
@@ -171,10 +171,10 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         self.location = self.location or self._build_simulation(
             "location", LocationSimulation, self.spec
         )
-        if include_climate:
-            self.climate = self.climate or self._build_simulation(
-                "climate",
-                ClimateSimulation,
+        if include_thermal:
+            self.thermal = self.thermal or self._build_simulation(
+                "thermal",
+                ThermalSimulation,
                 self.spec,
                 geometry=self.geometry,
                 occupancy=self.occupancy,
@@ -190,7 +190,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             occupancy=self.occupancy,
             lighting=self.lighting,
             ventilation=self.ventilation,
-            climate=self.climate,
+            thermal=self.thermal,
         )
         self.heating = self.heating or self._build_simulation(
             "heating",
@@ -200,7 +200,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             occupancy=self.occupancy,
             lighting=self.lighting,
             ventilation=self.ventilation,
-            climate=self.climate,
+            thermal=self.thermal,
         )
 
     def __init__(
@@ -212,7 +212,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             lighting: LightingSimulation = None,
             ventilation: VentilationSimulation = None,
             location: LocationSimulation = None,
-            climate: ClimateSimulation = None,
+            thermal: ThermalSimulation = None,
             cooling: CoolingSimulation = None,
             heating: HeatingSimulation = None,
             log_prefix: str = "",
@@ -247,7 +247,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         self.lighting = lighting
         self.ventilation = ventilation
         self.location = location
-        self.climate = climate
+        self.thermal = thermal
         self.cooling = cooling
         self.heating = heating
         self._initialize_simuations()
@@ -396,7 +396,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         :returns MultiIndexed DataFrame by Heating/Cooling and case/Passivehaus standard
             with columns for Demand (kWh/m2), Peak (kW), and Peak ratio (W/m2)
         """
-        if self.climate is None:
+        if self.thermal is None:
             return None
 
         out = DataFrame(
@@ -417,14 +417,14 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         out.loc[("Heating", "Passivehaus standard")] = ["<15", None, "<10"]
         out.loc[("Cooling", "Passivehaus standard")] = ["<15", None, "<10"]
 
-        heating_demand = self.climate.zonal_heating_demand.sum() / 1000
-        cooling_demand = self.climate.zonal_cooling_demand.sum() / 1000 * -1
+        heating_demand = self.thermal.zonal_heating_demand.sum() / 1000
+        cooling_demand = self.thermal.zonal_cooling_demand.sum() / 1000 * -1
 
         peak_heating_demand = max(
-            self.climate.heating_demand * self.geometry.conditioned_floor_area / 1000
+            self.thermal.heating_demand * self.geometry.conditioned_floor_area / 1000
         )
         peak_cooling_demand = max(
-            self.climate.cooling_demand * self.geometry.conditioned_floor_area / 1000
+            self.thermal.cooling_demand * self.geometry.conditioned_floor_area / 1000
         )
 
         out.loc[("Heating", self.building_name)] = [
@@ -447,13 +447,13 @@ class BuildingEnergySimulation(EnergyUseSimulation):
 
         The proportion is discomfort hours / occupied hours.
         """
-        if not self.climate:
+        if not self.thermal:
             return None
-        mask = self.climate.air_free_temp.index.get_level_values("month").isin(
+        mask = self.thermal.air_free_temp.index.get_level_values("month").isin(
             [6, 7, 8]
         )
         occupation = self.occupancy.is_occupied.loc[mask]
-        temp = self.climate.air_free_temp.loc[mask]
+        temp = self.thermal.air_free_temp.loc[mask]
         temp_gt_26 = (temp * occupation) >= 26.0
         return Series(
             {
@@ -491,12 +491,12 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                                                ]
                                                * 100,
                 "Peak heating load (kW)": (
-                        self.climate.heating_demand
+                        self.thermal.heating_demand
                         * self.geometry.conditioned_floor_area
                         / 1000
                 ).quantile(0.996),
                 "Peak cooling load (kW)": (
-                        self.climate.cooling_demand
+                        self.thermal.cooling_demand
                         * self.geometry.conditioned_floor_area
                         / 1000
                 ).quantile(0.996),
@@ -619,7 +619,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         solstice_mask = (self._hours.index.get_level_values("month").isin([6, 12])) & (
             self._hours.index.get_level_values("day").isin([172, 355])
         )
-        ghi = self.climate.solar_irradiation.ghi.loc[solstice_mask]
+        ghi = self.thermal.solar_irradiation.ghi.loc[solstice_mask]
         ghi = ghi.reset_index()
         ghi["month"] = np.where(ghi["month"] == 6, "June 21", "December 21")
         ghi = ghi.drop(columns="day")
@@ -641,8 +641,8 @@ class BuildingEnergySimulation(EnergyUseSimulation):
     def _temperature_csv(self) -> str:
         """CSV of internal and external temperatures for each hour of the year."""
         temp_df = DataFrame(index=self._hours.index)
-        temp_df["external_temperature_C"] = self.climate.dry_bulb_temp
-        temp_df["internal_temperature_C"] = self.climate.air_free_temp
+        temp_df["external_temperature_C"] = self.thermal.dry_bulb_temp
+        temp_df["internal_temperature_C"] = self.thermal.air_free_temp
         temp_df.set_index(self._mdh_index, inplace=True)
         return temp_df.round(self.spec.parameters.output_csv_precision).to_csv(
             header=True
@@ -728,13 +728,13 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             energy_use = sys.energy_use.sum().sum()
             if isinstance(sys, HeatingSystemSimulation):
                 demand = (
-                        self.climate.heating_demand
+                        self.thermal.heating_demand
                         * self.geometry.conditioned_floor_area
                         / 1000
                 )
             else:
                 demand = (
-                        self.climate.cooling_demand
+                        self.thermal.cooling_demand
                         * self.geometry.conditioned_floor_area
                         / 1000
                 )
@@ -818,7 +818,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
     @property
     def degree_days(self):
         base_temperature = 18.0  # Hardcoded in AA109
-        hourly_temperatures = self.climate.dry_bulb_temp
+        hourly_temperatures = self.thermal.dry_bulb_temp
         max_daily_t = hourly_temperatures.groupby(["month", "day"]).max()
         min_daily_t = hourly_temperatures.groupby(["month", "day"]).min()
         avg_daily_t = (max_daily_t + min_daily_t) / 2
@@ -841,7 +841,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
 
         Returns: DataFrame with hourly overheating flags for each category.
         """
-        day_means = self.climate.dry_bulb_temp.groupby(["month", "day"]).mean()
+        day_means = self.thermal.dry_bulb_temp.groupby(["month", "day"]).mean()
 
         weights = np.array([1, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2])
         W = weights.sum()
@@ -859,10 +859,10 @@ class BuildingEnergySimulation(EnergyUseSimulation):
 
         # Expand to hourly
         trm_hourly = trm_daily.reindex(
-            self.climate.dry_bulb_temp.groupby(["month", "day"]).mean().index
+            self.thermal.dry_bulb_temp.groupby(["month", "day"]).mean().index
         )
         trm_hourly = trm_hourly.repeat(24)
-        trm_hourly.index = self.climate.dry_bulb_temp.index[: len(trm_hourly)]
+        trm_hourly.index = self.thermal.dry_bulb_temp.index[: len(trm_hourly)]
         trm_hourly.name = "Running mean outdoor temperature (C)"
         return trm_hourly
 
@@ -918,18 +918,18 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 self.geometry.opaque_areas.to_frame("opaque_area")
                 .groupby("compass_point")
                 .sum()
-                .apply(self.climate.get_solar_heat_opaque, axis=1)
+                .apply(self.thermal.get_solar_heat_opaque, axis=1)
             )
             .transpose()
             .sum()
         )
-        opaque_gains_by_orientation["Horizontal"] = self.climate.solar_heat_roof.sum()
+        opaque_gains_by_orientation["Horizontal"] = self.thermal.solar_heat_roof.sum()
         # Determine winter/summer
         ref_temp = 22.0
-        prev_air_free_temp = self.climate.air_free_temp.shift(1).fillna(17.4)
+        prev_air_free_temp = self.thermal.air_free_temp.shift(1).fillna(17.4)
         winter = prev_air_free_temp < ref_temp
-        window_gains_by_orientation = self.climate._solar_heat_windows["winter"].where(
-            winter, self.climate._solar_heat_windows["summer"]
+        window_gains_by_orientation = self.thermal._solar_heat_windows["winter"].where(
+            winter, self.thermal._solar_heat_windows["summer"]
         )
         # Add in missing orientations with zero gains
         window_gains_by_orientation = window_gains_by_orientation.reindex(
@@ -1128,10 +1128,10 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                     lambda: self.geometry.report,
                     GeometrySimulationOutput,
                 ),
-                climate_simulation_output=self._report_or_empty(
-                    "ClimateSimulation",
-                    lambda: self.climate.report,
-                    ClimateSimulationOutput,
+                thermal_simulation_output=self._report_or_empty(
+                    "ThermalSimulation",
+                    lambda: self.thermal.report,
+                    ThermalSimulationOutput,
                 ),
                 ventilation_simulation_output=self._report_or_empty(
                     "VentilationSimulation",
@@ -1202,50 +1202,50 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         Update the building energy simulation with a new specification.
 
         This method intelligently updates the simulation based on which specs have changed:
-        - If climate-affecting specs changed, resets the climate cache and rebuilds dependent simulations
-        - If only non-climate specs changed, rebuilds only the affected simulations
-        - Preserves the expensive hour-by-hour climate calculations when the climate spec hasn't changed
+        - If thermal-affecting specs changed, resets the thermal cache and rebuilds dependent simulations
+        - If only non-thermal specs changed, rebuilds only the affected simulations
+        - Preserves the expensive hour-by-hour thermal calculations when the thermal spec hasn't changed
 
-        The climate simulation is expensive (hour-by-hour iterative calculations), so we only
-        rerun it if absolutely necessary (i.e., if specs affecting climate have changed).
+        The thermal simulation is expensive (hour-by-hour iterative calculations), so we only
+        rerun it if absolutely necessary (i.e., if specs affecting thermal have changed).
         Other simulations (heating, cooling, ventilation, lighting, etc.) are always recreated
         to reflect the new specification.
 
         Args:
             new_spec: The new OpenBESSpecification to apply
         """
-        # Check if climate needs to be rerun
-        climate_needs_rerun = self.climate is None or specs_require_climate_rerun(self.spec, new_spec)
+        # Check if thermal needs to be rerun
+        thermal_needs_rerun = self.thermal is None or specs_require_thermal_rerun(self.spec, new_spec)
 
         # Update the spec reference
         self.spec = new_spec
 
-        if climate_needs_rerun:
-            # Climate needs to be completely recalculated
-            if self.climate is None:
+        if thermal_needs_rerun:
+            # Thermal needs to be completely recalculated
+            if self.thermal is None:
                 logger.info("Updating with new specification.")
             else:
-                logger.info("Climate-affecting specs changed. Recalculating climate simulation...")
+                logger.info("Thermal-affecting specs changed. Recalculating thermal simulation...")
 
             # Recreate from scratch
             out = type(self)(spec=new_spec, log_prefix=self.log_prefix)
         else:
-            # Climate is unchanged - preserve the expensive calculations
-            logger.info("Climate specs unchanged. Reusing cached climate calculations...")
+            # Thermal is unchanged - preserve the expensive calculations
+            logger.info("Thermal specs unchanged. Reusing cached thermal calculations...")
 
-            # Reset climate cache to clear intermediate computations but preserve hour-by-hour results
-            climate_sim = deepcopy(self.climate)
-            reset_climate_cache(climate_sim)
+            # Reset thermal cache to clear intermediate computations but preserve hour-by-hour results
+            thermal_sim = deepcopy(self.thermal)
+            reset_thermal_cache(thermal_sim)
 
-            out = type(self)(spec=new_spec, log_prefix=self.log_prefix, climate=climate_sim)
+            out = type(self)(spec=new_spec, log_prefix=self.log_prefix, thermal=thermal_sim)
 
-            # Retroactively bind new simulations to the existing climate simulations
-            out.climate.spec = new_spec
-            out.climate.occupancy = out.occupancy
-            out.climate.geometry = out.geometry
-            out.climate.ventilation = out.ventilation
-            out.climate.lighting = out.lighting
-            out.climate.location = out.location
+            # Retroactively bind new simulations to the existing thermal simulations
+            out.thermal.spec = new_spec
+            out.thermal.occupancy = out.occupancy
+            out.thermal.geometry = out.geometry
+            out.thermal.ventilation = out.ventilation
+            out.thermal.lighting = out.lighting
+            out.thermal.location = out.location
 
             logger.info("Building energy simulation updated with new specification.")
 

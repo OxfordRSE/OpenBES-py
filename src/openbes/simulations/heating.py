@@ -5,7 +5,7 @@ import numpy as np
 from pandas import Series
 
 from .base import EnergyUseSimulation, EnergyUseSimulationInitError, SimulationError
-from .climate import ClimateSimulation
+from .thermal import ThermalSimulation
 from .geometry import BuildingGeometry
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
@@ -35,8 +35,8 @@ class HeatingSystemSimulation(EnergyUseSimulation):
     as well as the area being heated and the occupancy of the building.
 
     Note that the heating system load is dependent on the heating system and the area it has to heat,
-    as opposed to the Climate Simulation's heating demand, which is a model of the total heating demand of the
-    building based on the climate and building characteristics,
+    as opposed to the Thermal Simulation's heating demand, which is a model of the total heating demand of the
+    building based on the EPW and building characteristics,
     independent of any heating system that happens to be installed.
 
     [Cell references are for System 1]
@@ -55,7 +55,7 @@ class HeatingSystemSimulation(EnergyUseSimulation):
         self,
         spec: OpenBESSpecification,
         system_number: int = 1,
-        climate: ClimateSimulation = None,
+            thermal: ThermalSimulation = None,
     ):
         super().__init__(spec)
         self.system_number = system_number
@@ -66,9 +66,9 @@ class HeatingSystemSimulation(EnergyUseSimulation):
             error_cls=EnergyUseSimulationInitError,
         )
         try:
-            self.climate = climate or ClimateSimulation(spec)
-            self.geometry = self.climate.geometry
-            self.occupancy = self.climate.occupancy
+            self.thermal = thermal or ThermalSimulation(spec)
+            self.geometry = self.thermal.geometry
+            self.occupancy = self.thermal.occupancy
         except SimulationError as exc:
             raise EnergyUseSimulationInitError(
                 f"Failed to initialize HeatingSystemSimulation due to error in dependent simulation: {exc}"
@@ -99,15 +99,15 @@ class HeatingSystemSimulation(EnergyUseSimulation):
 
     def _get_target_temp(self) -> "np.array[float]":
         """Get the target temperature for heating based on thresholds and air temperature."""
-        summer_temp = np.array(self.climate.set_point_temperature["min_temp_set_point"])
-        winter_temp = np.array(self.climate.set_point_temperature["max_temp_set_point"])
+        summer_temp = np.array(self.thermal.set_point_temperature["min_temp_set_point"])
+        winter_temp = np.array(self.thermal.set_point_temperature["max_temp_set_point"])
         return np.where(
-            self.climate.air_free_temp < winter_temp,
+            self.thermal.air_free_temp < winter_temp,
             winter_temp,
             np.where(
-                self.climate.air_free_temp > summer_temp,
+                self.thermal.air_free_temp > summer_temp,
                 summer_temp,
-                self.climate.air_free_temp,
+                self.thermal.air_free_temp,
             ),
         )
 
@@ -127,14 +127,14 @@ class HeatingSystemSimulation(EnergyUseSimulation):
             self._hours["phi_hc_nd_actual"] = (
                 (
                     10
-                    * (target_temp - self.climate.air_free_temp_hc_0)
+                    * (target_temp - self.thermal.air_free_temp_hc_0)
                     / (
-                        self.climate.air_free_temp_hc_10
-                        - self.climate.air_free_temp_hc_0
+                            self.thermal.air_free_temp_hc_10
+                            - self.thermal.air_free_temp_hc_0
                     )
                 )
                 * self.ratio
-                * (target_temp > self.climate.air_free_temp)
+                * (target_temp > self.thermal.air_free_temp)
             )
         return self._hours["phi_hc_nd_actual"]
 
@@ -254,9 +254,9 @@ class HeatingSystemSimulation(EnergyUseSimulation):
         """
         if "con_cal_t" not in self._hours.columns:
             self._hours["con_cal_t"] = (
-                1.201222828
-                - 0.040063338 * self.climate.wet_bulb_temp
-                + 0.0010877 * self.climate.wet_bulb_temp**2
+                    1.201222828
+                    - 0.040063338 * self.thermal.wet_bulb_temp
+                    + 0.0010877 * self.thermal.wet_bulb_temp ** 2
             )
         return self._hours["con_cal_t"]
 
@@ -322,7 +322,7 @@ class HeatingSimulation(EnergyUseSimulation):
         occupancy: OccupationSimulation = None,
         lighting: LightingSimulation = None,
         ventilation: VentilationSimulation = None,
-        climate: ClimateSimulation = None,
+            thermal: ThermalSimulation = None,
     ):
         super().__init__(spec)
         try:
@@ -332,7 +332,7 @@ class HeatingSimulation(EnergyUseSimulation):
             ventilation = ventilation or VentilationSimulation(
                 self.spec, occupancy=occupancy, geometry=geometry
             )
-            self.climate_simulation = climate or ClimateSimulation(
+            self.thermal = thermal or ThermalSimulation(
                 spec,
                 geometry=geometry,
                 occupancy=occupancy,
@@ -351,7 +351,7 @@ class HeatingSimulation(EnergyUseSimulation):
                     HeatingSystemSimulation(
                         spec=spec,
                         system_number=system_number,
-                        climate=self.climate_simulation,
+                        thermal=self.thermal,
                     )
                 )
             except EnergyUseSimulationInitError:
@@ -371,8 +371,8 @@ class HeatingSimulation(EnergyUseSimulation):
         try:
             systems = []
             precision = output_precision(self.spec)
-            area = self.climate_simulation.geometry.conditioned_floor_area
-            demand = self.climate_simulation.heating_demand * area / 1000
+            area = self.thermal.geometry.conditioned_floor_area
+            demand = self.thermal.heating_demand * area / 1000
             quantile = demand.quantile(0.996)
             for sys in self.heating_simulations:
                 energy_use = sys.energy_use.sum().sum()

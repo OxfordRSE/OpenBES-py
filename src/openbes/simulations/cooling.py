@@ -6,7 +6,7 @@ import numpy as np
 from pandas import Series
 
 from .base import EnergyUseSimulation, EnergyUseSimulationInitError, SimulationError
-from .climate import ClimateSimulation, RELATIVE_HUMIDITY
+from .thermal import ThermalSimulation, RELATIVE_HUMIDITY
 from .geometry import BuildingGeometry
 from .lighting import LightingSimulation
 from .occupancy import OccupationSimulation
@@ -33,8 +33,8 @@ class CoolingSystemSimulation(EnergyUseSimulation):
     as well as the area being heated and the occupancy of the building.
 
     Note that the cooling system load is dependent on the cooling system and the area it has to heat,
-    as opposed to the Climate Simulation's cooling demand, which is a model of the total cooling demand of the
-    building based on the climate and building characteristics,
+    as opposed to the Thermal Simulation's cooling demand, which is a model of the total cooling demand of the
+    building based on the EPW and building characteristics,
     independent of any cooling system that happens to be installed.
 
     [Cell references are for System 1]
@@ -53,7 +53,7 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         self,
         spec: OpenBESSpecification,
         system_number: int = 1,
-        climate: ClimateSimulation = None,
+            thermal: ThermalSimulation = None,
     ):
         super().__init__(spec)
         self.system_number = system_number
@@ -69,9 +69,9 @@ class CoolingSystemSimulation(EnergyUseSimulation):
             error_cls=EnergyUseSimulationInitError,
         )
         try:
-            self.climate = climate or ClimateSimulation(spec)
-            self.geometry = self.climate.geometry
-            self.occupancy = self.climate.occupancy
+            self.thermal = thermal or ThermalSimulation(spec)
+            self.geometry = self.thermal.geometry
+            self.occupancy = self.thermal.occupancy
         except SimulationError as exc:
             raise EnergyUseSimulationInitError(
                 f"Failed to initialize CoolingSystemSimulation due to error in dependent simulation: {exc}"
@@ -102,15 +102,15 @@ class CoolingSystemSimulation(EnergyUseSimulation):
 
     def _get_target_temp(self) -> "np.array[float]":
         """Get the target temperature for cooling based on thresholds and air temperature."""
-        summer_temp = np.array(self.climate.set_point_temperature["min_temp_set_point"])
-        winter_temp = np.array(self.climate.set_point_temperature["max_temp_set_point"])
+        summer_temp = np.array(self.thermal.set_point_temperature["min_temp_set_point"])
+        winter_temp = np.array(self.thermal.set_point_temperature["max_temp_set_point"])
         return np.where(
-            self.climate.air_free_temp < winter_temp,
+            self.thermal.air_free_temp < winter_temp,
             winter_temp,
             np.where(
-                self.climate.air_free_temp > summer_temp,
+                self.thermal.air_free_temp > summer_temp,
                 summer_temp,
-                self.climate.air_free_temp,
+                self.thermal.air_free_temp,
             ),
         )
 
@@ -130,14 +130,14 @@ class CoolingSystemSimulation(EnergyUseSimulation):
             self._hours["phi_hc_nd_actual"] = (
                 (
                     10
-                    * (target_temp - self.climate.air_free_temp_hc_0)
+                    * (target_temp - self.thermal.air_free_temp_hc_0)
                     / (
-                        self.climate.air_free_temp_hc_10
-                        - self.climate.air_free_temp_hc_0
+                            self.thermal.air_free_temp_hc_10
+                            - self.thermal.air_free_temp_hc_0
                     )
                 )
                 * self.ratio
-                * (target_temp < self.climate.air_free_temp)
+                * (target_temp < self.thermal.air_free_temp)
             )
         return self._hours["phi_hc_nd_actual"]
 
@@ -231,8 +231,8 @@ class CoolingSystemSimulation(EnergyUseSimulation):
                 - 0.000324724 * (self.Th_int**2)
                 + 0.069957819 * self.Ts_int
                 - 0.0000342756 * (self.Ts_int**2)
-                - 0.013202081 * self.climate.dry_bulb_temp
-                + 0.0000793065 * (self.climate.dry_bulb_temp**2)
+                - 0.013202081 * self.thermal.dry_bulb_temp
+                + 0.0000793065 * (self.thermal.dry_bulb_temp ** 2)
             )
         return self._hours["cap_ref_t"]
 
@@ -243,12 +243,12 @@ class CoolingSystemSimulation(EnergyUseSimulation):
         """
         if "con_ref_t" not in self._hours.columns:
             self._hours["con_ref_t"] = (
-                0.1117801
-                + 0.028493334 * self.Th_int
-                - 0.000411156 * (self.Th_int**2)
-                + 0.021414276 * self.climate.dry_bulb_temp
-                + 0.000161125 * (self.climate.dry_bulb_temp**2)
-                - 0.000679104 * self.climate.dry_bulb_temp * self.Th_int
+                    0.1117801
+                    + 0.028493334 * self.Th_int
+                    - 0.000411156 * (self.Th_int ** 2)
+                    + 0.021414276 * self.thermal.dry_bulb_temp
+                    + 0.000161125 * (self.thermal.dry_bulb_temp ** 2)
+                    - 0.000679104 * self.thermal.dry_bulb_temp * self.Th_int
             )
         return self._hours["con_ref_t"]
 
@@ -350,7 +350,7 @@ class CoolingSimulation(EnergyUseSimulation):
         occupancy: OccupationSimulation = None,
         lighting: LightingSimulation = None,
         ventilation: VentilationSimulation = None,
-        climate: ClimateSimulation = None,
+            thermal: ThermalSimulation = None,
     ):
         super().__init__(spec)
         try:
@@ -360,7 +360,7 @@ class CoolingSimulation(EnergyUseSimulation):
             ventilation = ventilation or VentilationSimulation(
                 self.spec, occupancy=occupancy, geometry=geometry
             )
-            self.climate_simulation = climate or ClimateSimulation(
+            self.thermal = thermal or ThermalSimulation(
                 spec,
                 geometry=geometry,
                 occupancy=occupancy,
@@ -379,7 +379,7 @@ class CoolingSimulation(EnergyUseSimulation):
                     CoolingSystemSimulation(
                         spec=spec,
                         system_number=system_number,
-                        climate=self.climate_simulation,
+                        thermal=self.thermal,
                     )
                 )
             except EnergyUseSimulationInitError:
@@ -399,8 +399,8 @@ class CoolingSimulation(EnergyUseSimulation):
         try:
             systems = []
             precision = output_precision(self.spec)
-            area = self.climate_simulation.geometry.conditioned_floor_area
-            demand = self.climate_simulation.cooling_demand * area / 1000
+            area = self.thermal.geometry.conditioned_floor_area
+            demand = self.thermal.cooling_demand * area / 1000
             quantile = demand.quantile(0.996)
             for sys in self.cooling_simulations:
                 energy_use = sys.energy_use.sum().sum()

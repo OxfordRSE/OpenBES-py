@@ -49,7 +49,7 @@ class TestLocationSimulation(unittest.TestCase):
             "max_outdoor_day_temperature",
             "min_outdoor_day_temperature",
             "mean_outdoor_day_temperature",
-            "climate_quantiles_csv",
+            "temperature_quantiles_csv",
             "degree_days_csv",
             "annual_incident_solar_radiation_csv",
         ]:

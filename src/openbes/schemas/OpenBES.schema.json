@@ -1387,9 +1387,9 @@
           "type": "number",
           "description": "Mean daily temperature given by the mean of the hottest hour plus and coldest hour."
         },
-        "climate_quantiles_csv": {
+        "temperature_quantiles_csv": {
           "type": "string",
-          "description": "Outdoor air temperature percentiles from climate data."
+          "description": "Outdoor air temperature percentiles from temperature data."
         },
         "degree_days_csv": {
           "type": "string",
@@ -1433,9 +1433,9 @@
       },
       "additionalProperties": false
     },
-    "ClimateSimulationOutput": {
+    "ThermalSimulationOutput": {
       "type": "object",
-      "description": "Outputs produced by the climate simulation.",
+      "description": "Outputs produced by the thermal simulation.",
       "properties": {
         "external_internal_temperature_csv": {
           "type": "string",
@@ -1636,8 +1636,8 @@
         "geometry_simulation_output": {
           "$ref": "#/definitions/GeometrySimulationOutput"
         },
-        "climate_simulation_output": {
-          "$ref": "#/definitions/ClimateSimulationOutput"
+        "thermal_simulation_output": {
+          "$ref": "#/definitions/ThermalSimulationOutput"
         },
         "ventilation_simulation_output": {
           "$ref": "#/definitions/VentilationSimulationOutput"

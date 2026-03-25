@@ -111,7 +111,7 @@ class TestOpenBESReport(OpenBESTestCase):
         for section_name in [
             "location_simulation_output",
             "geometry_simulation_output",
-            "climate_simulation_output",
+            "thermal_simulation_output",
             "ventilation_simulation_output",
             "heating_simulation_output",
             "cooling_simulation_output",
@@ -300,7 +300,7 @@ class TestOpenBESReport(OpenBESTestCase):
                 "num_rows": 7,
                 "first_row": ["Heating", 53498.21],
             },
-            "climate_quantiles_csv": {
+            "temperature_quantiles_csv": {
                 "headers": ["Quantile", "Temperature (C)"],
                 "num_rows": 17,
                 "first_row": [0, -7.7],

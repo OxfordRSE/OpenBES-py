@@ -1,6 +1,6 @@
 import unittest
 
-from openbes.simulations.climate import ClimateSimulation
+from openbes.simulations.thermal import ThermalSimulation
 from openbes.simulations.cooling import CoolingSimulation
 from openbes.simulations.geometry import BuildingGeometry
 from openbes.simulations.lighting import LightingSimulation
@@ -17,13 +17,13 @@ class Cooling(OpenBESTestCase):
         cls._geometry = BuildingGeometry(cls.spec)
         cls._occupancy = OccupationSimulation(cls.spec, geometry=cls._geometry)
         cls._lighting = LightingSimulation(cls.spec, occupancy=cls._occupancy)
-        cls._climate = ClimateSimulation(spec=cls.spec)
+        cls._thermal = ThermalSimulation(spec=cls.spec)
 
     def setUp(self):
         super().setUp()
         self.sim = CoolingSimulation(
             spec=self.spec,
-            climate=self._climate,
+            thermal=self._thermal,
         )
         self.system = self.sim.cooling_simulations[0]
 

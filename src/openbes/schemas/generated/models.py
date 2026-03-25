@@ -625,9 +625,9 @@ class LocationSimulationOutput(BaseModel):
         default=None,
         description="Mean daily temperature given by the mean of the hottest hour plus and coldest hour.",
     )
-    climate_quantiles_csv: str | None = Field(
+    temperature_quantiles_csv: str | None = Field(
         default=None,
-        description="Outdoor air temperature percentiles from climate data.",
+        description="Outdoor air temperature percentiles from temperature data.",
     )
     degree_days_csv: str | None = Field(
         default=None, description="Heating/cooling degree days by month."
@@ -666,7 +666,7 @@ class GeometrySimulationOutput(BaseModel):
     )
 
 
-class ClimateSimulationOutput(BaseModel):
+class ThermalSimulationOutput(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
     )
@@ -1003,7 +1003,7 @@ class OpenBESOutput(BaseModel):
     )
     location_simulation_output: LocationSimulationOutput | None = None
     geometry_simulation_output: GeometrySimulationOutput | None = None
-    climate_simulation_output: ClimateSimulationOutput | None = None
+    thermal_simulation_output: ThermalSimulationOutput | None = None
     ventilation_simulation_output: VentilationSimulationOutput | None = None
     heating_simulation_output: HeatingSimulationOutput | None = None
     cooling_simulation_output: CoolingSimulationOutput | None = None

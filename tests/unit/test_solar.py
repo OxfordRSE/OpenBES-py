@@ -14,11 +14,11 @@ from openbes.examples import HOLYWELL_HOUSE_SPEC
 
 class SolarIrradiation(OpenBESTestCase):
     def setUp(self):
-        climate_dir_path = os.path.join(
-            os.path.dirname(__file__), "../../src/openbes/simulations/climate_data"
+        epw_dir_path = os.path.join(
+            os.path.dirname(__file__), "../../src/openbes/simulations/epw_data"
         )
         data, metadata = read_epw(
-            os.path.join(climate_dir_path, HOLYWELL_HOUSE_SPEC.meteorological_file_path.replace("openbes://", ""))
+            os.path.join(epw_dir_path, HOLYWELL_HOUSE_SPEC.meteorological_file_path.replace("openbes://", ""))
         )
         self.sim = SolarIrradiationSimulation(epw_data=data, epw_metadata=metadata)
         self.decimal_places_or_tolerance = 1e-10
