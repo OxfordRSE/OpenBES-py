@@ -266,13 +266,13 @@ class TestOpenBESReport(OpenBESTestCase):
             "heat_exchange_breakdown_csv": {
                 "headers": [
                     "month",
-                    "Heat transfer (infiltration)",
-                    "Heat transfer (ventilation)",
-                    "Solar gains (opaque)",
-                    "Solar gains (glazing)",
-                    "Heat from occupants",
-                    "Heat from appliances",
-                    "Heat from lighting",
+                    "Transmission heat transfer",
+                    "Ventilation and infiltration",
+                    "Solar gains (opaque envelope)",
+                    "Solar gains (openings)",
+                    "Internal gains (occupants)",
+                    "Internal gains (appliances)",
+                    "Internal gains (lighting)",
                 ],
                 "num_rows": 12,
                 "first_row": [

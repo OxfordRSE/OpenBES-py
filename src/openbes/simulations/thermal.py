@@ -1446,7 +1446,7 @@ class ThermalSimulation(HourlySimulation):
             summer_temp = self.air_free_temp.loc[summer_mask]
             heat_exchange = DataFrame(
                 {
-                    "Heat transfer (infiltration)": (
+                    "Transmission heat transfer": (
                         self.heat_infiltration_window
                         + (
                             self.geometry.heat_infiltration_opaque
@@ -1455,16 +1455,16 @@ class ThermalSimulation(HourlySimulation):
                     )
                     * (self.air_set_temp - self.dry_bulb_temp)
                     * -1,
-                    "Heat transfer (ventilation)": self.heat_transmission_by_ventilation
+                    "Ventilation and infiltration": self.heat_transmission_by_ventilation
                     * (self.air_set_temp - self.dry_bulb_temp)
                     * -1,
-                    "Solar gains (opaque)": self.solar_heat_opaque
+                    "Solar gains (opaque envelope)": self.solar_heat_opaque
                     / self.geometry.conditioned_floor_area,
-                    "Solar gains (glazing)": self.solar_heat_windows
+                    "Solar gains (openings)": self.solar_heat_windows
                     / self.geometry.conditioned_floor_area,
-                    "Heat from occupants": self.internal_heat_from_occupants,
-                    "Heat from appliances": self.internal_heat_from_appliances,
-                    "Heat from lighting": self.internal_heat_from_lighting,
+                    "Internal gains (occupants)": self.internal_heat_from_occupants,
+                    "Internal gains (appliances)": self.internal_heat_from_appliances,
+                    "Internal gains (lighting)": self.internal_heat_from_lighting,
                 }
             ).groupby("month").sum().set_index(self.months_index) / 1000
             space_thermal_demand = (
