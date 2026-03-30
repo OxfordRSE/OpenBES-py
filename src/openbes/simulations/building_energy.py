@@ -699,13 +699,15 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             self, zonal_demand: Series, raw_demand: Series
     ) -> SpaceThermalDemandResult:
         """Convert a series of thermal demand into a SpaceThermalDemandResult."""
-        quantiles = (raw_demand * self.geometry.conditioned_floor_area / 1000).quantile(
-            self.quantiles
-        )
+        demand_kw = raw_demand * self.geometry.conditioned_floor_area / 1000
+        quantiles = demand_kw.quantile(self.quantiles)
+        peak_fn = max if demand_kw.max() >= abs(demand_kw.min()) else min
+        demand_peak = self._find_peak(demand_kw, peak_fn)
         return SpaceThermalDemandResult(
             demand_total=zonal_demand.sum(),
             demand_scaled=zonal_demand.sum() / self.geometry.conditioned_floor_area,
             demand_on_all_year=raw_demand.sum(),
+            demand_peak=demand_peak,
             load_csv=zonal_demand.groupby("month")
             .sum()
             .round(self.spec.parameters.output_csv_precision)

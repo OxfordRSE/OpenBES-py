@@ -1350,13 +1350,15 @@ class ThermalSimulation(HourlySimulation):
         self, zonal_demand: Series, raw_demand: Series
     ) -> SpaceThermalDemandResult:
         precision = output_precision(self.spec)
-        quantiles = (raw_demand * self.geometry.conditioned_floor_area / 1000).quantile(
-            self.quantiles
-        )
+        demand_kw = raw_demand * self.geometry.conditioned_floor_area / 1000
+        quantiles = demand_kw.quantile(self.quantiles)
+        peak_fn = max if demand_kw.max() >= abs(demand_kw.min()) else min
+        demand_peak = find_hour_peak(demand_kw, peak_fn, precision)
         return SpaceThermalDemandResult(
             demand_total=zonal_demand.sum(),
             demand_scaled=zonal_demand.sum() / self.geometry.conditioned_floor_area,
             demand_on_all_year=raw_demand.sum(),
+            demand_peak=demand_peak,
             load_csv=to_output_csv(
                 zonal_demand.groupby("month")
                 .sum()

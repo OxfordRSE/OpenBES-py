@@ -502,6 +502,7 @@ class SpaceThermalDemandResult(BaseModel):
         default=None,
         description="Annual energy demanded in kWh/m2 if the system is on all year round.",
     )
+    demand_peak: HourPeak | None = None
     load_csv: str | None = Field(
         default=None, description="Load in kWh/m2 by calendar month."
     )

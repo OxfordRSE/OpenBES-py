@@ -1196,6 +1196,9 @@
           "type": "number",
           "description": "Annual energy demanded in kWh/m2 if the system is on all year round."
         },
+        "demand_peak": {
+          "$ref": "#/definitions/HourPeak"
+        },
         "load_csv": {
           "type": "string",
           "description": "Load in kWh/m2 by calendar month."
