@@ -1,5 +1,6 @@
 import json
 import unittest
+from copy import deepcopy
 from importlib.resources import files
 from pathlib import Path
 
@@ -12,6 +13,49 @@ from openbes.schemas import OpenBESSpecificationV2
 
 class Conversions(unittest.TestCase):
     NULLISH = (None, "", [], 0, 0.0, False)
+
+    def json_with_multiple_hvac_systems(self):
+        json_spec = deepcopy(self.json)
+
+        heating_system_2 = deepcopy(json_spec["heating_systems"][0])
+        heating_system_2["nominal_capacity"] = 24.0
+        heating_system_2["efficiency_cop"] = 0.95
+        heating_system_2["min_demand"] = 20.0
+        heating_system_2["count"] = 1
+        heating_system_2["active_hours"] = {"start": 9, "end": 16}
+        heating_system_2["simultaneity"] = {
+            "Office area": 0.5,
+            "Teaching": 0.25,
+            "Canteen": 0.5,
+            "Common areas": 0.1,
+            "Other spaces": 0.0,
+        }
+        json_spec["heating_systems"].append(heating_system_2)
+
+        cooling_system_2 = deepcopy(json_spec["cooling_systems"][0])
+        cooling_system_2["nominal_capacity"] = 48.0
+        cooling_system_2["sensible_nominal_capacity"] = 37.5
+        cooling_system_2["efficiency_ratio"] = 3.5
+        cooling_system_2["min_demand"] = 10.0
+        cooling_system_2["active_hours"] = {"start": 9, "end": 16}
+        cooling_system_2["simultaneity"] = {
+            "Office area": 0.5,
+            "Teaching": 0.25,
+            "Canteen": 0.5,
+            "Common areas": 0.1,
+            "Other spaces": 0.0,
+        }
+        json_spec["cooling_systems"].append(cooling_system_2)
+
+        ventilation_system_2 = deepcopy(json_spec["ventilation_systems"][0])
+        ventilation_system_2["airflow"] = 150.0
+        ventilation_system_2["heat_recovery_efficiency"] = 0.5
+        ventilation_system_2["rated_input_power"] = 0.15
+        ventilation_system_2["ventilated_area"] = 50.0
+        ventilation_system_2["active_hours"] = {"start": 11, "end": 13}
+        json_spec["ventilation_systems"].append(ventilation_system_2)
+
+        return json_spec
 
     def assertJSONEquivalent(self, obj1, obj2, msg_prefix=""):
         """Assert two JSON-compatible values are semantically equivalent.
@@ -44,7 +88,9 @@ class Conversions(unittest.TestCase):
                     obj1.strip().lower(), obj2.strip().lower(), msg=msg_prefix
                 )
             elif isinstance(obj1, (int, float)) and isinstance(obj2, (int, float)):
-                self.assertAlmostEqual(float(obj1), float(obj2), msg=msg_prefix, places=5)
+                self.assertAlmostEqual(
+                    float(obj1), float(obj2), msg=msg_prefix, places=5
+                )
             else:
                 self.assertEqual(obj1, obj2, msg=msg_prefix)
 
@@ -109,9 +155,13 @@ class Conversions(unittest.TestCase):
     def test_convert_blank_schema(self):
         blank_json = {}
         toml_spec = json_to_toml(blank_json)
-        self.assertEqual(toml_spec, {}, msg="json_to_toml({}) should produce an empty TOML dict")
+        self.assertEqual(
+            toml_spec, {}, msg="json_to_toml({}) should produce an empty TOML dict"
+        )
         and_back = toml_to_json(toml_spec)
-        self.assertEqual(and_back, {}, msg="toml_to_json({}) should produce an empty JSON dict")
+        self.assertEqual(
+            and_back, {}, msg="toml_to_json({}) should produce an empty JSON dict"
+        )
         self.assertJSONEquivalent(blank_json, and_back)
 
     def test_blank_schema_stability(self):
@@ -123,6 +173,52 @@ class Conversions(unittest.TestCase):
             self.assertEqual(result_toml, {})
             result_json = toml_to_json(result_toml)
             self.assertEqual(result_json, {})
+
+    def test_json_to_toml_multiple_hvac_systems_populates_system_2_keys(self):
+        json_spec = self.json_with_multiple_hvac_systems()
+
+        toml_spec = json_to_toml(json_spec)
+
+        self.assertEqual(toml_spec["d.heating_system2_nominal_capacity"], 24.0)
+        self.assertEqual(toml_spec["d.heating_system2_efficiency_cop"], 0.95)
+        self.assertEqual(toml_spec["d.heating_system2_min_demand"], 20.0)
+        self.assertEqual(toml_spec["d.heating_system2_on_time"], 9)
+        self.assertEqual(toml_spec["d.heating_system2_off_time"], 16)
+        self.assertEqual(toml_spec["d.heating_system2_simultaneity_factor_office"], 0.5)
+
+        self.assertEqual(toml_spec["d.cooling_system2_nominal_capacity"], 48.0)
+        self.assertEqual(toml_spec["d.cooling_system2_sensible_nominal_capacity"], 37.5)
+        self.assertEqual(toml_spec["d.cooling_system2_energy_efficifiency_ratio"], 3.5)
+        self.assertEqual(toml_spec["d.cooling_system2_min_demand"], 10.0)
+        self.assertEqual(toml_spec["d.cooling_system2_on_time"], 9)
+        self.assertEqual(toml_spec["d.cooling_system2_off_time"], 16)
+        self.assertEqual(toml_spec["d.cooling_system2_simultaneity_factor_office"], 0.5)
+
+        self.assertEqual(toml_spec["d.ventilation_system2_airflow"], 150.0)
+        self.assertEqual(
+            toml_spec["d.ventilation_system2_heat_recovery_efficiency"], 0.5
+        )
+        self.assertEqual(toml_spec["d.ventilation_system2_rated_input_power"], 0.15)
+        self.assertEqual(toml_spec["d.ventilation_system2_ventilated_area"], 50.0)
+        self.assertEqual(toml_spec["d.ventilation_system2_on_time"], 11)
+        self.assertEqual(toml_spec["d.ventilation_system2_off_time"], 13)
+
+    def test_multiple_hvac_systems_survive_json_toml_json_round_trip(self):
+        json_spec = self.json_with_multiple_hvac_systems()
+
+        toml_spec = json_to_toml(json_spec, False)
+        converted = toml_to_json(toml_spec, False)
+
+        self.assertJSONEquivalent(
+            json_spec["heating_systems"], converted["heating_systems"]
+        )
+        self.assertJSONEquivalent(
+            json_spec["cooling_systems"], converted["cooling_systems"]
+        )
+        self.assertJSONEquivalent(
+            json_spec["ventilation_systems"], converted["ventilation_systems"]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
