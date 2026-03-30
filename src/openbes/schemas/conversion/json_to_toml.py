@@ -9,6 +9,7 @@ these helpers provide a best-effort conversion layer.
 from __future__ import annotations
 
 import json
+from enum import Enum
 from typing import Any, List, Tuple, Dict
 
 from openbes.schemas import (
@@ -59,6 +60,8 @@ def json_to_toml(
     def set_if(key: str, value: Any) -> None:
         """Add *key* to the output only when *value* is not None/empty-string."""
         if value is not None and value != "":
+            if isinstance(value, Enum):
+                value = value.value
             toml[key] = value
 
     def annual_consumption(consumption: Consumption) -> float:

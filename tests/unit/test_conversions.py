@@ -9,6 +9,10 @@ import jsonschema
 from openbes import OpenBESSpecification, SPECIFICATION
 from openbes.schemas.conversion import json_to_toml, toml_to_json
 from openbes.schemas import OpenBESSpecificationV2
+from openbes.simulations.cooling import CoolingSimulation
+from openbes.simulations.heating import HeatingSimulation
+from openbes.simulations.thermal import ThermalSimulation
+from openbes.simulations.ventilation import VentilationSimulation
 
 
 class Conversions(unittest.TestCase):
@@ -56,6 +60,38 @@ class Conversions(unittest.TestCase):
         json_spec["ventilation_systems"].append(ventilation_system_2)
 
         return json_spec
+
+    def json_with_minimal_secondary_hvac_systems(self):
+        json_spec = deepcopy(self.json)
+
+        json_spec["heating_systems"].append(
+            {
+                "energy_source": "Natural gas",
+                "efficiency_cop": 0.95,
+                "nominal_capacity": 24.0,
+                "active_hours": {"start": 9, "end": 16},
+            }
+        )
+        json_spec["cooling_systems"].append(
+            {
+                "energy_source": "Electricity",
+                "efficiency_ratio": 3.5,
+                "nominal_capacity": 48.0,
+                "sensible_nominal_capacity": 37.5,
+                "active_hours": {"start": 9, "end": 16},
+            }
+        )
+        json_spec["ventilation_systems"].append(
+            {
+                "energy_source": "Electricity",
+                "airflow": 150.0,
+            }
+        )
+
+        return json_spec
+
+    def legacy_spec_from_json(self, json_spec):
+        return OpenBESSpecification.from_toml(json_to_toml(json_spec))
 
     def assertJSONEquivalent(self, obj1, obj2, msg_prefix=""):
         """Assert two JSON-compatible values are semantically equivalent.
@@ -218,6 +254,57 @@ class Conversions(unittest.TestCase):
         self.assertJSONEquivalent(
             json_spec["ventilation_systems"], converted["ventilation_systems"]
         )
+
+    def test_minimal_secondary_hvac_systems_get_runtime_defaults(self):
+        spec = self.legacy_spec_from_json(
+            self.json_with_minimal_secondary_hvac_systems()
+        )
+
+        self.assertEqual(spec.parameters.cooling_system2_min_demand, 15.0)
+        self.assertEqual(
+            spec.parameters.heating_system2_simultaneity_factor_office, 1.0
+        )
+        self.assertEqual(
+            spec.parameters.cooling_system2_simultaneity_factor_office, 1.0
+        )
+        self.assertEqual(spec.parameters.ventilation_system2_rated_input_power, 0.0)
+
+    def test_minimal_secondary_heating_system_functions_after_json_to_toml(self):
+        spec = self.legacy_spec_from_json(
+            self.json_with_minimal_secondary_hvac_systems()
+        )
+
+        thermal = ThermalSimulation(spec=spec)
+        sim = HeatingSimulation(spec=spec, thermal=thermal)
+
+        self.assertEqual(len(sim.heating_simulations), 2)
+        second = sim.report.heating_systems[1]
+        self.assertGreater(second.conditioned_area, 0)
+        self.assertGreater(second.system_usage, 0)
+
+    def test_minimal_secondary_cooling_system_functions_after_json_to_toml(self):
+        spec = self.legacy_spec_from_json(
+            self.json_with_minimal_secondary_hvac_systems()
+        )
+
+        thermal = ThermalSimulation(spec=spec)
+        sim = CoolingSimulation(spec=spec, thermal=thermal)
+
+        self.assertEqual(len(sim.cooling_simulations), 2)
+        second = sim.report.cooling_systems[1]
+        self.assertGreater(second.conditioned_area, 0)
+        self.assertGreater(second.system_usage, 0)
+
+    def test_minimal_secondary_ventilation_system_functions_after_json_to_toml(self):
+        spec = self.legacy_spec_from_json(
+            self.json_with_minimal_secondary_hvac_systems()
+        )
+
+        sim = VentilationSimulation(spec=spec)
+
+        self.assertEqual(len(sim.ventilation_simulations), 2)
+        second = sim.report.ventilation_systems[1]
+        self.assertGreater(second.mechanical_ventilation_rate, 0)
 
 
 if __name__ == "__main__":

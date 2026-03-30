@@ -119,10 +119,12 @@ class BuildingEnergySimulation(EnergyUseSimulation):
     _required_inputs_error_cls = BuildingEnergySimulationError
 
     # TypeVar for factory return type
-    _T = TypeVar('_T')
+    _T = TypeVar("_T")
 
     @staticmethod
-    def _build_simulation(name: str, simulation_cls: Type[_T], *args: Any, **kwargs: Any) -> Optional[_T]:
+    def _build_simulation(
+        name: str, simulation_cls: Type[_T], *args: Any, **kwargs: Any
+    ) -> Optional[_T]:
         """Build a simulation instance, returning None if dependencies are unavailable or instantiation fails.
 
         Args:
@@ -204,19 +206,19 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         )
 
     def __init__(
-            self,
-            spec: OpenBESSpecification | dict[str, Any] | None = None,
-            hot_water: HotWaterSimulation = None,
-            geometry: BuildingGeometry = None,
-            occupancy: OccupationSimulation = None,
-            lighting: LightingSimulation = None,
-            ventilation: VentilationSimulation = None,
-            location: LocationSimulation = None,
-            thermal: ThermalSimulation = None,
-            cooling: CoolingSimulation = None,
-            heating: HeatingSimulation = None,
-            log_prefix: str = "",
-            parent_log: Optional[list[str]] = None
+        self,
+        spec: OpenBESSpecification | dict[str, Any] | None = None,
+        hot_water: HotWaterSimulation = None,
+        geometry: BuildingGeometry = None,
+        occupancy: OccupationSimulation = None,
+        lighting: LightingSimulation = None,
+        ventilation: VentilationSimulation = None,
+        location: LocationSimulation = None,
+        thermal: ThermalSimulation = None,
+        cooling: CoolingSimulation = None,
+        heating: HeatingSimulation = None,
+        log_prefix: str = "",
+        parent_log: Optional[list[str]] = None,
     ):
         if spec is None:
             spec = OpenBESSpecification()
@@ -234,12 +236,16 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         self._full_case_report: Optional[OpenBESCase] = None
         self._timestamp: Optional[str] = None
         self._standby_energy_use = self._energy_use.copy()
-        self._standby_energy_use[ENERGY_SOURCES.Electricity] = self.spec.building_standby_load * 12 / len(
-            self._energy_use)
+        self._standby_energy_use[ENERGY_SOURCES.Electricity] = (
+            self.spec.building_standby_load * 12 / len(self._energy_use)
+        )
         self._other_energy_use = self._energy_use.copy()
-        self._other_energy_use[ENERGY_SOURCES.Electricity] = self.spec.other_electricity_usage * 12 / len(
-            self._energy_use)
-        self._other_energy_use[ENERGY_SOURCES.Natural_gas] = self.spec.other_gas_usage * 12 / len(self._energy_use)
+        self._other_energy_use[ENERGY_SOURCES.Electricity] = (
+            self.spec.other_electricity_usage * 12 / len(self._energy_use)
+        )
+        self._other_energy_use[ENERGY_SOURCES.Natural_gas] = (
+            self.spec.other_gas_usage * 12 / len(self._energy_use)
+        )
 
         self.hot_water = hot_water
         self.geometry = geometry
@@ -298,10 +304,12 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         coefficients_df = read_csv(
             str(files("openbes.simulations.report_data") / "per_FEC_coefficients.csv")
         )
-        country = self.spec.country.value if self.spec.country is not None else "Other"
-        coefficients_df = coefficients_df.loc[
-            coefficients_df["Country"] == country
-        ]
+        country = (
+            getattr(self.spec.country, "value", self.spec.country)
+            if self.spec.country is not None
+            else "Other"
+        )
+        coefficients_df = coefficients_df.loc[coefficients_df["Country"] == country]
         coefficients_df = coefficients_df.set_index(["Energy source"])
         return coefficients_df
 
@@ -321,23 +329,23 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         pec_coefficients = self.per_FEC_coefficients["PEC/kWh FEC"].copy()
         pec_gross = pec_coefficients * energy_use
         # Special case for electricity to accommodate generation:
-        energy_generated = self.spec.energy_generated if self.spec.energy_generated is not None else 0.0
+        energy_generated = (
+            self.spec.energy_generated
+            if self.spec.energy_generated is not None
+            else 0.0
+        )
         pec_gross[ENERGY_SOURCES.Electricity.value] = (
-                pec_coefficients[ENERGY_SOURCES.Electricity.value]
-                * (
-                        energy_use[ENERGY_SOURCES.Electricity.value]
-                        - energy_generated
-                )
-                + energy_generated
+            pec_coefficients[ENERGY_SOURCES.Electricity.value]
+            * (energy_use[ENERGY_SOURCES.Electricity.value] - energy_generated)
+            + energy_generated
         )
 
         pec_nr_coefficients = self.per_FEC_coefficients["PECnr/kWh FEC"].copy()
         pec_nr_gross = pec_nr_coefficients * energy_use
         # Again, electricity is a special case
         pec_nr_gross[ENERGY_SOURCES.Electricity.value] = pec_nr_coefficients[
-                                                             ENERGY_SOURCES.Electricity.value
-                                                         ] * (energy_use[
-                                                                  ENERGY_SOURCES.Electricity.value] - energy_generated)
+            ENERGY_SOURCES.Electricity.value
+        ] * (energy_use[ENERGY_SOURCES.Electricity.value] - energy_generated)
 
         pec_net = pec_gross / area
         total_pec = sum(pec_net)
@@ -469,8 +477,12 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         return OpenBESReport(
             primary_energy_consumption=self.primary_energy_consumption,
             final_energy_consumption_distribution=self.final_energy_consumption_distribution,
-            space_heating_demand=self.space_hvac_demand.loc["Heating"] if self.space_hvac_demand is not None else None,
-            space_cooling_demand=self.space_hvac_demand.loc["Cooling"] if self.space_hvac_demand is not None else None,
+            space_heating_demand=self.space_hvac_demand.loc["Heating"]
+            if self.space_hvac_demand is not None
+            else None,
+            space_cooling_demand=self.space_hvac_demand.loc["Cooling"]
+            if self.space_hvac_demand is not None
+            else None,
             passive_survivability=self.passive_survivability,
         )
 
@@ -487,18 +499,18 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         return Series(
             {
                 "Summer discomfort hours (%)": self.passive_survivability[
-                                                   self.building_name
-                                               ]
-                                               * 100,
+                    self.building_name
+                ]
+                * 100,
                 "Peak heating load (kW)": (
-                        self.thermal.heating_demand
-                        * self.geometry.conditioned_floor_area
-                        / 1000
+                    self.thermal.heating_demand
+                    * self.geometry.conditioned_floor_area
+                    / 1000
                 ).quantile(0.996),
                 "Peak cooling load (kW)": (
-                        self.thermal.cooling_demand
-                        * self.geometry.conditioned_floor_area
-                        / 1000
+                    self.thermal.cooling_demand
+                    * self.geometry.conditioned_floor_area
+                    / 1000
                 ).quantile(0.996),
                 "Annual heating demand (kWh/m2)": self.report.space_heating_demand.loc[
                     self.building_name, "Demand (kWh/m2)"
@@ -513,7 +525,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                     self.building_name, "Non-renewable"
                 ].sum(),
                 "CO2 equivalent emissions kg CO2 eq/m2": self.kg_co2_eq.sum()
-                                                         / self.geometry.conditioned_floor_area,
+                / self.geometry.conditioned_floor_area,
             },
             name=name,
         )
@@ -607,9 +619,9 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             out = DataFrame(simulations)
             baseline_fec = out.loc["baseline", "Final energy consumption (kWh/m2)"]
             out["Energy savings (%)"] = (
-                    (baseline_fec - out["Final energy consumption (kWh/m2)"])
-                    / baseline_fec
-                    * 100
+                (baseline_fec - out["Final energy consumption (kWh/m2)"])
+                / baseline_fec
+                * 100
             )
             self._retrofit_report = out
         return self._retrofit_report
@@ -696,7 +708,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         ]
 
     def _space_thermal_demand_result(
-            self, zonal_demand: Series, raw_demand: Series
+        self, zonal_demand: Series, raw_demand: Series
     ) -> SpaceThermalDemandResult:
         """Convert a series of thermal demand into a SpaceThermalDemandResult."""
         demand_kw = raw_demand * self.geometry.conditioned_floor_area / 1000
@@ -723,22 +735,22 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         )
 
     def _thermal_system_result(
-            self, systems: List[HeatingSystemSimulation | CoolingSystemSimulation]
+        self, systems: List[HeatingSystemSimulation | CoolingSystemSimulation]
     ) -> List[ThermalSystemResult]:
         out = []
         for sys in systems:
             energy_use = sys.energy_use.sum().sum()
             if isinstance(sys, HeatingSystemSimulation):
                 demand = (
-                        self.thermal.heating_demand
-                        * self.geometry.conditioned_floor_area
-                        / 1000
+                    self.thermal.heating_demand
+                    * self.geometry.conditioned_floor_area
+                    / 1000
                 )
             else:
                 demand = (
-                        self.thermal.cooling_demand
-                        * self.geometry.conditioned_floor_area
-                        / 1000
+                    self.thermal.cooling_demand
+                    * self.geometry.conditioned_floor_area
+                    / 1000
                 )
             quantile = demand.quantile(0.996)
             peak_load = self._find_peak(demand, max)
@@ -753,7 +765,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                     conditioned_area=sys.area,
                     energy_demand=energy_use / sys.area,
                     system_usage=sys.demand.sum()
-                                 / self.geometry.conditioned_floor_area,
+                    / self.geometry.conditioned_floor_area,
                     peak_load=peak_load,
                     peak_capacity=capacity,
                     peak_ratio=capacity / quantile,
@@ -762,7 +774,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         return out
 
     def _model_validation(
-            self, simulated: Series, specified: Series
+        self, simulated: Series, specified: Series
     ) -> ModelValidation:
         """Compare simulated and specified values for model validation."""
         df = concat(
@@ -849,11 +861,11 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         W = weights.sum()
 
         trm_daily = (
-                concat(
-                    [day_means.shift(i) * w for i, w in enumerate(weights)],
-                    axis=1,
-                ).sum(axis=1)
-                / W
+            concat(
+                [day_means.shift(i) * w for i, w in enumerate(weights)],
+                axis=1,
+            ).sum(axis=1)
+            / W
         ).clip(upper=30)
 
         # Excel-style bootstrap: copy first week value backwards
@@ -885,7 +897,7 @@ class BuildingEnergySimulation(EnergyUseSimulation):
     def building_geometry(self):
         window_area = self.geometry.window_areas.groupby("floor").sum()
         opaque_facade_area = (
-                self.geometry.conditioned_facade_areas.groupby("floor").sum() - window_area
+            self.geometry.conditioned_facade_areas.groupby("floor").sum() - window_area
         )
         wwr = window_area / (window_area + opaque_facade_area)
         return DataFrame(
@@ -904,8 +916,8 @@ class BuildingEnergySimulation(EnergyUseSimulation):
     def building_geometry_orientation(self) -> DataFrame:
         window_area = self.geometry.window_areas.groupby("compass_point").sum()
         opaque_facade_area = (
-                self.geometry.conditioned_facade_areas.groupby("compass_point").sum()
-                - window_area
+            self.geometry.conditioned_facade_areas.groupby("compass_point").sum()
+            - window_area
         )
         opaque_facade_area["Horizontal"] = self.geometry.roof_projections.sum()
         window_area["Horizontal"] = 0.0
@@ -939,13 +951,13 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         )
         window_gains_by_orientation["Horizontal"] = 0.0
         return (
-                DataFrame(
-                    {
-                        "Opaque gains (kWh)": opaque_gains_by_orientation,
-                        "Window gains (kWh)": window_gains_by_orientation.sum(),
-                    }
-                )
-                / 1000
+            DataFrame(
+                {
+                    "Opaque gains (kWh)": opaque_gains_by_orientation,
+                    "Window gains (kWh)": window_gains_by_orientation.sum(),
+                }
+            )
+            / 1000
         )  # Wh to kWh
 
     @property
@@ -975,9 +987,9 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             {
                 k: v[ENERGY_SOURCES.Electricity]
                 for k, v in {
-                k: v.groupby("month").sum()
-                for k, v in self.energy_use_by_category.items()
-            }.items()
+                    k: v.groupby("month").sum()
+                    for k, v in self.energy_use_by_category.items()
+                }.items()
             }
         )
         df[ENERGY_USE_CATEGORIES.Others] = self.spec.other_electricity_usage
@@ -1009,36 +1021,49 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 other_energy_use_electricity=self._or_none(
                     "other_energy_use_electricity",
                     lambda: (
-                                    self._other_energy_use[ENERGY_SOURCES.Electricity].sum()
-                                    + self._standby_energy_use[ENERGY_SOURCES.Electricity].sum()
-                            )
-                            / self.geometry.conditioned_floor_area,
+                        (
+                            self._other_energy_use[ENERGY_SOURCES.Electricity].sum()
+                            + self._standby_energy_use[ENERGY_SOURCES.Electricity].sum()
+                        )
+                        / self.geometry.conditioned_floor_area
+                    ),
                 ),
                 other_energy_use_gas=self._or_none(
                     "other_energy_use_gas",
-                    lambda: self._other_energy_use[ENERGY_SOURCES.Natural_gas].sum()
-                            / self.geometry.conditioned_floor_area,
+                    lambda: (
+                        self._other_energy_use[ENERGY_SOURCES.Natural_gas].sum()
+                        / self.geometry.conditioned_floor_area
+                    ),
                 ),
                 on_site_electricity_generated=self._or_none(
                     "on_site_electricity_generated",
-                    lambda: self.spec.energy_generated / self.geometry.conditioned_floor_area,
+                    lambda: (
+                        self.spec.energy_generated
+                        / self.geometry.conditioned_floor_area
+                    ),
                 ),
                 on_site_electricity_used=self._or_none(
                     "on_site_electricity_used",
-                    lambda: self.spec.energy_used / self.geometry.conditioned_floor_area,
+                    lambda: (
+                        self.spec.energy_used / self.geometry.conditioned_floor_area
+                    ),
                 ),
                 on_site_electricity_fraction=self._or_none(
                     "on_site_electricity_fraction",
                     lambda: (
-                            (self.spec.energy_used / self.geometry.conditioned_floor_area)
-                            / self.final_energy_consumption_distribution["kWh/m2"].sum()
+                        (self.spec.energy_used / self.geometry.conditioned_floor_area)
+                        / self.final_energy_consumption_distribution["kWh/m2"].sum()
                     ),
                 ),
                 all_renewable_fraction=self._or_none(
                     "all_renewable_fraction",
                     lambda: (
-                            self.primary_energy_consumption.loc[self.building_name, "Renewable"]
-                            / self.primary_energy_consumption.loc[self.building_name, "Total PEC"]
+                        self.primary_energy_consumption.loc[
+                            self.building_name, "Renewable"
+                        ]
+                        / self.primary_energy_consumption.loc[
+                            self.building_name, "Total PEC"
+                        ]
                     ),
                 ),
                 final_energy_consumption=self._or_none(
@@ -1047,11 +1072,15 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 ),
                 primary_energy_consumption=self._or_none(
                     "primary_energy_consumption",
-                    lambda: self.primary_energy_consumption.loc[self.building_name, "Total PEC"],
+                    lambda: self.primary_energy_consumption.loc[
+                        self.building_name, "Total PEC"
+                    ],
                 ),
                 non_renewable_primary_energy_consumption=self._or_none(
                     "non_renewable_primary_energy_consumption",
-                    lambda: self.primary_energy_consumption.loc[self.building_name, "Non-renewable"],
+                    lambda: self.primary_energy_consumption.loc[
+                        self.building_name, "Non-renewable"
+                    ],
                 ),
                 co2_equivalent_emissions=self._or_none(
                     "co2_equivalent_emissions",
@@ -1060,7 +1089,9 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 final_energy_consumption_csv=self._or_none(
                     "final_energy_consumption_csv",
                     lambda: to_output_csv(
-                        self.final_energy_consumption_distribution["kWh"].rename_axis("System"),
+                        self.final_energy_consumption_distribution["kWh"].rename_axis(
+                            "System"
+                        ),
                         precision,
                     ),
                 ),
@@ -1090,7 +1121,9 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 gas_validation=self._or_none(
                     "gas_validation",
                     lambda: self._model_validation(
-                        self.energy_use[ENERGY_SOURCES.Natural_gas].groupby("month").sum(),
+                        self.energy_use[ENERGY_SOURCES.Natural_gas]
+                        .groupby("month")
+                        .sum(),
                         Series(
                             [
                                 self.spec.gas_january,
@@ -1184,7 +1217,9 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         :returns: A OpenBESCase report.
         """
         if self._full_case_report is None:
-            raise NotImplementedError("This will only work once we move self.spec to be OpenBESSpecificationV2")
+            raise NotImplementedError(
+                "This will only work once we move self.spec to be OpenBESSpecificationV2"
+            )
             self._full_case_report = OpenBESCase(
                 inputs=self.spec,
                 outputs=self.outputs,
@@ -1192,14 +1227,18 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                     version=metadata("openbes")["Version"],
                     timestamp=self.timestamp,
                     EPW_file_checksum=(
-                        self.location.epw_file_checksum if self.location is not None else None
+                        self.location.epw_file_checksum
+                        if self.location is not None
+                        else None
                     ),
                 ),
                 log=self.log,
             )
         return self._full_case_report
 
-    def update_spec(self, new_spec: OpenBESSpecification, preserve_log: bool = True) -> "BuildingEnergySimulation":
+    def update_spec(
+        self, new_spec: OpenBESSpecification, preserve_log: bool = True
+    ) -> "BuildingEnergySimulation":
         """
         Update the building energy simulation with a new specification.
 
@@ -1217,7 +1256,9 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             new_spec: The new OpenBESSpecification to apply
         """
         # Check if thermal needs to be rerun
-        thermal_needs_rerun = self.thermal is None or specs_require_thermal_rerun(self.spec, new_spec)
+        thermal_needs_rerun = self.thermal is None or specs_require_thermal_rerun(
+            self.spec, new_spec
+        )
 
         # Update the spec reference
         self.spec = new_spec
@@ -1227,19 +1268,25 @@ class BuildingEnergySimulation(EnergyUseSimulation):
             if self.thermal is None:
                 logger.info("Updating with new specification.")
             else:
-                logger.info("Thermal-affecting specs changed. Recalculating thermal simulation...")
+                logger.info(
+                    "Thermal-affecting specs changed. Recalculating thermal simulation..."
+                )
 
             # Recreate from scratch
             out = type(self)(spec=new_spec, log_prefix=self.log_prefix)
         else:
             # Thermal is unchanged - preserve the expensive calculations
-            logger.info("Thermal specs unchanged. Reusing cached thermal calculations...")
+            logger.info(
+                "Thermal specs unchanged. Reusing cached thermal calculations..."
+            )
 
             # Reset thermal cache to clear intermediate computations but preserve hour-by-hour results
             thermal_sim = deepcopy(self.thermal)
             reset_thermal_cache(thermal_sim)
 
-            out = type(self)(spec=new_spec, log_prefix=self.log_prefix, thermal=thermal_sim)
+            out = type(self)(
+                spec=new_spec, log_prefix=self.log_prefix, thermal=thermal_sim
+            )
 
             # Retroactively bind new simulations to the existing thermal simulations
             out.thermal.spec = new_spec
