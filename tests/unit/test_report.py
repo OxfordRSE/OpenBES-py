@@ -5,11 +5,15 @@ import pandas as pd
 from pandas import DataFrame, Series
 
 from openbes import BuildingEnergySimulation, OpenBESSpecification
-from openbes.examples import HOLYWELL_HOUSE_SPEC
+from openbes.examples import HOLYWELL_HOUSE_SPEC, get_holywell_house_spec
 from openbes.schemas import OpenBESOutput
-from openbes.simulations.building_energy import BuildingEnergySimulationError, OpenBESReport
+from openbes.simulations.building_energy import (
+    BuildingEnergySimulationError,
+    OpenBESReport,
+)
 from tests.unit.utils import (
     OpenBESTestCase,
+    distinct_secondary_hvac_systems,
 )
 
 
@@ -133,7 +137,6 @@ class TestOpenBESReport(OpenBESTestCase):
         sim = BuildingEnergySimulation(spec)
         self.assertTrue(isinstance(sim.report, OpenBESReport))
         self.assertTrue(isinstance(sim.outputs, OpenBESOutput))
-
 
     def test_outputs(self):
         outputs = self.sim.outputs
@@ -488,3 +491,61 @@ class TestOpenBESReport(OpenBESTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestOpenBESReportMultipleSystems(OpenBESTestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec = distinct_secondary_hvac_systems(get_holywell_house_spec())
+        cls.sim = BuildingEnergySimulation(spec=spec)
+
+    def test_outputs_serialize_multiple_systems_as_arrays(self):
+        outputs = self.sim.outputs.model_dump(mode="json")
+
+        with self.subTest("heating_systems"):
+            self.assertIsInstance(
+                outputs["heating_simulation_output"]["heating_systems"], list
+            )
+            self.assertEqual(
+                len(outputs["heating_simulation_output"]["heating_systems"]), 2
+            )
+            self.assertNotEqual(
+                outputs["heating_simulation_output"]["heating_systems"][0][
+                    "peak_capacity"
+                ],
+                outputs["heating_simulation_output"]["heating_systems"][1][
+                    "peak_capacity"
+                ],
+            )
+
+        with self.subTest("cooling_systems"):
+            self.assertIsInstance(
+                outputs["cooling_simulation_output"]["cooling_systems"], list
+            )
+            self.assertEqual(
+                len(outputs["cooling_simulation_output"]["cooling_systems"]), 2
+            )
+            self.assertNotEqual(
+                outputs["cooling_simulation_output"]["cooling_systems"][0][
+                    "peak_capacity"
+                ],
+                outputs["cooling_simulation_output"]["cooling_systems"][1][
+                    "peak_capacity"
+                ],
+            )
+
+        with self.subTest("ventilation_systems"):
+            self.assertIsInstance(
+                outputs["ventilation_simulation_output"]["ventilation_systems"], list
+            )
+            self.assertEqual(
+                len(outputs["ventilation_simulation_output"]["ventilation_systems"]), 2
+            )
+            self.assertNotEqual(
+                outputs["ventilation_simulation_output"]["ventilation_systems"][0][
+                    "energy_demand"
+                ],
+                outputs["ventilation_simulation_output"]["ventilation_systems"][1][
+                    "energy_demand"
+                ],
+            )

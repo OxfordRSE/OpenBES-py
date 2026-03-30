@@ -7,6 +7,94 @@ import os
 from openbes.examples import get_holywell_house_spec
 
 
+def duplicate_secondary_hvac_systems(spec):
+    """Populate system 2 inputs by mirroring system 1 for HVAC tests."""
+    duplicated_fields = {
+        "heating_system2_type": spec.heating_system1_type,
+        "heating_system2_number": spec.heating_system1_number,
+        "heating_system2_nominal_capacity": spec.heating_system1_nominal_capacity,
+        "heating_system2_energy_source": spec.heating_system1_energy_source,
+        "heating_system2_efficiency_cop": spec.heating_system1_efficiency_cop,
+        "heating_system2_on_time": spec.heating_system1_on_time,
+        "heating_system2_off_time": spec.heating_system1_off_time,
+        "heating_system2_simultaneity_factor_office": spec.heating_system1_simultaneity_factor_office,
+        "heating_system2_simultaneity_factor_teaching": spec.heating_system1_simultaneity_factor_teaching,
+        "heating_system2_simultaneity_factor_canteen": spec.heating_system1_simultaneity_factor_canteen,
+        "heating_system2_simultaneity_factor_common": spec.heating_system1_simultaneity_factor_common,
+        "heating_system2_simultaneity_factor_other": spec.heating_system1_simultaneity_factor_other,
+        "cooling_system2_type": spec.cooling_system1_type,
+        "cooling_system2_number": spec.cooling_system1_number,
+        "cooling_system2_nominal_capacity": spec.cooling_system1_nominal_capacity,
+        "cooling_system2_sensible_nominal_capacity": spec.cooling_system1_sensible_nominal_capacity,
+        "cooling_system2_energy_source": spec.cooling_system1_energy_source,
+        "cooling_system2_energy_efficifiency_ratio": spec.cooling_system1_energy_efficifiency_ratio,
+        "cooling_system2_on_time": spec.cooling_system1_on_time,
+        "cooling_system2_off_time": spec.cooling_system1_off_time,
+        "cooling_system2_simultaneity_factor_office": spec.cooling_system1_simultaneity_factor_office,
+        "cooling_system2_simultaneity_factor_teaching": spec.cooling_system1_simultaneity_factor_teaching,
+        "cooling_system2_simultaneity_factor_canteen": spec.cooling_system1_simultaneity_factor_canteen,
+        "cooling_system2_simultaneity_factor_common": spec.cooling_system1_simultaneity_factor_common,
+        "cooling_system2_simultaneity_factor_other": spec.cooling_system1_simultaneity_factor_other,
+        "ventilation_system2_airflow": spec.ventilation_system1_airflow,
+        "ventilation_system2_energy_source": spec.ventilation_system1_energy_source,
+        "ventilation_system2_heat_recovery_efficiency": spec.ventilation_system1_heat_recovery_efficiency,
+        "ventilation_system2_on_time": spec.ventilation_system1_on_time,
+        "ventilation_system2_off_time": spec.ventilation_system1_off_time,
+        "ventilation_system2_rated_input_power": spec.ventilation_system1_rated_input_power,
+        "ventilation_system2_type": spec.ventilation_system1_type,
+        "ventilation_system2_ventilated_area": spec.ventilation_system1_ventilated_area,
+    }
+    for field, value in duplicated_fields.items():
+        setattr(spec.parameters, field, value)
+
+    spec.parameters.heating_system2_min_demand = (
+        spec.parameters.heating_system1_min_demand
+    )
+    spec.parameters.cooling_system2_min_demand = (
+        spec.parameters.cooling_system1_min_demand
+    )
+    return spec
+
+
+def distinct_secondary_hvac_systems(spec):
+    """Populate system 2 inputs with values that differ from system 1."""
+    spec = duplicate_secondary_hvac_systems(spec)
+
+    spec.parameters.heating_system2_number = 1
+    spec.parameters.heating_system2_nominal_capacity = 24.0
+    spec.parameters.heating_system2_efficiency_cop = 0.95
+    spec.parameters.heating_system2_min_demand = 20.0
+    spec.parameters.heating_system2_on_time = 9
+    spec.parameters.heating_system2_off_time = 16
+    spec.parameters.heating_system2_simultaneity_factor_office = 0.5
+    spec.parameters.heating_system2_simultaneity_factor_teaching = 0.25
+    spec.parameters.heating_system2_simultaneity_factor_canteen = 0.5
+    spec.parameters.heating_system2_simultaneity_factor_common = 0.1
+    spec.parameters.heating_system2_simultaneity_factor_other = 0.0
+
+    spec.parameters.cooling_system2_number = 1
+    spec.parameters.cooling_system2_nominal_capacity = 48.0
+    spec.parameters.cooling_system2_sensible_nominal_capacity = 37.5
+    spec.parameters.cooling_system2_energy_efficifiency_ratio = 3.5
+    spec.parameters.cooling_system2_min_demand = 10.0
+    spec.parameters.cooling_system2_on_time = 9
+    spec.parameters.cooling_system2_off_time = 16
+    spec.parameters.cooling_system2_simultaneity_factor_office = 0.5
+    spec.parameters.cooling_system2_simultaneity_factor_teaching = 0.25
+    spec.parameters.cooling_system2_simultaneity_factor_canteen = 0.5
+    spec.parameters.cooling_system2_simultaneity_factor_common = 0.1
+    spec.parameters.cooling_system2_simultaneity_factor_other = 0.0
+
+    spec.parameters.ventilation_system2_airflow = 150.0
+    spec.parameters.ventilation_system2_heat_recovery_efficiency = 0.5
+    spec.parameters.ventilation_system2_on_time = 11
+    spec.parameters.ventilation_system2_off_time = 13
+    spec.parameters.ventilation_system2_rated_input_power = 0.15
+    spec.parameters.ventilation_system2_ventilated_area = 50.0
+
+    return spec
+
+
 def describe_differences(
     expected: pd.Series, calculated: pd.Series, tolerance: float = 0.0
 ) -> str:
