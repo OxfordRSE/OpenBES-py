@@ -415,25 +415,26 @@ class BuildingEnergySimulation(EnergyUseSimulation):
 
     @property
     def final_energy_consumption_distribution(self) -> DataFrame:
-        """Final energy consumption in kWh (gross) and kWh/m2 (by area).
+        """Final energy consumption in kWh broken down by system and energy source.
+
+        Returns a DataFrame with one row per energy-use system and one column per
+        ENERGY_SOURCE (Electricity, Diesel, LPG, Natural gas, Biomass, Pellets).
+        The index is named 'System'. Summing all energy-source columns for a row
+        recovers the total kWh for that system.
 
         [BES Report Table N21:P30]
         """
-        gross = Series(
-            {
-                "Heating": self._extract_energy_use("heating").sum().sum(),
-                "Cooling": self._extract_energy_use("cooling").sum().sum(),
-                "Ventilation": self._extract_energy_use("ventilation").sum().sum(),
-                "Hot water": self._extract_energy_use("hot_water").sum().sum(),
-                "Lighting": self._extract_energy_use("lighting").sum().sum(),
-                "Building background": self._standby_energy_use.sum().sum(),
-                "Others": self._other_energy_use.sum().sum(),
-            }
-        )
-        df = DataFrame()
-        df["kWh"] = gross
-        if self.geometry is not None and self.geometry.conditioned_floor_area > 0:
-            df["kWh/m2"] = gross / self.geometry.conditioned_floor_area
+        rows = {
+            "Heating": self._extract_energy_use("heating").sum(),
+            "Cooling": self._extract_energy_use("cooling").sum(),
+            "Ventilation": self._extract_energy_use("ventilation").sum(),
+            "Hot water": self._extract_energy_use("hot_water").sum(),
+            "Lighting": self._extract_energy_use("lighting").sum(),
+            "Building background": self._standby_energy_use.sum(),
+            "Others": self._other_energy_use.sum(),
+        }
+        df = DataFrame(rows).T
+        df.index.name = "System"
         return df
 
     @property
@@ -562,9 +563,10 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 "Annual cooling demand (kWh/m2)": self.report.space_cooling_demand.loc[
                     self.building_name, "Demand (kWh/m2)"
                 ],
-                "Final energy consumption (kWh/m2)": self.report.final_energy_consumption_distribution[
-                    "kWh/m2"
-                ].sum(),
+                "Final energy consumption (kWh/m2)": (
+                    self.report.final_energy_consumption_distribution.sum().sum()
+                    / self.geometry.conditioned_floor_area
+                ),
                 "Non-renewable primary energy consumption (kWh/m2)": self.report.primary_energy_consumption.loc[
                     self.building_name, "Non-renewable"
                 ].sum(),
@@ -1096,7 +1098,10 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                     "on_site_electricity_fraction",
                     lambda: (
                         (self.spec.energy_used / self.geometry.conditioned_floor_area)
-                        / self.final_energy_consumption_distribution["kWh/m2"].sum()
+                        / (
+                            self.final_energy_consumption_distribution.sum().sum()
+                            / self.geometry.conditioned_floor_area
+                        )
                     ),
                 ),
                 all_renewable_fraction=self._or_none(
@@ -1112,7 +1117,10 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 ),
                 final_energy_consumption=self._or_none(
                     "final_energy_consumption",
-                    lambda: self.final_energy_consumption_distribution["kWh/m2"].sum(),
+                    lambda: (
+                        self.final_energy_consumption_distribution.sum().sum()
+                        / self.geometry.conditioned_floor_area
+                    ),
                 ),
                 primary_energy_consumption=self._or_none(
                     "primary_energy_consumption",
@@ -1133,10 +1141,11 @@ class BuildingEnergySimulation(EnergyUseSimulation):
                 final_energy_consumption_csv=self._or_none(
                     "final_energy_consumption_csv",
                     lambda: to_output_csv(
-                        self.final_energy_consumption_distribution["kWh"].rename_axis(
-                            "System"
-                        ),
+                        self.final_energy_consumption_distribution.rename(
+                            columns=lambda c: c.value
+                        ).reset_index(),
                         precision,
+                        index=False,
                     ),
                 ),
                 electricity_validation=self._or_none(

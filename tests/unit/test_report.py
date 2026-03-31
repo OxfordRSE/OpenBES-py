@@ -35,25 +35,48 @@ class TestOpenBESReport(OpenBESTestCase):
         )
 
     def test_final_energy_consumption_distribution(self):
-        expected = DataFrame(
+        """Summing each row recovers the old per-system kWh totals."""
+        expected_totals = Series(
             {
-                "Heating": [53498, 48.8],
-                "Cooling": [1575, 1.4],
-                "Ventilation": [375, 0.3],
-                "Hot water": [3832, 3.5],
-                "Lighting": [7000, 6.4],
-                "Building background": [27854, 25.4],
-                "Others": [13632, 12.4],
-            },
-            index=["kWh", "kWh/m2"],
-        ).transpose()
-        for c in expected.columns:
-            with self.subTest(column=c):
-                self.check_series_versus_values(
-                    self.report.final_energy_consumption_distribution[c],
-                    expected[c],
-                    decimal_places_or_tolerance=0 if c == "kWh" else 1,
-                )
+                "Heating": 53498,
+                "Cooling": 1575,
+                "Ventilation": 375,
+                "Hot water": 3832,
+                "Lighting": 7000,
+                "Building background": 27854,
+                "Others": 13632,
+            }
+        )
+        row_sums = self.report.final_energy_consumption_distribution.sum(axis=1)
+        for system, expected_kwh in expected_totals.items():
+            with self.subTest(system=system):
+                self.assertAlmostEqual(row_sums[system], expected_kwh, delta=1.0)
+
+    def test_final_energy_consumption_distribution_per_source(self):
+        """The distribution DataFrame has [System x ENERGY_SOURCES] structure with correct values."""
+        from openbes.types.enums import ENERGY_SOURCES
+
+        df = self.report.final_energy_consumption_distribution
+        energy_source_columns = list(ENERGY_SOURCES)
+
+        # Columns are ENERGY_SOURCES enum members
+        with self.subTest("columns"):
+            self.assertEqual(list(df.columns), energy_source_columns)
+
+        # Index name is "System"
+        with self.subTest("index_name"):
+            self.assertEqual(df.index.name, "System")
+
+        # First row (Heating): all energy from Natural gas, none from others
+        heating_row = df.loc["Heating"]
+        with self.subTest("Heating_Natural_gas"):
+            self.assertAlmostEqual(
+                heating_row[ENERGY_SOURCES.Natural_gas], 53498, delta=1.0
+            )
+        for source in energy_source_columns:
+            if source != ENERGY_SOURCES.Natural_gas:
+                with self.subTest(f"Heating_{source.value}_is_zero"):
+                    self.assertAlmostEqual(heating_row[source], 0.0, places=3)
 
     def test_space_hvac_demand(self):
         with self.subTest("Heating"):
@@ -299,9 +322,17 @@ class TestOpenBESReport(OpenBESTestCase):
                 "first_row": ["January", 8.78, 0.0],
             },
             "final_energy_consumption_csv": {
-                "headers": ["System", "kWh"],
+                "headers": [
+                    "System",
+                    "Electricity",
+                    "Diesel",
+                    "LPG",
+                    "Natural gas",
+                    "Biomass",
+                    "Pellets",
+                ],
                 "num_rows": 7,
-                "first_row": ["Heating", 53498.21],
+                "first_row": ["Heating", 0.0, 0.0, 0.0, 53498.21, 0.0, 0.0],
             },
             "temperature_quantiles_csv": {
                 "headers": ["Quantile", "Temperature (C)"],

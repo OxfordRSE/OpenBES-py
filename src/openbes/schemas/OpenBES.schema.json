@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.3.1/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.3.7",
+  "$version": "0.3.8",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -1738,7 +1738,7 @@
         },
         "final_energy_consumption_csv": {
           "type": "string",
-          "description": "Final energy consumption in kWh for each energy use category. Divide by `conditioned_floor_area` for kWh/m2."
+          "description": "Final energy consumption in kWh broken down by System (row) and energy source (columns: System, Electricity, Diesel, LPG, Natural gas, Biomass, Pellets). Summing all energy source columns for a row recovers the total for that system. Divide by `conditioned_floor_area` for kWh/m2."
         },
         "electricity_validation": {
           "$ref": "#/definitions/ModelValidation"
