@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import Optional, Union
+from typing import Optional, Union, Any, TYPE_CHECKING
 import tomllib
 
 from . import LIGHTING_CONTROL, COOLING_SYSTEM_TYPES, HEATING_SYSTEM_TYPES, ListableEnum
@@ -18,6 +18,10 @@ from .enums import (
     HEAT_CAPACITY_CLASSES,
     TERRAINS,
 )
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..schemas.generated.models import CustomFECCoefficients, FECCoefficients
 
 
 @dataclass
@@ -237,6 +241,9 @@ class OpenBESSpecification:
         default=None, metadata={"cls": COOLING_SYSTEM_TYPES}
     )
     country: Optional[str] = None
+    fec_coefficients: Optional[Any] = (
+        None  # FECCoefficients | CustomFECCoefficients | str
+    )
     diesel_annual: Optional[float] = None
     electricity_annual: Optional[float] = None
     electricity_april: Optional[float] = None

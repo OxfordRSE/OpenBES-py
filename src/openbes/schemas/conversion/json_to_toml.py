@@ -269,7 +269,6 @@ def json_to_toml(
 
     for attr, toml_key in [
         ("appliances_load", "i.appliances_load"),
-        ("country", "i.country"),
         ("leakage_air_flow", "i.leakage_air_flow"),
         ("leakage_air_flow_independent", "i.leakage_air_flow_independent"),
         ("lighting_control", "i.lighting_control"),
@@ -280,6 +279,26 @@ def json_to_toml(
     ]:
         if attr in sset:
             set_if(toml_key, getattr(spec, attr))
+
+    # fec_coefficients: if it is a preset country string, write as 'i.country'.
+    # Custom coefficient objects have no direct TOML representation (lossy conversion).
+    if "fec_coefficients" in sset and spec.fec_coefficients is not None:
+        fec = spec.fec_coefficients.root
+        if isinstance(fec, str):
+            set_if("i.country", fec)
+        elif allow_warnings:
+            import warnings
+
+            warnings.warn(
+                "fec_coefficients with custom values cannot be represented in TOML format; "
+                "the country field will be omitted.",
+                UserWarning,
+                stacklevel=2,
+            )
+        else:
+            raise ValueError(
+                "fec_coefficients with custom values cannot be losslessly converted to TOML."
+            )
 
     if "holiday" in sset:
         toml["i.holiday"] = "Yes" if spec.holiday else "No"

@@ -26,6 +26,8 @@ from ..schemas import (
     BuildingEnergySimulationOutput,
     ThermalSimulationOutput,
     CoolingSimulationOutput,
+    CustomFECCoefficients,
+    FECCoefficients,
     GeometrySimulationOutput,
     HeatingSimulationOutput,
     HotWaterSimulationOutput,
@@ -304,14 +306,56 @@ class BuildingEnergySimulation(EnergyUseSimulation):
         coefficients_df = read_csv(
             str(files("openbes.simulations.report_data") / "per_FEC_coefficients.csv")
         )
-        country = (
-            getattr(self.spec.country, "value", self.spec.country)
-            if self.spec.country is not None
-            else "Other"
-        )
-        coefficients_df = coefficients_df.loc[coefficients_df["Country"] == country]
-        coefficients_df = coefficients_df.set_index(["Energy source"])
-        return coefficients_df
+
+        fec_spec = getattr(self.spec, "fec_coefficients", None)
+
+        # Unwrap RootModel wrapper produced by oneOf codegen
+        if isinstance(fec_spec, FECCoefficients):
+            fec_spec = fec_spec.root
+
+        if isinstance(fec_spec, CustomFECCoefficients):
+            # Start from "Other" defaults then overlay any explicitly provided values
+            base_df = coefficients_df.loc[
+                coefficients_df["Country"] == "Other"
+            ].set_index("Energy source")
+            # Map Python attribute names back to the energy-source strings used as the index
+            field_to_source = {
+                "Electricity": "Electricity",
+                "Diesel": "Diesel",
+                "LPG": "LPG",
+                "Natural_gas": "Natural gas",
+                "Biomass": "Biomass",
+                "Pellets": "Pellets",
+            }
+            col_map = {
+                "PEC_per_kWh_FEC": "PEC/kWh FEC",
+                "PECnr_per_kWh_FEC": "PECnr/kWh FEC",
+                "kgCO2_per_kWh_FEC": "kgCO2/kWh FEC",
+            }
+            for attr, source in field_to_source.items():
+                row_override: Optional[object] = getattr(fec_spec, attr, None)
+                if row_override is not None:
+                    for model_col, csv_col in col_map.items():
+                        value = getattr(row_override, model_col, None)
+                        if value is not None:
+                            base_df.at[source, csv_col] = value
+            return base_df
+        else:
+            # fec_spec is either a SUPPORTED_COUNTRIES string/enum, a legacy plain
+            # string from spec.country, or None (fall back to "Other").
+            if fec_spec is not None:
+                country = getattr(fec_spec, "value", fec_spec)
+            else:
+                # Backward-compat: fall back to legacy `country` field
+                legacy_country = getattr(self.spec, "country", None)
+                country = (
+                    getattr(legacy_country, "value", legacy_country)
+                    if legacy_country is not None
+                    else "Other"
+                )
+            coefficients_df = coefficients_df.loc[coefficients_df["Country"] == country]
+            coefficients_df = coefficients_df.set_index(["Energy source"])
+            return coefficients_df
 
     @property
     def primary_energy_consumption(self) -> Optional[DataFrame]:

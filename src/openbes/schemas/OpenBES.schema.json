@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.3.1/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.3.6",
+  "$version": "0.3.7",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -65,6 +65,99 @@
         "UK",
         "Other"
       ]
+    },
+    "FECCoefficientsRow": {
+      "type": "object",
+      "description": "Primary energy and CO2 coefficients for a single energy source.",
+      "properties": {
+        "PEC_per_kWh_FEC": {
+          "type": "number",
+          "description": "Total primary energy factor (kWh primary / kWh final)."
+        },
+        "PECnr_per_kWh_FEC": {
+          "type": "number",
+          "description": "Non-renewable primary energy factor (kWh primary / kWh final)."
+        },
+        "kgCO2_per_kWh_FEC": {
+          "type": "number",
+          "description": "CO2-equivalent emission factor (kg CO2 eq / kWh final)."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "CustomFECCoefficients": {
+      "type": "object",
+      "description": "Custom per-energy-source primary energy and CO2 coefficients. Any omitted values default to the 'Other' country values from the built-in lookup table.",
+      "properties": {
+        "Electricity": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for electricity.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.5,
+            "PECnr_per_kWh_FEC": 1.15,
+            "kgCO2_per_kWh_FEC": 0.1
+          }
+        },
+        "Diesel": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for diesel.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.273,
+            "PECnr_per_kWh_FEC": 1.268,
+            "kgCO2_per_kWh_FEC": 0.311
+          }
+        },
+        "LPG": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for LPG.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.168,
+            "PECnr_per_kWh_FEC": 1.166,
+            "kgCO2_per_kWh_FEC": 0.254
+          }
+        },
+        "Natural gas": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for natural gas.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.161,
+            "PECnr_per_kWh_FEC": 1.159,
+            "kgCO2_per_kWh_FEC": 0.239
+          }
+        },
+        "Biomass": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for biomass.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.037,
+            "PECnr_per_kWh_FEC": 0.034,
+            "kgCO2_per_kWh_FEC": 0.018
+          }
+        },
+        "Pellets": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for pellets.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.542,
+            "PECnr_per_kWh_FEC": 0.082,
+            "kgCO2_per_kWh_FEC": 0.044
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "FECCoefficients": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/SUPPORTED_COUNTRIES"
+        },
+        {
+          "$ref": "#/definitions/CustomFECCoefficients"
+        }
+      ],
+      "description": "FEC (Final Energy Consumption) coefficients source: either a preset country name for built-in lookup-table values, or a custom object specifying per-energy-source coefficients (any omitted values fall back to the 'Other' country defaults)."
     },
     "Building": {
       "type": "object",
@@ -1100,8 +1193,9 @@
           "description": "Amount of natural gas consumed by the building. [UNUSED]",
           "$comment": "In the TOML spec, this appears as both monthly breakdown and an annual value. The JSON always translates this to monthly values, and, if given, the monthly values in the TOML take precedence."
         },
-        "country": {
-          "$ref": "#/definitions/SUPPORTED_COUNTRIES"
+        "fec_coefficients": {
+          "$ref": "#/definitions/FECCoefficients",
+          "description": "FEC coefficient source: a preset country name (e.g. 'Spain', 'UK') or a custom object with per-energy-source overrides. Omitted values default to the 'Other' country row."
         },
         "heat_capacity": {
           "$ref": "#/definitions/HeatCapacity",

@@ -189,7 +189,6 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
     # ── simple top-level scalars ───────────────────────────────────────────────
     for k in [
         "appliances_load",
-        "country",
         "holiday",
         "leakage_air_flow",
         "leakage_air_flow_independent",
@@ -202,6 +201,11 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         v = get(k)
         if v is not None:
             out[k] = v
+
+    # 'country' in TOML maps to 'fec_coefficients' in JSON (preset country string)
+    country_val = get("country")
+    if country_val is not None:
+        out["fec_coefficients"] = country_val
 
     if get("altitude") is not None:
         out["elevation"] = get("altitude")

@@ -28,7 +28,7 @@
   },
   "elevation": null,
   "appliances_load": 1.0,
-  "country": "UK",
+  "fec_coefficients": "UK",
   "holiday": false,
   "leakage_air_flow": 0,
   "leakage_air_flow_independent": 0.45,
