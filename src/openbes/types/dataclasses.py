@@ -144,15 +144,13 @@ def get_meteorological_file(filename: str) -> str:
         return "USA_Denver_725650TYCST.epw"
     if "Oxford" in filename:
         return "UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw"
+    if "London" in filename:
+        return "GBR_ENG_London-Heathrow.Intl.AP.037720_TMYx.2011-2025.epw"
+    if "Sevilla" in filename:
+        return "ESP_AN_Sevilla.AP.083910_TMYx.2011-2025.epw"
+    if "Madrid" in filename:
+        return "ESP_MD_Madrid-Barajas-Suarez.AP.082210_TMYx.2011-2025.epw"
     raise ValueError(f"Unknown meteorological file: {filename}")
-
-
-def get_meteorological_name(epw_filename: str) -> str:
-    if "Denver" in epw_filename:
-        return "725650_Denver"
-    if "Oxford" in epw_filename:
-        return "Oxford"
-    return epw_filename
 
 
 def normalize_meteorological_file_path(path: str) -> str:
