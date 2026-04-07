@@ -33,27 +33,29 @@ class TestLocationSimulation(unittest.TestCase):
         self.assertIn("download the file locally", str(ctx.exception))
 
     def test_report(self):
-        sim = LocationSimulation(self._spec("openbes://USA_Denver_725650TYCST.epw"))
-        LocationSimulationOutput.model_validate(sim.report)
-        for k in [
-            "elevation",
-            "latitude",
-            "longitude",
-            "city",
-            "country",
-            "state_province",
-            "solstice_ghr_csv",
-            "max_outdoor_temperature",
-            "min_outdoor_temperature",
-            "mean_outdoor_temperature",
-            "max_outdoor_day_temperature",
-            "min_outdoor_day_temperature",
-            "mean_outdoor_day_temperature",
-            "temperature_quantiles_csv",
-            "degree_days_csv",
-            "annual_incident_solar_radiation_csv",
-        ]:
-            self.assertIsNotNone(getattr(sim.report, k, None))
+        for f in get_available_epw_files():
+            with self.subTest(file=f):
+                sim = LocationSimulation(self._spec(f))
+                LocationSimulationOutput.model_validate(sim.report)
+                for k in [
+                    "elevation",
+                    "latitude",
+                    "longitude",
+                    "city",
+                    "country",
+                    "state_province",
+                    "solstice_ghr_csv",
+                    "max_outdoor_temperature",
+                    "min_outdoor_temperature",
+                    "mean_outdoor_temperature",
+                    "max_outdoor_day_temperature",
+                    "min_outdoor_day_temperature",
+                    "mean_outdoor_day_temperature",
+                    "temperature_quantiles_csv",
+                    "degree_days_csv",
+                    "annual_incident_solar_radiation_csv",
+                ]:
+                    self.assertIsNotNone(getattr(sim.report, k, None))
 
 if __name__ == "__main__":
     unittest.main()
