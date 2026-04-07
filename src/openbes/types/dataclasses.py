@@ -116,7 +116,7 @@ class OpenBESParameters:
     ventilation_system2_off_time: Optional[float] = 24
     ventilation_system2_on_time: Optional[float] = 1
     ventilation_system2_rated_input_power: Optional[float] = 0.0
-    ventilation_system2_type: Optional[float] = None
+    ventilation_system2_type: Optional[str] = None
     ventilation_system2_ventilated_area: Optional[float] = 1.0
     view_factor_to_sky_facade: Optional[float] = 0.5
     view_factor_to_sky_roof: Optional[float] = 1.0
@@ -468,7 +468,7 @@ class OpenBESSpecification:
     ventilation_system1_off_time: Optional[int] = 24
     ventilation_system1_on_time: Optional[int] = 1
     ventilation_system1_rated_input_power: Optional[float] = 0.0
-    ventilation_system1_type: Optional[float] = None
+    ventilation_system1_type: Optional[str] = None
     ventilation_system1_ventilated_area: Optional[float] = 1.0
     water_demand: Optional[float] = None
     water_reference_temperature: Optional[float] = None
