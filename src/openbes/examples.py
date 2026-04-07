@@ -44,16 +44,16 @@ examples = {
     },
     "Semi-detached House": {
         "description": "A typical UK semi-detached house, with a simple construction and energy system.",
-        "file": "",
+        "file": "semi_detached_house.json",
     },
     "Semi-detached Passive House": {
         "description": "A highly insulated, airtight semi-detached house built to the Passive House standard.",
-        "file": "",
+        "file": "semi_detached_passivehouse.json",
     },
     "University Building": {
         "description": "A large university building with a complex layout and multiple energy systems.",
-        "file": "",
-    }
+        "file": "university_building.json",
+    },
 }
 
 
