@@ -1147,7 +1147,7 @@
         },
         "appliances_load": {
           "type": "number",
-          "description": "Load from appliances (Wh/m2).",
+          "description": "Load from appliances (W/m2).",
           "default": 0.0
         },
         "biomass_consumption": {
