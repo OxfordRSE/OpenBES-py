@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.3.1/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.3.11",
+  "$version": "0.3.12",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -1548,7 +1548,7 @@
           "type": "number",
           "description": "Indoor air heat capacity in kJ/K"
         },
-        "building_geometry_csv": {
+        "building_envelope_csv": {
           "type": "string",
           "description": "Building area by floor and category in m2, and window-to-wall ratio (unitless)."
         },

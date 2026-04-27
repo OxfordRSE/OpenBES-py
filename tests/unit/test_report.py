@@ -380,7 +380,7 @@ class TestOpenBESReport(OpenBESTestCase):
                 "num_rows": 3,
                 "first_row": [10.0, 19.1, 24.1, 18.1, 25.1, 17.1, 26.1],
             },
-            "building_geometry_csv": {
+            "building_envelope_csv": {
                 "headers": [
                     "Floor",
                     "Opaque facade (m2)",

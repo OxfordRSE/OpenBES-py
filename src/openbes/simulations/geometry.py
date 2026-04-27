@@ -650,15 +650,16 @@ class BuildingGeometry:
                 self.conditioned_facade_areas.groupby("floor").sum() - window_area
             )
             wwr = window_area / (window_area + opaque_facade_area)
-            by_floor = DataFrame(
+            envelopes_by_floor = DataFrame(
                 {
                     "Opaque facade (m2)": opaque_facade_area,
                     "Roof (m2)": self.roof_projections,
-                    "Floor (m2)": self.conditioned_floor_areas.groupby("floor").sum(),
+                    "Floor (m2)": self.conditioned_floor_projection,
                     "Windows (m2)": window_area,
                     "Window-to-Wall Ratio": wwr,
                 }
             )
+
             window_area_by_orientation = self.window_areas.groupby("compass_point").sum()
             opaque_by_orientation = (
                 self.conditioned_facade_areas.groupby("compass_point").sum()
@@ -683,8 +684,8 @@ class BuildingGeometry:
                     * self.spec.floor_to_ceiling_height
                     * self.conditioned_floor_area
                 ),
-                building_geometry_csv=to_output_csv(
-                    by_floor.rename(index=lambda x: x.value).rename_axis("Floor"),
+                building_envelope_csv=to_output_csv(
+                    envelopes_by_floor.rename(index=lambda x: x.value).rename_axis("Floor"),
                     precision,
                 ),
                 building_geometry_orientation_csv=to_output_csv(
