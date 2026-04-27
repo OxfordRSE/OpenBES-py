@@ -39,27 +39,27 @@ def translate_index(
 def get_summary(sim: BuildingEnergySimulation) -> dict:
     return {
         **translate_index(
-            sim.climate.heating_demand,
-            sim.climate.heating_demand.max(),
+            sim.thermal.heating_demand,
+            sim.thermal.heating_demand.max(),
             "peak_heating_load",
             sim.geometry.conditioned_floor_area,
         ),
         **translate_index(
-            -sim.climate.cooling_demand,
-            -sim.climate.cooling_demand.max(),
+            -sim.thermal.cooling_demand,
+            -sim.thermal.cooling_demand.max(),
             "peak_cooling_load",
             sim.geometry.conditioned_floor_area,
         ),
-        "temperature_setpoint_avg_hr": sim.climate.air_set_temp.mean(),
+        "temperature_setpoint_avg_hr": sim.thermal.air_set_temp.mean(),
         **translate_index(
-            sim.climate.air_set_temp,
-            sim.climate.air_set_temp.min(),
+            sim.thermal.air_set_temp,
+            sim.thermal.air_set_temp.min(),
             "temperature_setpoint_min",
             sim.geometry.conditioned_floor_area,
         ),
         **translate_index(
-            sim.climate.air_set_temp,
-            sim.climate.air_set_temp.max(),
+            sim.thermal.air_set_temp,
+            sim.thermal.air_set_temp.max(),
             "temperature_setpoint_max",
             sim.geometry.conditioned_floor_area,
         ),
@@ -165,9 +165,9 @@ class ASHRAE140_2023(unittest.TestCase):
         category = case[-1]
         simulation = self._load_sim(name)
         calculated_values = (
-            simulation.climate.heating_demand
+            simulation.thermal.heating_demand
             if category == "H"
-            else simulation.climate.cooling_demand
+            else simulation.thermal.cooling_demand
         )
         if debug_values is None:
             debug_file = "../../.dbg/case.csv"
@@ -198,9 +198,9 @@ class ASHRAE140_2023(unittest.TestCase):
                 simulation = self._load_sim(name)
                 summary = get_summary(simulation)
                 if category == "H":
-                    summary["cal"] = simulation.climate.heating_demand.sum()
+                    summary["cal"] = simulation.thermal.heating_demand.sum()
                 else:
-                    summary["cal"] = simulation.climate.cooling_demand.sum()
+                    summary["cal"] = simulation.thermal.cooling_demand.sum()
                 summary["cal"] *= (
                     simulation.geometry.conditioned_floor_area / 1_000_000.0
                 )  # W/m2 -> MWh
@@ -209,9 +209,9 @@ class ASHRAE140_2023(unittest.TestCase):
                 if baseline:
                     baseline_sim = self._load_sim(baseline)
                     if category == "H":
-                        base_cal = baseline_sim.climate.heating_demand.sum()
+                        base_cal = baseline_sim.thermal.heating_demand.sum()
                     else:
-                        base_cal = baseline_sim.climate.cooling_demand.sum()
+                        base_cal = baseline_sim.thermal.cooling_demand.sum()
                     base_cal = (
                         base_cal
                         * baseline_sim.geometry.conditioned_floor_area

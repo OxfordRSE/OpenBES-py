@@ -3,24 +3,24 @@ from pandas import Series
 
 from openbes.types import COMPASS_POINTS
 from openbes.simulations.base import HOURS_DF
-from openbes.simulations.climate import ClimateSimulation
+from openbes.simulations.thermal import ThermalSimulation
 from tests.unit.utils import (
     OpenBESTestCase,
 )
 from openbes.examples import HOLYWELL_HOUSE_SPEC
 
 
-class ClimateSetup(OpenBESTestCase):
-    def test_climate_model_init(self):
-        sim = ClimateSimulation(HOLYWELL_HOUSE_SPEC)
-        self.assertIsInstance(sim, ClimateSimulation)
+class ThermalSetup(OpenBESTestCase):
+    def test_thermal_model_init(self):
+        sim = ThermalSimulation(HOLYWELL_HOUSE_SPEC)
+        self.assertIsInstance(sim, ThermalSimulation)
 
 
-class Climate(OpenBESTestCase):
+class Thermal(OpenBESTestCase):
     @classmethod
     def setUpClass(cls):
         cls._spec = HOLYWELL_HOUSE_SPEC
-        cls._sim = ClimateSimulation(cls._spec)
+        cls._sim = ThermalSimulation(cls._spec)
 
     def setUp(self):
         self.spec = self._spec

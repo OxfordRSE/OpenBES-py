@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/OxfordRSE/OpenBES-py/releases/download/v0.3.1/OpenBES.schema.json",
   "title": "OpenBES Specification Schema",
-  "$version": "0.3.1",
+  "$version": "0.3.12",
   "description": "JSON Schema for the Open Building Energy Simulation specification.",
   "type": "object",
   "definitions": {
@@ -43,8 +43,9 @@
       "enum": [
         "openbes://USA_Denver_725650TYCST.epw",
         "openbes://UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw",
-        "openbes://SPAIN_Sevilla.083910_SWEC.epw",
-        "openbes://SPAIN_Madrid.082210_SWEC.epw"
+        "openbes://GBR_ENG_London-Heathrow.Intl.AP.037720_TMYx.2011-2025.epw",
+        "openbes://ESP_AN_Sevilla.AP.083910_TMYx.2011-2025.epw",
+        "openbes://ESP_MD_Madrid-Barajas-Suarez.AP.082210_TMYx.2011-2025.epw"
       ],
       "description": "Meteorological file."
     },
@@ -59,7 +60,7 @@
     },
     "SUPPORTED_COUNTRIES": {
       "type": "string",
-      "description": "Country in which the building is.",
+      "description": "Country in which the building is. [Used for lookup tables concerning e.g. CO2eq/kwH. Will eventually deprecate in favour of EPW file country.]",
       "enum": [
         "Spain",
         "USA",
@@ -67,6 +68,99 @@
         "UK",
         "Other"
       ]
+    },
+    "FECCoefficientsRow": {
+      "type": "object",
+      "description": "Primary energy and CO2 coefficients for a single energy source.",
+      "properties": {
+        "PEC_per_kWh_FEC": {
+          "type": "number",
+          "description": "Total primary energy factor (kWh primary / kWh final)."
+        },
+        "PECnr_per_kWh_FEC": {
+          "type": "number",
+          "description": "Non-renewable primary energy factor (kWh primary / kWh final)."
+        },
+        "kgCO2_per_kWh_FEC": {
+          "type": "number",
+          "description": "CO2-equivalent emission factor (kg CO2 eq / kWh final)."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "CustomFECCoefficients": {
+      "type": "object",
+      "description": "Custom per-energy-source primary energy and CO2 coefficients. Any omitted values default to the 'Other' country values from the built-in lookup table.",
+      "properties": {
+        "Electricity": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for electricity.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.5,
+            "PECnr_per_kWh_FEC": 1.15,
+            "kgCO2_per_kWh_FEC": 0.1
+          }
+        },
+        "Diesel": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for diesel.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.273,
+            "PECnr_per_kWh_FEC": 1.268,
+            "kgCO2_per_kWh_FEC": 0.311
+          }
+        },
+        "LPG": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for LPG.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.168,
+            "PECnr_per_kWh_FEC": 1.166,
+            "kgCO2_per_kWh_FEC": 0.254
+          }
+        },
+        "Natural gas": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for natural gas.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.161,
+            "PECnr_per_kWh_FEC": 1.159,
+            "kgCO2_per_kWh_FEC": 0.239
+          }
+        },
+        "Biomass": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for biomass.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.037,
+            "PECnr_per_kWh_FEC": 0.034,
+            "kgCO2_per_kWh_FEC": 0.018
+          }
+        },
+        "Pellets": {
+          "$ref": "#/definitions/FECCoefficientsRow",
+          "description": "Final Energy Consumption coefficients for pellets.",
+          "default": {
+            "PEC_per_kWh_FEC": 1.542,
+            "PECnr_per_kWh_FEC": 0.082,
+            "kgCO2_per_kWh_FEC": 0.044
+          }
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "FECCoefficients": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/SUPPORTED_COUNTRIES"
+        },
+        {
+          "$ref": "#/definitions/CustomFECCoefficients"
+        }
+      ],
+      "description": "FEC (Final Energy Consumption) coefficients source: either a preset country name for built-in lookup-table values, or a custom object specifying per-energy-source coefficients (any omitted values fall back to the 'Other' country defaults)."
     },
     "Building": {
       "type": "object",
@@ -129,13 +223,17 @@
           "type": "number",
           "description": "External solar shading factor for summer (Summer = air temp > 22C).",
           "$comment": "Mapped without building_ prefix",
-          "default": 0.0
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0
         },
         "solar_external_shading_winter": {
           "type": "number",
           "description": "External solar shading factor for winter (Winter = air temp <= 22C).",
           "$comment": "Mapped without building_ prefix",
-          "default": 0.0
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0
         },
         "terrain_class": {
           "$ref": "#/definitions/TERRAIN_CLASS",
@@ -195,7 +293,9 @@
           "type": "number",
           "description": "Window frame factor (fraction).",
           "$comment": "Mapped without building_ prefix",
-          "default": 0.0
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0
         },
         "window_gvalue": {
           "type": "number",
@@ -569,15 +669,15 @@
       "description": "A ventilation system instance.",
       "properties": {
         "type": {
-          "type": "number",
-          "description": "Optional numeric type code."
+          "type": "string",
+          "description": "Optional type code."
         },
         "energy_source": {
           "$ref": "#/definitions/ENERGY_SOURCES"
         },
         "airflow": {
           "type": "number",
-          "description": "Airflow (m3/s)."
+          "description": "Airflow (m3/h)."
         },
         "heat_recovery_efficiency": {
           "type": "number",
@@ -585,11 +685,11 @@
         },
         "rated_input_power": {
           "type": "number",
-          "description": "Rated input power."
+          "description": "Rated input power (kW)."
         },
         "ventilated_area": {
           "type": "number",
-          "description": "Proportion of area ventilated.",
+          "description": "Proportion of area ventilated (m2).",
           "default": 1.0
         },
         "active_hours": {
@@ -708,8 +808,8 @@
           "description": "Nominal capacity of the hot water system."
         },
         "type": {
-          "type": "number",
-          "description": "[UNUSED]"
+          "type": "string",
+          "description": "Label for the hot water system."
         }
       },
       "required": [
@@ -785,17 +885,39 @@
       "additionalProperties": false
     },
     "HeatCapacity": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/PresetHeatCapacity"
+        },
+        {
+          "$ref": "#/definitions/CustomHeatCapacity"
+        }
+      ],
+      "description": "Heat capacity of the building, either as a preset class or custom Am/Cm values."
+    },
+    "PresetHeatCapacity": {
+      "type": "string",
+      "description": "Preset heat capacity classes.",
+      "enum": [
+        "Very light",
+        "Light",
+        "Medium",
+        "Heavy",
+        "Very heavy"
+      ]
+    },
+    "CustomHeatCapacity": {
       "type": "object",
-      "description": "Heat capacity properties of the building.",
+      "description": "Custom heat capacity properties.",
       "$comment": "Determined via lookup in Excel, or via special-case calculation from advanced_heat_capacity_am and air_heat_capacity * heat_capacity_joule. These underlying values are not guaranteed to be recoverable from Am and Cm alone.",
       "properties": {
         "Am": {
           "type": "number",
-          "description": "Mass factor??????"
+          "description": "Mass factor"
         },
         "Cm": {
           "type": "number",
-          "description": "Capacitance??????"
+          "description": "Areal heat capacity (J/m2K)"
         }
       },
       "required": [
@@ -809,10 +931,6 @@
       "description": "Parameters of the simulation. These do not normally need to be adjusted, and many refer to physical constants.",
       "additionalProperties": false,
       "properties": {
-        "altitude": {
-          "type": "number",
-          "description": "Altitude (m). [UNUSED: the EPW file's 'altitude' is used instead]"
-        },
         "include_appliances": {
           "type": "boolean",
           "description": "Model appliance consumption.",
@@ -962,6 +1080,10 @@
           "$ref": "#/definitions/OpenBESParameters",
           "description": "Collapsed parameters object. Use this to hold heating/cooling/ventilation/lighting/courtyards arrays."
         },
+        "elevation": {
+          "type": "number",
+          "description": "Elevation above sea level (m)."
+        },
         "building": {
           "$ref": "#/definitions/Building",
           "description": "Building general information."
@@ -1025,7 +1147,7 @@
         },
         "appliances_load": {
           "type": "number",
-          "description": "Load from appliances (Wh/m2).",
+          "description": "Load from appliances (W/m2).",
           "default": 0.0
         },
         "biomass_consumption": {
@@ -1038,8 +1160,7 @@
         },
         "building_standby_electricity_consumption": {
           "$ref": "#/definitions/Consumption",
-          "description": "Electrical standby load for the building.",
-          "default": 0.0
+          "description": "Electrical standby load for the building."
         },
         "diesel_consumption": {
           "$ref": "#/definitions/Consumption",
@@ -1075,8 +1196,9 @@
           "description": "Amount of natural gas consumed by the building. [UNUSED]",
           "$comment": "In the TOML spec, this appears as both monthly breakdown and an annual value. The JSON always translates this to monthly values, and, if given, the monthly values in the TOML take precedence."
         },
-        "country": {
-          "$ref": "#/definitions/SUPPORTED_COUNTRIES"
+        "fec_coefficients": {
+          "$ref": "#/definitions/FECCoefficients",
+          "description": "FEC coefficient source: a preset country name (e.g. 'Spain', 'UK') or a custom object with per-energy-source overrides. Omitted values default to the 'Other' country row."
         },
         "heat_capacity": {
           "$ref": "#/definitions/HeatCapacity",
@@ -1113,16 +1235,19 @@
           "description": "Simultaneity factor for lighting.",
           "default": 0.2
         },
-        "location": {
-          "type": "string",
-          "description": "Location identifier or name (used to map to meteorological file)."
-        },
         "max_building_occupation": {
           "type": "integer",
           "description": "Maximum occupancy of the building in number of people."
         },
         "meteorological_file_path": {
-          "$ref": "#/definitions/METEOROLOGICAL_FILE",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/METEOROLOGICAL_FILE"
+            },
+            {
+              "type": "string"
+            }
+          ],
           "description": "Meteorological filename or identifier."
         },
         "natural_ventilation_night": {
@@ -1168,11 +1293,14 @@
           "type": "number",
           "description": "Annual energy demanded in kWh/m2 if the system is on all year round."
         },
+        "demand_peak": {
+          "$ref": "#/definitions/HourPeak"
+        },
         "load_csv": {
           "type": "string",
           "description": "Load in kWh/m2 by calendar month."
         },
-        "load_duraction_csv": {
+        "load_duration_csv": {
           "type": "string",
           "description": "Load in kW by annual percentile."
         }
@@ -1263,6 +1391,38 @@
       },
       "additionalProperties": false
     },
+    "DayPeak": {
+      "type": "object",
+      "description": "A statistic with the month, and day at which it occurred.",
+      "properties": {
+        "value": {
+          "type": "number",
+          "description": "The statistic in question."
+        },
+        "month": {
+          "type": "string",
+          "enum": [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December"
+          ]
+        },
+        "day": {
+          "type": "number",
+          "description": "Day of the month."
+        }
+      },
+      "additionalProperties": false
+    },
     "HourPeak": {
       "type": "object",
       "description": "A statistic with the month, day, and hour at which it occurred.",
@@ -1303,9 +1463,29 @@
       "type": "object",
       "description": "Outputs produced by the location simulation using EPW-derived data.",
       "properties": {
-        "altitude": {
+        "elevation": {
           "type": "number",
-          "description": "Altitude as read from the weather file."
+          "description": "Elevation above sea level (m)."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "Latitude as read from the weather file."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "Longitude as read from the weather file."
+        },
+        "city": {
+          "type": "string",
+          "description": "City as read from the weather file."
+        },
+        "country": {
+          "type": "string",
+          "description": "Country as read from the weather file."
+        },
+        "state_province": {
+          "type": "string",
+          "description": "State/province as read from the weather file."
         },
         "solstice_ghr_csv": {
           "type": "string",
@@ -1317,9 +1497,25 @@
         "min_outdoor_temperature": {
           "$ref": "#/definitions/HourPeak"
         },
-        "climate_quantiles_csv": {
+        "mean_outdoor_temperature": {
+          "type": "number",
+          "description": "Mean outdoor temperature over the year."
+        },
+        "max_outdoor_day_temperature": {
+          "$ref": "#/definitions/DayPeak",
+          "description": "Hottest day of the year where the temperature is the mean of the hottest hour plus and coldest hour."
+        },
+        "min_outdoor_day_temperature": {
+          "$ref": "#/definitions/DayPeak",
+          "description": "Coldest day of the year where the temperature is the mean of the hottest hour plus and coldest hour."
+        },
+        "mean_outdoor_day_temperature": {
+          "type": "number",
+          "description": "Mean daily temperature given by the mean of the hottest hour plus and coldest hour."
+        },
+        "temperature_quantiles_csv": {
           "type": "string",
-          "description": "Outdoor air temperature percentiles from climate data."
+          "description": "Outdoor air temperature percentiles from temperature data."
         },
         "degree_days_csv": {
           "type": "string",
@@ -1352,7 +1548,7 @@
           "type": "number",
           "description": "Indoor air heat capacity in kJ/K"
         },
-        "building_geometry_csv": {
+        "building_envelope_csv": {
           "type": "string",
           "description": "Building area by floor and category in m2, and window-to-wall ratio (unitless)."
         },
@@ -1363,9 +1559,9 @@
       },
       "additionalProperties": false
     },
-    "ClimateSimulationOutput": {
+    "ThermalSimulationOutput": {
       "type": "object",
-      "description": "Outputs produced by the climate simulation.",
+      "description": "Outputs produced by the thermal simulation.",
       "properties": {
         "external_internal_temperature_csv": {
           "type": "string",
@@ -1545,7 +1741,7 @@
         },
         "final_energy_consumption_csv": {
           "type": "string",
-          "description": "Final energy consumption in kWh for each energy use category. Divide by `conditioned_floor_area` for kWh/m2."
+          "description": "Final energy consumption in kWh broken down by System (row) and energy source (columns: System, Electricity, Diesel, LPG, Natural gas, Biomass, Pellets). Summing all energy source columns for a row recovers the total for that system. Divide by `conditioned_floor_area` for kWh/m2."
         },
         "electricity_validation": {
           "$ref": "#/definitions/ModelValidation"
@@ -1566,8 +1762,8 @@
         "geometry_simulation_output": {
           "$ref": "#/definitions/GeometrySimulationOutput"
         },
-        "climate_simulation_output": {
-          "$ref": "#/definitions/ClimateSimulationOutput"
+        "thermal_simulation_output": {
+          "$ref": "#/definitions/ThermalSimulationOutput"
         },
         "ventilation_simulation_output": {
           "$ref": "#/definitions/VentilationSimulationOutput"

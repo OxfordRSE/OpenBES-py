@@ -1,3 +1,5 @@
+from typing import Optional
+
 import pvlib
 import numpy as np
 from pandas import DataFrame, Series, DatetimeIndex
@@ -23,16 +25,17 @@ class SolarIrradiationSimulation:
     _hour_angle_: np.array = None
     _aoi: DataFrame = None
 
-    def __init__(self, epw_data: DataFrame, epw_metadata: dict):
+    def __init__(self, epw_data: DataFrame, epw_metadata: dict, elevation: float):
         self._hours = HOURS_DF.copy()
         self.epw_data = epw_data
         self.epw_metadata = epw_metadata
+        self.elevation = elevation
         tz = epw_metadata["TZ"]
         self.location = pvlib.location.Location(
             latitude=epw_metadata["latitude"],
             longitude=epw_metadata["longitude"],
             tz=tz,
-            altitude=epw_metadata["altitude"],
+            altitude=self.elevation,
         )
         self._solar_irradiation = DataFrame()
         self._solar_irradiation.index = self._hours.index
@@ -51,11 +54,6 @@ class SolarIrradiationSimulation:
     def timezone(self) -> float:
         """Timezone of the location from EPW metadata."""
         return self.epw_metadata.get("TZ")
-
-    @property
-    def altitude(self) -> float:
-        """Altitude of the location from EPW metadata."""
-        return self.epw_metadata.get("altitude")
 
     @property
     def ghi(self) -> "Series[float]":

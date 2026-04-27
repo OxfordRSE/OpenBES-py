@@ -2,8 +2,8 @@
 Unit tests for BuildingEnergySimulation.update_spec() method.
 
 Tests verify that:
-1. When climate-affecting specs change: climate is recalculated
-2. When non-climate specs change: climate is reused
+1. When thermal-affecting specs change: thermal is recalculated
+2. When non-thermal specs change: thermal is reused
 3. Dependent simulations are always recreated appropriately
 4. Cached reports are cleared after updates
 """
@@ -14,42 +14,42 @@ from copy import deepcopy
 from tests.unit.utils import OpenBESTestCase
 from openbes import BuildingEnergySimulation
 from openbes.examples import HOLYWELL_HOUSE_SPEC
-from openbes.simulations.climate import specs_require_climate_rerun
+from openbes.simulations.thermal import specs_require_thermal_rerun
 
 
-class TestSpecUpdateWithClimateChange(OpenBESTestCase):
-    """Test update_spec when climate-affecting specs change."""
+class TestSpecUpdateWithThermalChange(OpenBESTestCase):
+    """Test update_spec when thermal-affecting specs change."""
 
     def setUp(self):
         super().setUp()
         self.sim = BuildingEnergySimulation(spec=HOLYWELL_HOUSE_SPEC)
         # Get initial state
-        self.initial_climate_hours = self.sim.climate._hours.copy()
+        self.initial_thermal_hours = self.sim.thermal._hours.copy()
         self.initial_energy_use = self.sim.energy_use.sum().sum()
 
-    def test_climate_recalculated_when_setpoint_changes(self):
-        """Climate should be recalculated when setpoint specs change."""
+    def test_thermal_recalculated_when_setpoint_changes(self):
+        """Thermal should be recalculated when setpoint specs change."""
         new_spec = deepcopy(self.spec)
         new_spec.setpoint_winter_day = self.spec.setpoint_winter_day - 2.0
 
-        # Verify this would require climate rerun
-        self.assertTrue(specs_require_climate_rerun(self.spec, new_spec))
+        # Verify this would require thermal rerun
+        self.assertTrue(specs_require_thermal_rerun(self.spec, new_spec))
 
-        # Mock ClimateSimulation to verify it gets recreated
-        with patch('openbes.simulations.building_energy.ClimateSimulation') as mock_climate:
+        # Mock ThermalSimulation to verify it gets recreated
+        with patch('openbes.simulations.building_energy.ThermalSimulation') as mock_thermal:
             mock_instance = MagicMock()
-            mock_climate.return_value = mock_instance
+            mock_thermal.return_value = mock_instance
 
             try:
-                self.sim.update_spec(new_spec)
-                # Verify ClimateSimulation was called (new instance created)
-                self.assertTrue(mock_climate.called)
+                self.sim = self.sim.update_spec(new_spec)
+                # Verify ThermalSimulation was called (new instance created)
+                self.assertTrue(mock_thermal.called)
             except (TypeError, AttributeError):
-                # Mock might cause issues downstream, but we verified ClimateSimulation was called
+                # Mock might cause issues downstream, but we verified ThermalSimulation was called
                 pass
 
-    def test_climate_recalculated_when_meteorological_file_changes(self):
-        """Climate should be recalculated when meteorological file changes."""
+    def test_thermal_recalculated_when_meteorological_file_changes(self):
+        """Thermal should be recalculated when meteorological file changes."""
         new_spec = deepcopy(self.spec)
         # Change to a different EPW file
         original_file = new_spec.meteorological_file_path
@@ -58,96 +58,96 @@ class TestSpecUpdateWithClimateChange(OpenBESTestCase):
         else:
             new_spec.meteorological_file_path = "openbes://UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw"
 
-        # Verify this would require climate rerun
-        self.assertTrue(specs_require_climate_rerun(self.spec, new_spec))
+        # Verify this would require thermal rerun
+        self.assertTrue(specs_require_thermal_rerun(self.spec, new_spec))
 
-    def test_climate_recalculated_when_infiltration_changes(self):
-        """Climate should be recalculated when infiltration specs change."""
+    def test_thermal_recalculated_when_infiltration_changes(self):
+        """Thermal should be recalculated when infiltration specs change."""
         new_spec = deepcopy(self.spec)
         new_spec.leakage_air_flow_independent = (
                 self.spec.leakage_air_flow_independent * 2.0
         )
 
-        # Verify this would require climate rerun
-        self.assertTrue(specs_require_climate_rerun(self.spec, new_spec))
+        # Verify this would require thermal rerun
+        self.assertTrue(specs_require_thermal_rerun(self.spec, new_spec))
 
 
-class TestSpecUpdateWithoutClimateChange(OpenBESTestCase):
-    """Test update_spec when only non-climate specs change."""
+class TestSpecUpdateWithoutThermalChange(OpenBESTestCase):
+    """Test update_spec when only non-thermal specs change."""
 
     def setUp(self):
         super().setUp()
         self.sim = BuildingEnergySimulation(spec=HOLYWELL_HOUSE_SPEC)
-        # Store reference to original climate _hours
-        self.original_climate_hours_id = id(self.sim.climate._hours)
-        self.original_air_free_temp = self.sim.climate.air_free_temp.copy()
+        # Store reference to original thermal _hours
+        self.original_thermal_hours_id = id(self.sim.thermal._hours)
+        self.original_air_free_temp = self.sim.thermal.air_free_temp.copy()
 
-    def test_climate_preserved_when_heating_system_changes(self):
-        """Climate should NOT be recalculated when heating system specs change."""
+    def test_thermal_preserved_when_heating_system_changes(self):
+        """Thermal should NOT be recalculated when heating system specs change."""
         new_spec = deepcopy(self.spec)
         # Change a heating system parameter
         new_spec.heating_system1_efficiency_cop = (
                 self.spec.heating_system1_efficiency_cop + 1.0
         )
 
-        # Verify this does NOT require climate rerun
-        self.assertFalse(specs_require_climate_rerun(self.spec, new_spec))
+        # Verify this does NOT require thermal rerun
+        self.assertFalse(specs_require_thermal_rerun(self.spec, new_spec))
 
-        # Store pre-update climate core columns
-        pre_update_air_free_temp = self.sim.climate.air_free_temp.copy()
+        # Store pre-update thermal core columns
+        pre_update_air_free_temp = self.sim.thermal.air_free_temp.copy()
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
-        # Verify core climate calculations are preserved
+        # Verify core thermal calculations are preserved
         # (air_free_temp is one of the core preserved columns)
         self.assertTrue(
-            (pre_update_air_free_temp == self.sim.climate.air_free_temp).all(),
-            "air_free_temp should be preserved when climate is not recalculated"
+            (pre_update_air_free_temp == self.sim.thermal.air_free_temp).all(),
+            "air_free_temp should be preserved when thermal is not recalculated"
         )
 
-    def test_climate_preserved_when_cooling_system_changes(self):
-        """Climate should NOT be recalculated when cooling system specs change."""
+    def test_thermal_preserved_when_cooling_system_changes(self):
+        """Thermal should NOT be recalculated when cooling system specs change."""
         new_spec = deepcopy(self.spec)
         new_spec.cooling_system1_energy_efficifiency_ratio = 3.5
 
-        # Verify this does NOT require climate rerun
-        self.assertFalse(specs_require_climate_rerun(self.spec, new_spec))
+        # Verify this does NOT require thermal rerun
+        self.assertFalse(specs_require_thermal_rerun(self.spec, new_spec))
 
         # Store pre-update values
-        pre_update_htr_1 = self.sim.climate.htr_1.copy()
+        pre_update_htr_1 = self.sim.thermal.htr_1.copy()
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
-        # Verify core climate calculations are preserved
+        # Verify core thermal calculations are preserved
         self.assertTrue(
-            (pre_update_htr_1 == self.sim.climate.htr_1).all(),
-            "htr_1 should be preserved when climate is not recalculated"
+            (pre_update_htr_1 == self.sim.thermal.htr_1).all(),
+            "htr_1 should be preserved when thermal is not recalculated"
         )
 
-    def test_climate_preserved_when_hot_water_specs_change(self):
-        """Climate should NOT be recalculated when hot water specs change."""
+    def test_thermal_preserved_when_hot_water_specs_change(self):
+        """Thermal should NOT be recalculated when hot water specs change."""
         new_spec = deepcopy(self.spec)
         new_spec.hot_water_demand_profile = "alternative"
 
-        # Verify this does NOT require climate rerun
-        self.assertFalse(specs_require_climate_rerun(self.spec, new_spec))
+        # Verify this does NOT require thermal rerun
+        self.assertFalse(specs_require_thermal_rerun(self.spec, new_spec))
 
         # Store pre-update values
-        pre_update_heating_demand = self.sim.climate.heating_cooling_demand.copy()
+        pre_update_heating_demand = self.sim.thermal.heating_cooling_demand.copy()
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
-        # Verify core climate calculations are preserved
+        # Verify core thermal calculations are preserved
         self.assertTrue(
-            (pre_update_heating_demand == self.sim.climate.heating_cooling_demand).all(),
+            (pre_update_heating_demand == self.sim.thermal.heating_cooling_demand).all(),
             "heating_cooling_demand should be preserved"
         )
 
-    def test_dependent_simulations_recreated_without_climate_change(self):
-        """Dependent simulations should be recreated even when climate is cached."""
+    def test_dependent_simulations_recreated_without_thermal_change(self):
+        """Dependent simulations should be recreated even when thermal is cached."""
         new_spec = deepcopy(self.spec)
         new_spec.building_standby_load = self.spec.building_standby_load * 1.5
 
@@ -157,7 +157,7 @@ class TestSpecUpdateWithoutClimateChange(OpenBESTestCase):
         original_heating_id = id(self.sim.heating)
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Verify dependent simulations were recreated (new object ids)
         self.assertNotEqual(
@@ -200,16 +200,16 @@ class TestSpecUpdateCoreColumnsPreserved(OpenBESTestCase):
         # Store pre-update values
         pre_update_values = {}
         for col in core_columns:
-            if col in self.sim.climate._hours.columns:
-                pre_update_values[col] = self.sim.climate._hours[col].copy()
+            if col in self.sim.thermal._hours.columns:
+                pre_update_values[col] = self.sim.thermal._hours[col].copy()
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Verify core columns are still present
         for col in core_columns:
             self.assertIn(
-                col, self.sim.climate._hours.columns,
+                col, self.sim.thermal._hours.columns,
                 f"Core column '{col}' should be preserved in _hours"
             )
 
@@ -217,29 +217,29 @@ class TestSpecUpdateCoreColumnsPreserved(OpenBESTestCase):
         for col in core_columns:
             if col in pre_update_values:
                 self.assertTrue(
-                    (pre_update_values[col] == self.sim.climate._hours[col]).all(),
+                    (pre_update_values[col] == self.sim.thermal._hours[col]).all(),
                     f"Core column '{col}' should have same values after update"
                 )
 
     def test_lazy_columns_removed_on_update(self):
-        """Lazy columns should be removed during reset_climate_cache."""
+        """Lazy columns should be removed during reset_thermal_cache."""
         new_spec = deepcopy(self.spec)
         new_spec.heating_system1_efficiency_cop = 5.0
 
         # Access a lazy property to add it to _hours
-        _ = self.sim.climate.internal_heat
+        _ = self.sim.thermal.internal_heat
 
         # Verify lazy column exists before update
-        self.assertIn('internal_heat', self.sim.climate._hours.columns)
+        self.assertIn('internal_heat', self.sim.thermal._hours.columns)
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim = self.sim = self.sim.update_spec(new_spec)
 
-        # Lazy column should have been removed during reset_climate_cache
+        # Lazy column should have been removed during reset_thermal_cache
         # (it will be re-added when accessed, but shouldn't be in _hours after reset)
         # Note: This is tricky to test because accessing it will add it back.
         # Instead, verify that update_spec was called and the column still computes correctly
-        self.assertIsNotNone(self.sim.climate.internal_heat)
+        self.assertIsNotNone(self.sim.thermal.internal_heat)
 
 
 class TestSpecUpdateCachedReportsCleared(OpenBESTestCase):
@@ -261,7 +261,7 @@ class TestSpecUpdateCachedReportsCleared(OpenBESTestCase):
         self.assertIsNotNone(self.sim._outputs)
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Cache should be cleared
         self.assertIsNone(self.sim._outputs, "Cached outputs should be cleared")
@@ -278,7 +278,7 @@ class TestSpecUpdateCachedReportsCleared(OpenBESTestCase):
         self.assertIsNotNone(self.sim._retrofit_report)
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Caches should be cleared
         self.assertIsNone(self.sim._retrofit_report, "Cached retrofit report should be cleared")
@@ -295,52 +295,52 @@ class TestSpecUpdateCachedReportsCleared(OpenBESTestCase):
         self.assertIsNotNone(self.sim._timestamp)
 
         # Update spec
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Cache should be cleared
         self.assertIsNone(self.sim._timestamp, "Cached timestamp should be cleared")
 
 
 class TestSpecComparisonFunction(OpenBESTestCase):
-    """Test the specs_require_climate_rerun comparison function."""
+    """Test the specs_require_thermal_rerun comparison function."""
 
     def test_identical_specs_dont_require_rerun(self):
-        """Identical specs should not require climate rerun."""
+        """Identical specs should not require thermal rerun."""
         spec1 = deepcopy(self.spec)
         spec2 = deepcopy(self.spec)
-        self.assertFalse(specs_require_climate_rerun(spec1, spec2))
+        self.assertFalse(specs_require_thermal_rerun(spec1, spec2))
 
     def test_heating_system_change_not_require_rerun(self):
-        """Changing heating system should not require climate rerun."""
+        """Changing heating system should not require thermal rerun."""
         spec1 = deepcopy(self.spec)
         spec2 = deepcopy(self.spec)
         spec2.heating_system1_efficiency_cop = spec1.heating_system1_efficiency_cop + 1.0
-        self.assertFalse(specs_require_climate_rerun(spec1, spec2))
+        self.assertFalse(specs_require_thermal_rerun(spec1, spec2))
 
     def test_setpoint_change_requires_rerun(self):
-        """Changing setpoint should require climate rerun."""
+        """Changing setpoint should require thermal rerun."""
         spec1 = deepcopy(self.spec)
         spec2 = deepcopy(self.spec)
         spec2.setpoint_winter_day = spec1.setpoint_winter_day - 1.0
-        self.assertTrue(specs_require_climate_rerun(spec1, spec2))
+        self.assertTrue(specs_require_thermal_rerun(spec1, spec2))
 
     def test_building_dimensions_change_requires_rerun(self):
-        """Changing building dimensions should require climate rerun."""
+        """Changing building dimensions should require thermal rerun."""
         spec1 = deepcopy(self.spec)
         spec2 = deepcopy(self.spec)
         spec2.building_width = spec1.building_width * 1.1
-        self.assertTrue(specs_require_climate_rerun(spec1, spec2))
+        self.assertTrue(specs_require_thermal_rerun(spec1, spec2))
 
     def test_occupancy_change_requires_rerun(self):
-        """Changing occupancy should require climate rerun."""
+        """Changing occupancy should require thermal rerun."""
         spec1 = deepcopy(self.spec)
         spec2 = deepcopy(self.spec)
         if hasattr(spec2, 'occupancy_office'):
             spec2.occupancy_office = 0.8
-            self.assertTrue(specs_require_climate_rerun(spec1, spec2))
+            self.assertTrue(specs_require_thermal_rerun(spec1, spec2))
 
     def test_lighting_change_requires_rerun(self):
-        """Changing lighting specs should require climate rerun."""
+        """Changing lighting specs should require thermal rerun."""
         spec1 = deepcopy(self.spec)
         spec2 = deepcopy(self.spec)
         if hasattr(spec2, 'lighting_control'):
@@ -348,7 +348,7 @@ class TestSpecComparisonFunction(OpenBESTestCase):
             from openbes.types import LIGHTING_CONTROL
             if spec2.lighting_control != LIGHTING_CONTROL.Automatic:
                 spec2.lighting_control = LIGHTING_CONTROL.Automatic
-                self.assertTrue(specs_require_climate_rerun(spec1, spec2))
+                self.assertTrue(specs_require_thermal_rerun(spec1, spec2))
 
 
 class TestUpdateSpecIntegration(OpenBESTestCase):
@@ -365,7 +365,7 @@ class TestUpdateSpecIntegration(OpenBESTestCase):
 
         original_energy_use = self.sim.energy_use.sum().sum()
 
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
         updated_energy_use = self.sim.energy_use.sum().sum()
 
         # Energy use should decrease with better efficiency
@@ -379,7 +379,7 @@ class TestUpdateSpecIntegration(OpenBESTestCase):
         new_spec = deepcopy(self.spec)
         new_spec.heating_system1_efficiency_cop = 10.0
 
-        self.sim.update_spec(new_spec)
+        self.sim = self.sim.update_spec(new_spec)
 
         # Verify the simulation's spec is updated
         self.assertEqual(
@@ -394,19 +394,19 @@ class TestUpdateSpecIntegration(OpenBESTestCase):
         # First update
         spec1 = deepcopy(initial_spec)
         spec1.heating_system1_efficiency_cop = initial_spec.heating_system1_efficiency_cop + 1.0
-        self.sim.update_spec(spec1)
+        self.sim = self.sim.update_spec(spec1)
         energy_use_1 = self.sim.energy_use.sum().sum()
 
         # Second update
         spec2 = deepcopy(spec1)
         spec2.heating_system1_efficiency_cop = spec1.heating_system1_efficiency_cop + 1.0
-        self.sim.update_spec(spec2)
+        self.sim = self.sim.update_spec(spec2)
         energy_use_2 = self.sim.energy_use.sum().sum()
 
         # Third update
         spec3 = deepcopy(spec2)
         spec3.heating_system1_efficiency_cop = spec2.heating_system1_efficiency_cop + 1.0
-        self.sim.update_spec(spec3)
+        self.sim = self.sim.update_spec(spec3)
         energy_use_3 = self.sim.energy_use.sum().sum()
 
         # Each update should further reduce energy use

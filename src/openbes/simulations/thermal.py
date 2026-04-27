@@ -1,5 +1,5 @@
 from math import atan
-from typing import Tuple
+from typing import Tuple, Optional
 from numpy import nan, select, array, maximum, isnan, logical_not, radians, where, outer
 from pandas import DataFrame, Series, MultiIndex, Index, concat
 import os
@@ -11,7 +11,7 @@ from .occupancy import OccupationSimulation
 from .location import LocationSimulation
 from .reporting import MONTH_NAMES, find_hour_peak, output_precision, to_output_csv
 from .ventilation import VentilationSimulation
-from ..schemas import ClimateSimulationOutput, SpaceThermalDemandResult
+from ..schemas import ThermalSimulationOutput, SpaceThermalDemandResult
 from ..types import (
     OpenBESSpecification,
     TERRAINS,
@@ -87,8 +87,8 @@ TERRAIN_VSITE_BY_VMETRO = {
 TERRAIN_VSITE_BY_VMETRO_BY_VALUE = {k.value: v for k, v in TERRAIN_VSITE_BY_VMETRO.items()}
 
 
-class ClimateSimulationError(SimulationError):
-    """Raised when climate report generation fails."""
+class ThermalSimulationError(SimulationError):
+    """Raised when thermal report generation fails."""
 
 
 @profile_or_jit(jit_kwargs={"nopython": True})
@@ -154,15 +154,15 @@ def _calculate_temperatures(
 
 
 @profile_if_available
-class ClimateSimulation(HourlySimulation):
+class ThermalSimulation(HourlySimulation):
     """
-    Simulates the hourly indoor climate conditions of a building based on its geometry, occupancy, lighting,
+    Simulates the hourly indoor thermal conditions of a building based on its geometry, occupancy, lighting,
     ventilation, and solar irradiation.
 
     The simulation calculates various parameters such as air flow, heat transmission, internal surface temperature,
     and air free temperature for each hour of the year.
 
-    Thermal demand in the climate simulation represents the heating or cooling needed to maintain comfortable indoor
+    Thermal demand in the thermal simulation represents the heating or cooling needed to maintain comfortable indoor
     temperatures based on the simulated air free temperature and set point temperatures.
     This is irrespective of whether there are heating and/or cooling systems in the building,
     and is instead a measure of the building's thermal performance and comfort conditions.
@@ -171,10 +171,10 @@ class ClimateSimulation(HourlySimulation):
     Set point temperatures are determined based on the building occupancy profile and the specification's target
     temperatures.
 
-    The climate simulation is the most computationally intensive of the simulations,
+    The thermal simulation is the most computationally intensive of the simulations,
     because the value for each hour depends on the values from the previous hour, negating the ability to use
     vectorized calculations. To mitigate this, the core loop is implemented in a JIT-compiled function.
-    Unlike the rest of our codebase, the climate simulation prioritizes performance over interpretability,
+    Unlike the rest of our codebase, the thermal simulation prioritizes performance over interpretability,
     meaning we use Numpy arrays rather than Pandas Series/DataFrames for intermediate calculations.
     """
     geometry: BuildingGeometry
@@ -195,7 +195,7 @@ class ClimateSimulation(HourlySimulation):
         "setpoint_summer_night",
         "natural_ventilation_night",
     )
-    _required_inputs_error_cls = ClimateSimulationError
+    _required_inputs_error_cls = ThermalSimulationError
 
     def __init__(
         self,
@@ -207,7 +207,7 @@ class ClimateSimulation(HourlySimulation):
         location: LocationSimulation = None,
     ):
         """
-        Unlike other simulations, ClimateSimulation's Hourly data depend on the previous hourly data.
+        Unlike other simulations, ThermalSimulation's Hourly data depend on the previous hourly data.
         This means that the class must calculate all hourly data in sequence, not just on demand.
 
         Consequently, the entire simulation is run in the __init__ method, which may take some time.
@@ -226,8 +226,8 @@ class ClimateSimulation(HourlySimulation):
             )
             self.location = location or LocationSimulation(spec=spec)
         except SimulationError as err:
-            raise ClimateSimulationError(
-                f"Failed to initialize ClimateSimulation due to error in dependent simulation: {err}"
+            raise ThermalSimulationError(
+                f"Failed to initialize ThermalSimulation due to error in dependent simulation: {err}"
             ) from err
         # Pre-calculate all hour-dependent values in sequence
         n = len(self._hours)
@@ -568,7 +568,7 @@ class ClimateSimulation(HourlySimulation):
 
         if i == 1 and any(isnan(v) for v in values.values()):
             if self.geometry.conditioned_floor_area == 0:
-                logger.info("Conditioned floor area is zero, which will result in NaN values in climate simulation.")
+                logger.info("Conditioned floor area is zero, which will result in NaN values in thermal simulation.")
             else:
                 raise ValueError(f"Unexpected NaN values:\n{DataFrame([values])}")
 
@@ -601,7 +601,7 @@ class ClimateSimulation(HourlySimulation):
 
     @property
     def epw_data(self) -> DataFrame:
-        """DataFrame with EPW climate data for the specified location."""
+        """DataFrame with EPW data for the specified location."""
         return self.location.epw_data
 
     @property
@@ -1156,7 +1156,7 @@ class ClimateSimulation(HourlySimulation):
 
         Wattage is given by the sum of solar radiation on each window multiplied by its
         area and solar heat gain coefficient.
-        Solar radiation is a function of climate data and building orientation.
+        Solar radiation is a function of EPW data and building orientation.
         """
         return self._hours["solar_heat_windows"]
 
@@ -1213,7 +1213,7 @@ class ClimateSimulation(HourlySimulation):
 
         Wattage is given by the sum of solar radiation on each opaque surface multiplied by its
         area and solar heat gain coefficient.
-        Solar radiation is a function of climate data and building orientation.
+        Solar radiation is a function of EPW data and building orientation.
         Horizontal solar radiation is also included because of roof surfaces.
         """
         if "solar_heat_opaque" not in self._hours.columns:
@@ -1350,13 +1350,15 @@ class ClimateSimulation(HourlySimulation):
         self, zonal_demand: Series, raw_demand: Series
     ) -> SpaceThermalDemandResult:
         precision = output_precision(self.spec)
-        quantiles = (raw_demand * self.geometry.conditioned_floor_area / 1000).quantile(
-            self.quantiles
-        )
+        demand_kw = raw_demand * self.geometry.conditioned_floor_area
+        quantiles = demand_kw.quantile(self.quantiles)
+        peak_fn = max if demand_kw.max() >= abs(demand_kw.min()) else min
+        demand_peak = find_hour_peak(demand_kw, peak_fn, precision)
         return SpaceThermalDemandResult(
             demand_total=zonal_demand.sum(),
             demand_scaled=zonal_demand.sum() / self.geometry.conditioned_floor_area,
             demand_on_all_year=raw_demand.sum(),
+            demand_peak=demand_peak,
             load_csv=to_output_csv(
                 zonal_demand.groupby("month")
                 .sum()
@@ -1364,7 +1366,7 @@ class ClimateSimulation(HourlySimulation):
                 .rename("Demand (kWh)"),
                 precision,
             ),
-            load_duraction_csv=to_output_csv(
+            load_duration_csv=to_output_csv(
                 quantiles.rename_axis("Quantile").to_frame(name="kW"),
                 precision,
             ),
@@ -1436,7 +1438,7 @@ class ClimateSimulation(HourlySimulation):
         )
 
     @property
-    def report(self) -> ClimateSimulationOutput:
+    def report(self) -> ThermalSimulationOutput:
         try:
             precision = output_precision(self.spec)
             occupation_count = self.occupancy.is_occupied.sum()
@@ -1446,7 +1448,7 @@ class ClimateSimulation(HourlySimulation):
             summer_temp = self.air_free_temp.loc[summer_mask]
             heat_exchange = DataFrame(
                 {
-                    "Heat transfer (infiltration)": (
+                    "Transmission heat transfer": (
                         self.heat_infiltration_window
                         + (
                             self.geometry.heat_infiltration_opaque
@@ -1455,16 +1457,16 @@ class ClimateSimulation(HourlySimulation):
                     )
                     * (self.air_set_temp - self.dry_bulb_temp)
                     * -1,
-                    "Heat transfer (ventilation)": self.heat_transmission_by_ventilation
+                    "Ventilation and infiltration": self.heat_transmission_by_ventilation
                     * (self.air_set_temp - self.dry_bulb_temp)
                     * -1,
-                    "Solar gains (opaque)": self.solar_heat_opaque
+                    "Solar gains (opaque envelope)": self.solar_heat_opaque
                     / self.geometry.conditioned_floor_area,
-                    "Solar gains (glazing)": self.solar_heat_windows
+                    "Solar gains (openings)": self.solar_heat_windows
                     / self.geometry.conditioned_floor_area,
-                    "Heat from occupants": self.internal_heat_from_occupants,
-                    "Heat from appliances": self.internal_heat_from_appliances,
-                    "Heat from lighting": self.internal_heat_from_lighting,
+                    "Internal gains (occupants)": self.internal_heat_from_occupants,
+                    "Internal gains (appliances)": self.internal_heat_from_appliances,
+                    "Internal gains (lighting)": self.internal_heat_from_lighting,
                 }
             ).groupby("month").sum().set_index(self.months_index) / 1000
             space_thermal_demand = (
@@ -1499,7 +1501,7 @@ class ClimateSimulation(HourlySimulation):
                 self.geometry.roof_projections.sum(),
                 0.0,
             ]
-            return ClimateSimulationOutput(
+            return ThermalSimulationOutput(
                 external_internal_temperature_csv=to_output_csv(temp_df, precision),
                 max_indoor_temperature=find_hour_peak(self.air_free_temp, max, precision),
                 min_indoor_temperature=find_hour_peak(self.air_free_temp, min, precision),
@@ -1574,37 +1576,37 @@ class ClimateSimulation(HourlySimulation):
                 ),
             )
         except Exception as exc:
-            raise ClimateSimulationError("Failed to generate climate report") from exc
+            raise ThermalSimulationError("Failed to generate thermal report") from exc
 
 
-def specs_require_climate_rerun(old_spec: OpenBESSpecification, new_spec: OpenBESSpecification) -> bool:
+def specs_require_thermal_rerun(old_spec: OpenBESSpecification, new_spec: OpenBESSpecification) -> bool:
     """
-    Determine whether a climate simulation needs to be rerun based on spec changes.
+    Determine whether a thermal simulation needs to be rerun based on spec changes.
 
     Returns True if the new spec differs from the old spec in any way that would affect
-    the climate simulation results. Returns False if only non-climate-affecting specs changed.
+    the thermal simulation results. Returns False if only non-thermal-affecting specs changed.
 
-    The climate simulation depends on:
+    The thermal simulation depends on:
     - Meteorological file (affects EPW data and solar irradiation)
     - Geometry (affects heat transfer rates, thermal capacity, window areas)
     - Occupancy (affects internal heat gains and occupancy schedules)
     - Lighting (affects internal heat gains)
     - Ventilation (affects air supply rates)
-    - Climate-specific parameters (infiltration, thermal bridges, setpoints, natural ventilation)
+    - Thermal-specific parameters (infiltration, thermal bridges, setpoints, natural ventilation)
 
     Args:
         old_spec: The previous OpenBESSpecification
         new_spec: The new OpenBESSpecification to compare against
 
     Returns:
-        bool: True if climate simulation needs to be rerun, False otherwise
+        bool: True if thermal simulation needs to be rerun, False otherwise
     """
-    # Meteorological file - CRITICAL: Different climate data
+    # Meteorological file - CRITICAL: Different EPW data
     if old_spec.meteorological_file_path != new_spec.meteorological_file_path:
         return True
 
-    # Climate-specific parameters that directly affect _populate_cache()
-    climate_params = [
+    # Thermal-specific parameters that directly affect _populate_cache()
+    thermal_params = [
         'leakage_air_flow_independent',
         'natural_ventilation_night',
         'terrain_class',
@@ -1616,12 +1618,12 @@ def specs_require_climate_rerun(old_spec: OpenBESSpecification, new_spec: OpenBE
         'uvalue_window',
         'thermal_bridge_shading',
     ]
-    for param in climate_params:
+    for param in thermal_params:
         if getattr(old_spec, param, None) != getattr(new_spec, param, None):
             return True
 
-    # Climate parameters nested in parameters object
-    climate_parameter_fields = [
+    # Thermal parameters nested in parameters object
+    thermal_parameter_fields = [
         'infiltration_correction_factor',
         'density_of_air',
         'specific_heat_of_air',
@@ -1629,11 +1631,11 @@ def specs_require_climate_rerun(old_spec: OpenBESSpecification, new_spec: OpenBE
         'heat_capacity_correction_factor',
         'appliance_on_off',
     ]
-    for field in climate_parameter_fields:
+    for field in thermal_parameter_fields:
         if getattr(old_spec.parameters, field, None) != getattr(new_spec.parameters, field, None):
             return True
 
-    # Geometry specs that affect climate (building dimensions, windows, thermal properties, heat capacity)
+    # Geometry specs that affect thermal (building dimensions, windows, thermal properties, heat capacity)
     geometry_specs = [
         'building_length',
         'building_width',
@@ -1699,17 +1701,17 @@ def specs_require_climate_rerun(old_spec: OpenBESSpecification, new_spec: OpenBE
         if getattr(old_spec, spec, None) != getattr(new_spec, spec, None):
             return True
 
-    # If we got here, no climate-affecting changes were found
+    # If we got here, no thermal-affecting changes were found
     return False
 
 
-def reset_climate_cache(climate_sim: ClimateSimulation) -> None:
+def reset_thermal_cache(thermal_sim: Optional[ThermalSimulation]) -> None:
     """
-    Reset the climate simulation's intermediate cache while preserving expensive calculations.
+    Reset the thermal simulation's intermediate cache while preserving expensive calculations.
 
     This function clears the static cache built in _populate_cache() and removes lazy-computed
     columns from _hours that depend on the now-stale dependent simulations. However, it preserves
-    the core hour-by-hour calculated values that feed into the iterative climate loop, which are
+    the core hour-by-hour calculated values that feed into the iterative thermal loop, which are
     expensive to recompute.
 
     The core values preserved are those directly computed in _calculate_hour_row() and are
@@ -1718,14 +1720,16 @@ def reset_climate_cache(climate_sim: ClimateSimulation) -> None:
 
     This is useful when you want to update dependent simulations (geometry, occupancy,
     lighting, ventilation) and have their results flow through without re-running the
-    expensive iterative climate loop.
+    expensive iterative thermal loop.
 
     Args:
-        climate_sim: The ClimateSimulation instance to reset
+        thermal_sim: The ThermalSimulation instance to reset
     """
     # Clear the static cache (will be rebuilt on next access if needed)
-    if hasattr(climate_sim, '_cache'):
-        del climate_sim._cache
+    if thermal_sim is None:
+        return
+    if hasattr(thermal_sim, '_cache'):
+        del thermal_sim._cache
 
     # Clear lazily-computed properties so they'll be recomputed when accessed
     lazy_properties = [
@@ -1733,8 +1737,8 @@ def reset_climate_cache(climate_sim: ClimateSimulation) -> None:
         '_theta_st_partial',
     ]
     for prop in lazy_properties:
-        if hasattr(climate_sim, prop):
-            setattr(climate_sim, prop, None)
+        if hasattr(thermal_sim, prop):
+            setattr(thermal_sim, prop, None)
 
     # Remove lazy-computed columns from _hours that depend on now-stale simulations.
     # These will be recomputed when their properties are accessed.
@@ -1761,8 +1765,8 @@ def reset_climate_cache(climate_sim: ClimateSimulation) -> None:
     ]
 
     for col in lazy_columns:
-        if col in climate_sim._hours.columns:
-            climate_sim._hours.drop(columns=[col], inplace=True)
+        if col in thermal_sim._hours.columns:
+            thermal_sim._hours.drop(columns=[col], inplace=True)
 
     # Importantly, we preserve these core hour-by-hour calculated values from _calculate_hour_row():
     # - night_ventilation_enabled

@@ -5,11 +5,15 @@ import pandas as pd
 from pandas import DataFrame, Series
 
 from openbes import BuildingEnergySimulation, OpenBESSpecification
-from openbes.examples import HOLYWELL_HOUSE_SPEC
+from openbes.examples import HOLYWELL_HOUSE_SPEC, get_holywell_house_spec
 from openbes.schemas import OpenBESOutput
-from openbes.simulations.building_energy import BuildingEnergySimulationError, OpenBESReport
+from openbes.simulations.building_energy import (
+    BuildingEnergySimulationError,
+    OpenBESReport,
+)
 from tests.unit.utils import (
     OpenBESTestCase,
+    distinct_secondary_hvac_systems,
 )
 
 
@@ -31,25 +35,48 @@ class TestOpenBESReport(OpenBESTestCase):
         )
 
     def test_final_energy_consumption_distribution(self):
-        expected = DataFrame(
+        """Summing each row recovers the old per-system kWh totals."""
+        expected_totals = Series(
             {
-                "Heating": [53498, 48.8],
-                "Cooling": [1575, 1.4],
-                "Ventilation": [375, 0.3],
-                "Hot water": [3832, 3.5],
-                "Lighting": [7000, 6.4],
-                "Building background": [27854, 25.4],
-                "Others": [13632, 12.4],
-            },
-            index=["kWh", "kWh/m2"],
-        ).transpose()
-        for c in expected.columns:
-            with self.subTest(column=c):
-                self.check_series_versus_values(
-                    self.report.final_energy_consumption_distribution[c],
-                    expected[c],
-                    decimal_places_or_tolerance=0 if c == "kWh" else 1,
-                )
+                "Heating": 53498,
+                "Cooling": 1575,
+                "Ventilation": 375,
+                "Hot water": 3832,
+                "Lighting": 7000,
+                "Building background": 27854,
+                "Others": 13632,
+            }
+        )
+        row_sums = self.report.final_energy_consumption_distribution.sum(axis=1)
+        for system, expected_kwh in expected_totals.items():
+            with self.subTest(system=system):
+                self.assertAlmostEqual(row_sums[system], expected_kwh, delta=1.0)
+
+    def test_final_energy_consumption_distribution_per_source(self):
+        """The distribution DataFrame has [System x ENERGY_SOURCES] structure with correct values."""
+        from openbes.types.enums import ENERGY_SOURCES
+
+        df = self.report.final_energy_consumption_distribution
+        energy_source_columns = list(ENERGY_SOURCES)
+
+        # Columns are ENERGY_SOURCES enum members
+        with self.subTest("columns"):
+            self.assertEqual(list(df.columns), energy_source_columns)
+
+        # Index name is "System"
+        with self.subTest("index_name"):
+            self.assertEqual(df.index.name, "System")
+
+        # First row (Heating): all energy from Natural gas, none from others
+        heating_row = df.loc["Heating"]
+        with self.subTest("Heating_Natural_gas"):
+            self.assertAlmostEqual(
+                heating_row[ENERGY_SOURCES.Natural_gas], 53498, delta=1.0
+            )
+        for source in energy_source_columns:
+            if source != ENERGY_SOURCES.Natural_gas:
+                with self.subTest(f"Heating_{source.value}_is_zero"):
+                    self.assertAlmostEqual(heating_row[source], 0.0, places=3)
 
     def test_space_hvac_demand(self):
         with self.subTest("Heating"):
@@ -111,7 +138,7 @@ class TestOpenBESReport(OpenBESTestCase):
         for section_name in [
             "location_simulation_output",
             "geometry_simulation_output",
-            "climate_simulation_output",
+            "thermal_simulation_output",
             "ventilation_simulation_output",
             "heating_simulation_output",
             "cooling_simulation_output",
@@ -134,12 +161,11 @@ class TestOpenBESReport(OpenBESTestCase):
         self.assertTrue(isinstance(sim.report, OpenBESReport))
         self.assertTrue(isinstance(sim.outputs, OpenBESOutput))
 
-
     def test_outputs(self):
         outputs = self.sim.outputs
         flat_outputs = self.flatten_outputs(outputs)
         expected_scalars = {
-            "altitude": 68.9,
+            "elevation": 68.9,
             "gross_building_area": 1153.9,
             "conditioned_floor_area": 1096.2,
             "indoor_air_volume": 3179.0,
@@ -204,7 +230,7 @@ class TestOpenBESReport(OpenBESTestCase):
                     "num_rows": 12,
                     "first_row": ["January", 9624.76],
                 },
-                "load_duraction_csv": {
+                "load_duration_csv": {
                     "headers": ["Quantile", "kW"],
                     "num_rows": 17,
                     "first_row": [0, 0.0],
@@ -219,7 +245,7 @@ class TestOpenBESReport(OpenBESTestCase):
                     "num_rows": 12,
                     "first_row": ["January", 0.0],
                 },
-                "load_duraction_csv": {
+                "load_duration_csv": {
                     "headers": ["Quantile", "kW"],
                     "num_rows": 17,
                     "first_row": [0, 0.0],
@@ -243,8 +269,8 @@ class TestOpenBESReport(OpenBESTestCase):
                 )
             with self.subTest(a=domain, b="load_csv"):
                 self.check_csv(tdr.load_csv, expected["load_csv"])
-            with self.subTest(a=domain, b="load_duraction_csv"):
-                self.check_csv(tdr.load_duraction_csv, expected["load_duraction_csv"])
+            with self.subTest(a=domain, b="load_duration_csv"):
+                self.check_csv(tdr.load_duration_csv, expected["load_duration_csv"])
 
         expected_csvs = {
             "solstice_ghr_csv": {
@@ -266,13 +292,13 @@ class TestOpenBESReport(OpenBESTestCase):
             "heat_exchange_breakdown_csv": {
                 "headers": [
                     "month",
-                    "Heat transfer (infiltration)",
-                    "Heat transfer (ventilation)",
-                    "Solar gains (opaque)",
-                    "Solar gains (glazing)",
-                    "Heat from occupants",
-                    "Heat from appliances",
-                    "Heat from lighting",
+                    "Transmission heat transfer",
+                    "Ventilation and infiltration",
+                    "Solar gains (opaque envelope)",
+                    "Solar gains (openings)",
+                    "Internal gains (occupants)",
+                    "Internal gains (appliances)",
+                    "Internal gains (lighting)",
                 ],
                 "num_rows": 12,
                 "first_row": [
@@ -296,11 +322,19 @@ class TestOpenBESReport(OpenBESTestCase):
                 "first_row": ["January", 8.78, 0.0],
             },
             "final_energy_consumption_csv": {
-                "headers": ["System", "kWh"],
+                "headers": [
+                    "System",
+                    "Electricity",
+                    "Diesel",
+                    "LPG",
+                    "Natural gas",
+                    "Biomass",
+                    "Pellets",
+                ],
                 "num_rows": 7,
-                "first_row": ["Heating", 53498.21],
+                "first_row": ["Heating", 0.0, 0.0, 0.0, 53498.21, 0.0, 0.0],
             },
-            "climate_quantiles_csv": {
+            "temperature_quantiles_csv": {
                 "headers": ["Quantile", "Temperature (C)"],
                 "num_rows": 17,
                 "first_row": [0, -7.7],
@@ -346,7 +380,7 @@ class TestOpenBESReport(OpenBESTestCase):
                 "num_rows": 3,
                 "first_row": [10.0, 19.1, 24.1, 18.1, 25.1, 17.1, 26.1],
             },
-            "building_geometry_csv": {
+            "building_envelope_csv": {
                 "headers": [
                     "Floor",
                     "Opaque facade (m2)",
@@ -488,3 +522,61 @@ class TestOpenBESReport(OpenBESTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestOpenBESReportMultipleSystems(OpenBESTestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec = distinct_secondary_hvac_systems(get_holywell_house_spec())
+        cls.sim = BuildingEnergySimulation(spec=spec)
+
+    def test_outputs_serialize_multiple_systems_as_arrays(self):
+        outputs = self.sim.outputs.model_dump(mode="json")
+
+        with self.subTest("heating_systems"):
+            self.assertIsInstance(
+                outputs["heating_simulation_output"]["heating_systems"], list
+            )
+            self.assertEqual(
+                len(outputs["heating_simulation_output"]["heating_systems"]), 2
+            )
+            self.assertNotEqual(
+                outputs["heating_simulation_output"]["heating_systems"][0][
+                    "peak_capacity"
+                ],
+                outputs["heating_simulation_output"]["heating_systems"][1][
+                    "peak_capacity"
+                ],
+            )
+
+        with self.subTest("cooling_systems"):
+            self.assertIsInstance(
+                outputs["cooling_simulation_output"]["cooling_systems"], list
+            )
+            self.assertEqual(
+                len(outputs["cooling_simulation_output"]["cooling_systems"]), 2
+            )
+            self.assertNotEqual(
+                outputs["cooling_simulation_output"]["cooling_systems"][0][
+                    "peak_capacity"
+                ],
+                outputs["cooling_simulation_output"]["cooling_systems"][1][
+                    "peak_capacity"
+                ],
+            )
+
+        with self.subTest("ventilation_systems"):
+            self.assertIsInstance(
+                outputs["ventilation_simulation_output"]["ventilation_systems"], list
+            )
+            self.assertEqual(
+                len(outputs["ventilation_simulation_output"]["ventilation_systems"]), 2
+            )
+            self.assertNotEqual(
+                outputs["ventilation_simulation_output"]["ventilation_systems"][0][
+                    "energy_demand"
+                ],
+                outputs["ventilation_simulation_output"]["ventilation_systems"][1][
+                    "energy_demand"
+                ],
+            )

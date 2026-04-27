@@ -1,6 +1,6 @@
 [project]
 name = "openBES"
-version = "0.3.0"
+version = "0.3.3"
 description = "Python implementation of the Open Building Energy Simulation (OpenBES) tool."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -28,7 +28,7 @@ include = ["openbes*"]
 [tool.setuptools.package-data]
 openbes = [
     "**/lighting_data/*.csv",
-    "**/climate_data/*.epw",
+    "**/epw_data/*.epw",
     "**/example_data/*.json",
     "**/schemas/*.json",
     "**/report_data/*.csv"

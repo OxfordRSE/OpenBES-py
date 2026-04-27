@@ -39,7 +39,7 @@ docstring should clarify the distinction.
 
 Most developers in the future of this project will primarily be energy scientists, not software engineers, so areas of
 the code that use software engineering tricks or unusual patterns should have hand-holding documentation (e.g. why we
-extract the core of the climate simulation into a JIT-compiled function).
+extract the core of the thermal simulation into a JIT-compiled function).
 
 References to Excel can be removed from docstrings and the docstrings should stand on their own without requiring
 familiarity with the Excel tool. We can still mention Excel where the logic of the code takes a path that could be
@@ -57,7 +57,7 @@ Several calculations invoke magic numbers that were hardcoded in Excel. These sh
 ### Internal function names
 Some internal function names use shorthand where more explicit names would improve readability. For example, the heating/cooling simulations use names like `phi_hc_nd_actual` instead of `demand_actual`. Some thought should go into these names to disambiguate them from one another given we have multiple demands.
 
-These occurrences are particularly prevalent in heating/cooling simulations and in the climate/solar calculations.
+These occurrences are particularly prevalent in heating/cooling simulations and in the thermal/solar calculations.
 
 ### Naming scheme and consistency
 There are several areas where a consistent and clear naming scheme would help readability and maintainability of the codebase. Changes would include disambiguating different kinds of demand (e.g. actual demand, demand with HVAC fully on, demand per unit area), having a consistent structure for units (e.g. always use W rather than kW unless noted in the function name), and differentiating in function names whether values are scaled (W/m²). Ideally we should be able to read at a glance whether a value is a total, per unit area, or per person, and whether it is in W or kW. This would be a significant refactor but would improve readability and reduce the chance of unit errors.

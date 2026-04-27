@@ -10,15 +10,15 @@ from pandas import DataFrame, Series
 from pvlib.iotools import read_epw
 
 from .base import HOURS_DF, SimulationError, missing_required_inputs
-from .reporting import find_hour_peak, output_precision, to_output_csv
+from .reporting import find_hour_peak, output_precision, to_output_csv, find_day_peak
 from .solar_irradiation import SolarIrradiationSimulation
 from ..schemas import LocationSimulationOutput
 from ..types import OpenBESSpecification
 
 
 def get_available_epw_files() -> list[str]:
-    climate_data_dir = files("openbes.simulations.climate_data")
-    return [f"openbes://{f.name}" for f in climate_data_dir.iterdir() if f.name.endswith(".epw")]
+    epw_data_dir = files("openbes.simulations.epw_data")
+    return [f"openbes://{f.name}" for f in epw_data_dir.iterdir() if f.name.endswith(".epw")]
 
 
 class LocationSimulationError(SimulationError):
@@ -59,6 +59,7 @@ class LocationSimulation:
 
         parsed = urlparse(source)
         if parsed.scheme in ("http", "https", "ftp"):
+            # Try to load pyodide.http packages to check if we're in a Pyodide environment.
             try:
                 with urlopen(source) as response:
                     content = response.read()
@@ -76,16 +77,22 @@ class LocationSimulation:
 
         if source.startswith("openbes://"):
             package_path = source[len("openbes://"):]
-            epw_path = files("openbes.simulations.climate_data") / package_path
+            epw_path = files("openbes.simulations.epw_data") / package_path
             content = epw_path.read_bytes()
             self._epw_data, self._epw_metadata = read_epw(str(epw_path))
             self._epw_file_checksum = md5(content).hexdigest()
             return
 
-        raise ValueError(
-            "meteorological_file_path must be a remote URL (http/https/ftp) or openbes:// path. "
-            f"Got: {source}"
-        )
+        # Local file access is allowed
+        try:
+            self._epw_data, self._epw_metadata = read_epw(source)
+            with open(source, "rb") as f:
+                content = f.read()
+                self._epw_file_checksum = md5(content).hexdigest()
+        except Exception as exc:
+            raise type(exc)(
+                f"Could not load {source} as a local EPW file. Ensure the path is correct and accessible."
+            ) from exc
 
     @property
     def epw_data(self) -> DataFrame:
@@ -96,6 +103,10 @@ class LocationSimulation:
     def epw_metadata(self) -> dict:
         self._ensure_loaded()
         return self._epw_metadata
+
+    @property
+    def elevation(self) -> float:
+        return self.spec.parameters.altitude or self.epw_metadata.get("altitude", 0.0)
 
     @property
     def epw_file_checksum(self) -> str:
@@ -124,6 +135,7 @@ class LocationSimulation:
             self._solar_irradiation = SolarIrradiationSimulation(
                 epw_data=self.epw_data,
                 epw_metadata=self.epw_metadata,
+                elevation=self.elevation
             )
         return self._solar_irradiation
 
@@ -194,7 +206,12 @@ class LocationSimulation:
                 .to_frame(name="Temperature (C)")
             )
             return LocationSimulationOutput(
-                altitude=self.epw_metadata["altitude"],
+                elevation=self.elevation,
+                latitude=self.epw_metadata["latitude"],
+                longitude=self.epw_metadata["longitude"],
+                city=self.epw_metadata["city"],
+                country=self.epw_metadata["country"],
+                state_province=self.epw_metadata["state-prov"],
                 solstice_ghr_csv=to_output_csv(ghi, precision),
                 max_outdoor_temperature=find_hour_peak(
                     self._hourly_dry_bulb_temp, max, precision
@@ -202,7 +219,17 @@ class LocationSimulation:
                 min_outdoor_temperature=find_hour_peak(
                     self._hourly_dry_bulb_temp, min, precision
                 ),
-                climate_quantiles_csv=to_output_csv(quantiles_df, precision),
+                mean_outdoor_temperature=round(self._hourly_dry_bulb_temp.mean(), precision),
+                max_outdoor_day_temperature=find_day_peak(
+                    avg_daily_t, max, precision
+                ),
+                min_outdoor_day_temperature=find_day_peak(
+                    avg_daily_t, min, precision
+                ),
+                mean_outdoor_day_temperature=round(
+                    avg_daily_t.groupby(["month", "day"]).mean().mean(), precision
+                ),
+                temperature_quantiles_csv=to_output_csv(quantiles_df, precision),
                 degree_days_csv=to_output_csv(degree_days, precision),
                 annual_incident_solar_radiation_csv=to_output_csv(
                     annual_radiation, precision

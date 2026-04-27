@@ -8,7 +8,6 @@ these helpers provide a best-effort conversion layer.
 
 from __future__ import annotations
 
-import json
 import tomllib
 from pathlib import Path
 from typing import Any, Dict, Optional, List
@@ -45,6 +44,10 @@ def annual_to_consumption(value: float) -> Optional[Dict[str, float]]:
 def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
     """Convert a TOML dictionary to an OpenBES.schema.json dictionary.
 
+    Only keys that are actually present in the TOML input are emitted; no
+    synthetic defaults are introduced.  An empty TOML input ({}) therefore
+    produces an empty JSON output ({}).
+
     Args:
         toml: The input TOML dictionary, file path, or string content.
         allow_warnings: If False, any warnings encountered during conversion will raise an exception.
@@ -69,7 +72,9 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
 
     # Helper functions
     def get(key: str, default: Any = None) -> Any:
-        """Helper to get a value from a TOML dictionary with heuristic coercion."""
+        """Helper to get a value from a TOML dictionary with heuristic coercion.
+        Returns *default* (None by default) when the key is absent or blank.
+        """
         if f"i.{key}" in content:
             value = content[f"i.{key}"]
         elif f"d.{key}" in content:
@@ -79,13 +84,11 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         if value == "" or value is None:
             return default
         if isinstance(value, str):
-            # Heuristic coercion: "", "Yes"/"No" and numeric strings
             vs = value.strip()
             if vs.lower() in ("yes", "y", "true", "t", "1"):
                 return True
             if vs.lower() in ("no", "n", "false", "f", "0"):
                 return False
-            # numeric?
             try:
                 if "." in vs:
                     return float(vs)
@@ -93,6 +96,10 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
             except ValueError:
                 return vs
         return value
+
+    def present(key: str) -> bool:
+        """Return True if the key exists in the TOML content with a non-blank value."""
+        return get(key) is not None
 
     def to_range(start_key: str, end_key: str) -> Optional[Dict[str, float]]:
         start = get(start_key)
@@ -127,11 +134,12 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
             return False
         return not any(missing_keys)
 
+    out: dict = {}
+
+    # ── parameters ────────────────────────────────────────────────────────────
     parameters: dict = {}
 
-    # Basic 1:1 conversion key/values
     for k in [
-        "altitude",
         "cooling_load_factor",
         "density_of_air",
         "facade_absorption_coefficient",
@@ -154,37 +162,55 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         "view_factor_to_sky_roof",
         "window_correction_factor",
     ]:
-        parameters[k] = get(k)
+        v = get(k)
+        if v is not None:
+            parameters[k] = v
 
     for k in ["lighting", "occupancy"]:
         val = get(f"{k}_on_off")
         if val is not None:
             parameters[f"include_{k}"] = val
-    parameters["include_appliances"] = get("appliance_on_off")
 
-    window_angular_correction_factors = []
-    for i in range(1, 6):
-        key = f"window_optical_c{i}"
-        window_angular_correction_factors.append(get(key, 0.0))
-    parameters["window_angular_correction_factors"] = window_angular_correction_factors
+    appliance_val = get("appliance_on_off")
+    if appliance_val is not None:
+        parameters["include_appliances"] = appliance_val
 
-    out: dict = {"parameters": parameters}
+    # Only include window_angular_correction_factors when at least one c-value
+    # was explicitly set in the TOML.
+    wacf_raw = [get(f"window_optical_c{i}") for i in range(1, 6)]
+    if any(v is not None for v in wacf_raw):
+        parameters["window_angular_correction_factors"] = [
+            v if v is not None else 0.0 for v in wacf_raw
+        ]
 
+    if parameters:
+        out["parameters"] = parameters
+
+    # ── simple top-level scalars ───────────────────────────────────────────────
     for k in [
         "appliances_load",
-        "country",
         "holiday",
         "leakage_air_flow",
         "leakage_air_flow_independent",
         "lighting_control",
         "lighting_simultaneity_factor",
-        "location",
         "max_building_occupation",
         "natural_ventilation_night",
         "typical_occupation",
     ]:
-        out[k] = get(k)
+        v = get(k)
+        if v is not None:
+            out[k] = v
 
+    # 'country' in TOML maps to 'fec_coefficients' in JSON (preset country string)
+    country_val = get("country")
+    if country_val is not None:
+        out["fec_coefficients"] = country_val
+
+    if get("altitude") is not None:
+        out["elevation"] = get("altitude")
+
+    # ── consumption fields ─────────────────────────────────────────────────────
     for k in [
         "biomass",
         "biomass_pellets",
@@ -196,7 +222,8 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         annual_value = get(f"{k}_annual")
         if annual_value is not None:
             out[f"{k}_consumption"] = annual_to_consumption(annual_value)
-    # Overwrite electricity and gas if monthly values are provided
+
+    # Monthly electricity overrides annual if any monthly value is present and non-zero
     monthly_electricity = {
         k: get(f"electricity_{k.lower()}")
         for k in monthly_average_to_consumption(0).keys()
@@ -206,6 +233,7 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         and sum(v or 0 for v in monthly_electricity.values()) > 0
     ):
         out["electricity_consumption"] = monthly_electricity
+
     monthly_gas = {
         k: get(f"gas_{k.lower()}") for k in monthly_average_to_consumption(0).keys()
     }
@@ -216,54 +244,54 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         out["natural_gas_consumption"] = monthly_gas
 
     for k in ["other_electricity_usage", "other_gas_usage"]:
-        monthly_value = get(f"{k}")
+        monthly_value = get(k)
         if monthly_value is not None:
             out[f"{k.replace('_usage', '')}_consumption"] = (
                 monthly_average_to_consumption(monthly_value)
             )
-    out["building_standby_electricity_consumption"] = monthly_average_to_consumption(
-        get("building_standby_load", 0)
-    )
+
+    building_standby_raw = get("building_standby_load")
+    if building_standby_raw is not None:
+        out["building_standby_electricity_consumption"] = (
+            monthly_average_to_consumption(building_standby_raw)
+        )
+
     for k in ["energy_generated", "energy_used"]:
-        monthly_value = get(f"{k}")
+        monthly_value = get(k)
         if monthly_value is not None:
             out[k] = monthly_average_to_consumption(monthly_value)
 
+    # ── heat_capacity ──────────────────────────────────────────────────────────
     heat_capacity = get("heat_capacity")
-    if heat_capacity == "Very light":
-        out["heat_capacity"] = {"Am": 2.5, "Cm": 80_000.0}
-    elif heat_capacity == "Light":
-        out["heat_capacity"] = {"Am": 2.5, "Cm": 110_000.0}
-    if heat_capacity == "Medium":
-        out["heat_capacity"] = {"Am": 2.5, "Cm": 165_000.0}
-    elif heat_capacity == "Heavy":
-        out["heat_capacity"] = {"Am": 3.0, "Cm": 260_000.0}
-    elif heat_capacity == "Very heavy":
-        out["heat_capacity"] = {"Am": 3.5, "Cm": 370_000.0}
-    else:
+    if heat_capacity in ("Very light", "Light", "Medium", "Heavy", "Very heavy"):
+        out["heat_capacity"] = heat_capacity
+    elif heat_capacity is not None:
+        # Custom numeric value — only emit Am; Cm must be provided separately
         out["heat_capacity"] = {"Am": heat_capacity, "Cm": None}
 
-    out["lighting_active_hours"] = to_duration("lighting_on_time", "lighting_off_time")
+    # ── lighting active hours ──────────────────────────────────────────────────
+    lighting_hours = to_duration("lighting_on_time", "lighting_off_time")
+    if lighting_hours is not None:
+        out["lighting_active_hours"] = lighting_hours
 
+    # ── meteorological file ────────────────────────────────────────────────────
     mf = get("meteorological_file")
     if mf is not None:
         out["meteorological_file_path"] = normalize_meteorological_file_path(mf)
 
+    # ── setpoint temperatures ──────────────────────────────────────────────────
     for k in ["day", "night"]:
-        out[f"setpoint_temperature_{k}"] = to_range(
-            f"setpoint_summer_{k}", f"setpoint_winter_{k}"
-        )
+        rng = to_range(f"setpoint_summer_{k}", f"setpoint_winter_{k}")
+        if rng is not None:
+            out[f"setpoint_temperature_{k}"] = rng
 
-    building = {}
-    for k in [
-        "area",
-        "height",
-        "length",
-        "width",
-        "name",
-        "type",
-    ]:
-        building[k] = get(f"building_{k}")
+    # ── building ───────────────────────────────────────────────────────────────
+    building: dict = {}
+    for k in ["area", "height", "length", "width", "name", "type"]:
+        v = get(f"building_{k}")
+        if v is not None:
+            building[k] = v
+
     for k in [
         "floor_to_ceiling_height",
         "slab_thickness",
@@ -286,65 +314,96 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         "window_height",
         "window_length",
     ]:
-        building[k] = get(k)
+        v = get(k)
+        if v is not None:
+            building[k] = v
 
-    building["window_counts"] = {}
+    # window_counts: emit a side whenever any of its TOML keys are present
+    # (value 0 is valid and must round-trip, so we can't guard on non-zero).
+    window_counts: dict = {}
     for o_code, o_name in [
         ("a", "front"),
         ("b", "right"),
         ("c", "back"),
         ("d", "left"),
     ]:
-        building["window_counts"][o_name] = []
-        for n, f in enumerate(["ground", "first", "second", "third", "fourth"]):
-            key = f"window_number_{f}_{o_code}1"
-            building["window_counts"][o_name].append(get(key, 0))
+        floors = ["ground", "first", "second", "third", "fourth"]
+        if any(present(f"window_number_{f}_{o_code}1") for f in floors):
+            window_counts[o_name] = [
+                get(f"window_number_{f}_{o_code}1", 0) for f in floors
+            ]
+    if window_counts:
+        building["window_counts"] = window_counts
 
-    out["building"] = building
+    if building:
+        out["building"] = building
 
+    # ── zones ─────────────────────────────────────────────────────────────────
     zone_map = ["office", "teaching", "canteen", "common", "other"]
     zones = []
+    floor_count = 0
     for i, z in enumerate(zone_map, start=1):
-        zone = {
-            "name": get(f"zone_name_z{i}"),
-            "conditioned": str(get(f"condition_z{i}", "")).lower() == "conditioned",
-            "active_hours": to_duration(f"occupancy_open_{z}", f"occupancy_close_{z}"),
+        zone_name = get(f"zone_name_z{i}")
+        if zone_name is None:
+            # Skip zones with no name set at all
+            continue
+        zone_areas = [
+            get(f"{f}_floor_area_z{i}", 0.0)
+            for f in ["ground", "first", "second", "third", "fourth"]
+        ]
+        floor_count = max(
+            floor_count, sum(1 for a in zone_areas if a is not None and a > 0)
+        )
+        zone: dict = {
+            "name": zone_name,
+            "areas": zone_areas,
         }
-        zone_areas = []
-        for f in ["ground", "first", "second", "third", "fourth"]:
-            zone_areas.append(get(f"{f}_floor_area_z{i}", 0.0))
-        zone["areas"] = zone_areas
+        condition_val = get(f"condition_z{i}")
+        if condition_val is not None:
+            zone["conditioned"] = str(condition_val).lower() == "conditioned"
+        active = to_duration(f"occupancy_open_{z}", f"occupancy_close_{z}")
+        if active is not None:
+            zone["active_hours"] = active
         zones.append(zone)
 
-    out["zones"] = zones
+    if zones:
+        out["zones"] = zones
 
-    out["occupation_schedule"] = {
-        k: bool(get(f"schedule_{k.lower()}"))
-        for k in [
-            "January",
-            "February",
-            "March",
-            "April",
-            "May",
-            "June",
-            "July",
-            "August",
-            "September",
-            "October",
-            "November",
-            "December",
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday",
-        ]
-    }
+    if floor_count > 0:
+        out["building"]["floor_count"] = floor_count
 
-    out["heating_systems"] = []
+    # ── occupation_schedule ────────────────────────────────────────────────────
+    schedule_keys = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+    ]
+    occupation_schedule = {}
+    for k in schedule_keys:
+        v = get(f"schedule_{k.lower()}")
+        if v is not None:
+            occupation_schedule[k] = bool(v)
+    if occupation_schedule:
+        out["occupation_schedule"] = occupation_schedule
 
+    # ── heating systems ────────────────────────────────────────────────────────
+    heating_systems = []
     for i in [1, 2]:
         system = {
             "type": get(f"heating_system{i}_type"),
@@ -368,17 +427,17 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
             ["energy_source", "efficiency_cop", "nominal_capacity"],
             f"heating system {i}",
         ):
-            out["heating_systems"].append(system)
+            heating_systems.append(system)
+    if heating_systems:
+        out["heating_systems"] = heating_systems
 
-    out["cooling_systems"] = []
-
+    # ── cooling systems ────────────────────────────────────────────────────────
+    cooling_systems = []
     for i in [1, 2]:
         system = {
             "type": get(f"cooling_system{i}_type"),
             "energy_source": get(f"cooling_system{i}_energy_source"),
-            "efficiency_ratio": get(
-                f"cooling_system{i}_energy_efficifiency_ratio"
-            ),  # note: typo in TOML key
+            "efficiency_ratio": get(f"cooling_system{i}_energy_efficifiency_ratio"),
             "min_demand": get(f"cooling_system{i}_min_demand"),
             "nominal_capacity": get(f"cooling_system{i}_nominal_capacity"),
             "sensible_nominal_capacity": get(
@@ -405,10 +464,12 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
             ],
             f"cooling system {i}",
         ):
-            out["cooling_systems"].append(system)
+            cooling_systems.append(system)
+    if cooling_systems:
+        out["cooling_systems"] = cooling_systems
 
-    out["ventilation_systems"] = []
-
+    # ── ventilation systems ────────────────────────────────────────────────────
+    ventilation_systems = []
     for i in [1, 2]:
         system = {
             "airflow": get(f"ventilation_system{i}_airflow"),
@@ -426,10 +487,12 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         if has_required_keys(
             system, ["energy_source", "airflow"], f"ventilation system {i}"
         ):
-            out["ventilation_systems"].append(system)
+            ventilation_systems.append(system)
+    if ventilation_systems:
+        out["ventilation_systems"] = ventilation_systems
 
-    out["lighting_systems"] = []
-
+    # ── lighting systems ───────────────────────────────────────────────────────
+    lighting_systems = []
     for i in range(1, 7):
         system = {
             "tech": get(f"lighting_system_tech_z{i}"),
@@ -456,12 +519,17 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
             ],
             f"lighting system {i}",
         ):
-            out["lighting_systems"].append(system)
+            lighting_systems.append(system)
+    if lighting_systems:
+        out["lighting_systems"] = lighting_systems
 
-    out["hot_water_systems"] = []
-
+    # ── hot water systems ──────────────────────────────────────────────────────
+    hot_water_systems = []
+    water_demand_raw = get("water_demand")
     hot_water_system = {
-        "demand": annual_to_consumption(get("water_demand", 0) * 365),
+        "demand": annual_to_consumption(water_demand_raw * 365)
+        if water_demand_raw is not None
+        else None,
         "reference_temperature": get("water_reference_temperature"),
         "supply_temperature": get("water_supply_temperature"),
         "energy_source": get("water_system_energy_source"),
@@ -481,10 +549,12 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         ],
         "hot water system",
     ):
-        out["hot_water_systems"].append(hot_water_system)
+        hot_water_systems.append(hot_water_system)
+    if hot_water_systems:
+        out["hot_water_systems"] = hot_water_systems
 
-    out["courtyards"] = []
-
+    # ── courtyards ─────────────────────────────────────────────────────────────
+    courtyards = []
     courtyard = {
         "length": get("courtyard_length"),
         "width": get("courtyard_width"),
@@ -494,10 +564,12 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
         has_required_keys(courtyard, ["length", "width", "count"], "courtyard")
         and courtyard["count"] > 0
     ):
-        out["courtyards"].append(courtyard)
+        courtyards.append(courtyard)
+    if courtyards:
+        out["courtyards"] = courtyards
 
-    out["open_courtyards"] = {}
-
+    # ── open_courtyards ────────────────────────────────────────────────────────
+    open_courtyards: dict = {}
     for o_code, o_name in [
         ("a", "front"),
         ("b", "right"),
@@ -512,9 +584,11 @@ def toml_to_json(toml: dict | Path | str, allow_warnings: bool = True) -> dict:
             has_required_keys(open_courtyard, ["depth"], f"open courtyard {o_name}")
             and open_courtyard["count"] > 0
         ):
-            out["open_courtyards"][o_name] = open_courtyard
+            open_courtyards[o_name] = open_courtyard
+    if open_courtyards:
+        out["open_courtyards"] = open_courtyards
 
-    OpenBESSpecificationV2.model_validate_json(json.dumps(out))
+    OpenBESSpecificationV2.model_validate(out)
 
     if not allow_warnings and len(warnings) > 0:
         raise ValueError(

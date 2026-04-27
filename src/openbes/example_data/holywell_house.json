@@ -1,6 +1,5 @@
 {
   "parameters": {
-    "altitude": null,
     "cooling_load_factor": 1,
     "density_of_air": null,
     "facade_absorption_coefficient": 0.6,
@@ -27,14 +26,14 @@
     "include_occupancy": 1,
     "include_appliances": 1
   },
+  "elevation": null,
   "appliances_load": 1.0,
-  "country": "UK",
+  "fec_coefficients": "UK",
   "holiday": false,
   "leakage_air_flow": 0,
   "leakage_air_flow_independent": 0.45,
   "lighting_control": "Manual",
   "lighting_simultaneity_factor": 0.2,
-  "location": "Oxford",
   "max_building_occupation": 150,
   "natural_ventilation_night": 0,
   "typical_occupation": 75,
@@ -150,10 +149,7 @@
     "November": 0,
     "December": 0
   },
-  "heat_capacity": {
-    "Am": 2.5,
-    "Cm": 165000.0
-  },
+  "heat_capacity": "Medium",
   "lighting_active_hours": {
     "start": 9,
     "end": 17
@@ -175,6 +171,7 @@
     "name": "Holywell House",
     "type": "University",
     "floor_to_ceiling_height": 2.9,
+    "floor_count": 3,
     "slab_thickness": 0.35,
     "orientation_angle": 165.0,
     "roof_angle": 35,

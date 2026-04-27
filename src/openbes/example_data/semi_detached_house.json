@@ -1,0 +1,340 @@
+{
+  "parameters": {
+    "cooling_load_factor": 1,
+    "density_of_air": 1.211,
+    "facade_absorption_coefficient": 0.6,
+    "facade_correction_factor": 1,
+    "facade_emissivity": 0.9,
+    "floor_correction_factor": 1,
+    "heat_capacity_correction_factor": 1,
+    "heat_capacity_joule": 42166.666666666664,
+    "heating_load_factor": 1,
+    "infiltration_correction_factor": 1,
+    "leakage_air_flow_dependent": 0,
+    "nia_gba_ratio": 0.9,
+    "roof_absorption_coefficient": 0.8,
+    "roof_correction_factor": 1,
+    "roof_emissivity": 0.9,
+    "shading_correction_factor": 1,
+    "specific_heat_of_air": 1.015,
+    "view_factor_to_sky_facade": 0.5,
+    "view_factor_to_sky_roof": 1,
+    "window_correction_factor": 1,
+    "include_lighting": 1,
+    "include_occupancy": 1,
+    "include_appliances": 1,
+    "window_angular_correction_factors": [
+      1,
+      -0.193,
+      0.656,
+      -0.608,
+      0.004
+    ]
+  },
+  "appliances_load": 1.5,
+  "holiday": true,
+  "leakage_air_flow": 0,
+  "leakage_air_flow_independent": 2.7,
+  "lighting_control": "Manual",
+  "lighting_simultaneity_factor": 0.1,
+  "max_building_occupation": 3,
+  "natural_ventilation_night": 0,
+  "typical_occupation": 3,
+  "fec_coefficients": "UK",
+  "elevation": 100,
+  "electricity_consumption": {
+    "January": 263.28767123287673,
+    "February": 237.8082191780822,
+    "March": 263.28767123287673,
+    "April": 254.7945205479452,
+    "May": 263.28767123287673,
+    "June": 254.7945205479452,
+    "July": 263.28767123287673,
+    "August": 263.28767123287673,
+    "September": 254.7945205479452,
+    "October": 263.28767123287673,
+    "November": 254.7945205479452,
+    "December": 263.28767123287673
+  },
+  "natural_gas_consumption": {
+    "January": 1680.1476793248949,
+    "February": 1619.9789029535868,
+    "March": 1629.7890295358648,
+    "April": 1214.2756680731368,
+    "May": 786.3361462728552,
+    "June": 464.5639943741211,
+    "July": 126.8776371308017,
+    "August": 200.99859353023916,
+    "September": 541.3009845288326,
+    "October": 977.306610407876,
+    "November": 1310.4149085794656,
+    "December": 1848.0098452883265
+  },
+  "other_electricity_consumption": {
+    "January": 150,
+    "February": 150,
+    "March": 150,
+    "April": 150,
+    "May": 150,
+    "June": 150,
+    "July": 150,
+    "August": 150,
+    "September": 150,
+    "October": 150,
+    "November": 150,
+    "December": 150
+  },
+  "other_gas_consumption": {
+    "January": 0,
+    "February": 0,
+    "March": 0,
+    "April": 0,
+    "May": 0,
+    "June": 0,
+    "July": 0,
+    "August": 0,
+    "September": 0,
+    "October": 0,
+    "November": 0,
+    "December": 0
+  },
+  "building_standby_electricity_consumption": {
+    "January": 80,
+    "February": 80,
+    "March": 80,
+    "April": 80,
+    "May": 80,
+    "June": 80,
+    "July": 80,
+    "August": 80,
+    "September": 80,
+    "October": 80,
+    "November": 80,
+    "December": 80
+  },
+  "energy_generated": {
+    "January": 0,
+    "February": 0,
+    "March": 0,
+    "April": 0,
+    "May": 0,
+    "June": 0,
+    "July": 0,
+    "August": 0,
+    "September": 0,
+    "October": 0,
+    "November": 0,
+    "December": 0
+  },
+  "energy_used": {
+    "January": 0,
+    "February": 0,
+    "March": 0,
+    "April": 0,
+    "May": 0,
+    "June": 0,
+    "July": 0,
+    "August": 0,
+    "September": 0,
+    "October": 0,
+    "November": 0,
+    "December": 0
+  },
+  "heat_capacity": "Heavy",
+  "lighting_active_hours": {
+    "start": 16,
+    "end": 22
+  },
+  "meteorological_file_path": "openbes://UK_Oxford_GBR_ENG_RAF.Benson.036580_TMYx.2007-2021.epw",
+  "setpoint_temperature_day": {
+    "min": 24,
+    "max": 20
+  },
+  "setpoint_temperature_night": {
+    "min": 24,
+    "max": 18
+  },
+  "building": {
+    "area": "Oxfordshire",
+    "height": 9,
+    "length": 9.4,
+    "width": 6.4,
+    "name": "Semi-detached house",
+    "type": "Residential",
+    "floor_to_ceiling_height": 2.4,
+    "slab_thickness": 0.27,
+    "orientation_angle": 180,
+    "roof_angle": 45,
+    "solar_external_shading_summer": 1,
+    "solar_external_shading_winter": 1,
+    "terrain_class": "Urban",
+    "thermal_bridge_facade_ground": true,
+    "thermal_bridge_facade_intermediate": false,
+    "thermal_bridge_facade_roof": true,
+    "thermal_bridge_shading": false,
+    "thermal_bridge_window": false,
+    "uvalue_facade": 0.85,
+    "uvalue_roof": 0.57,
+    "uvalue_window": 2.7,
+    "uvalue_floor": 1.2,
+    "window_frame_factor": 0.1,
+    "window_gvalue": 0.75,
+    "window_height": 1,
+    "window_length": 1.7,
+    "window_counts": {
+      "front": [
+        2,
+        2,
+        0,
+        0,
+        0
+      ],
+      "right": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "back": [
+        1,
+        2,
+        0,
+        0,
+        0
+      ],
+      "left": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "floor_count": 2
+  },
+  "zones": [
+    {
+      "name": "Home",
+      "areas": [
+        59.4,
+        57.9,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "conditioned": true,
+      "active_hours": {
+        "start": 1,
+        "end": 24
+      }
+    }
+  ],
+  "occupation_schedule": {
+    "January": true,
+    "February": true,
+    "March": true,
+    "April": true,
+    "May": true,
+    "June": true,
+    "July": true,
+    "August": true,
+    "September": true,
+    "October": true,
+    "November": true,
+    "December": true,
+    "Monday": true,
+    "Tuesday": true,
+    "Wednesday": true,
+    "Thursday": true,
+    "Friday": true,
+    "Saturday": true,
+    "Sunday": true
+  },
+  "heating_systems": [
+    {
+      "type": "Condensing boiler",
+      "energy_source": "Natural gas",
+      "efficiency_cop": 0.85,
+      "min_demand": 2,
+      "nominal_capacity": 25,
+      "count": 1,
+      "active_hours": {
+        "start": 15,
+        "end": 22
+      },
+      "simultaneity": {
+        "Home": 1
+      }
+    },
+    {
+      "type": "Condensing boiler",
+      "energy_source": "Natural gas",
+      "efficiency_cop": 0.85,
+      "min_demand": 2,
+      "nominal_capacity": 25,
+      "count": 1,
+      "active_hours": {
+        "start": 6,
+        "end": 9
+      },
+      "simultaneity": {
+        "Home": 1
+      }
+    }
+  ],
+  "lighting_systems": [
+    {
+      "tech": "LED",
+      "ballast": "Electronic ballast",
+      "lamp_number": 1,
+      "lamp_power": 10,
+      "luminary_number": 8,
+      "name": "First Floor",
+      "active_hours": {
+        "start": 0,
+        "end": 8
+      },
+      "count": 1,
+      "simultaneity_factor": 0.7
+    },
+    {
+      "tech": "LED",
+      "ballast": null,
+      "lamp_number": 1,
+      "lamp_power": 10,
+      "luminary_number": 8,
+      "name": "Second Floor",
+      "active_hours": {
+        "start": 0,
+        "end": 8
+      },
+      "count": 1,
+      "simultaneity_factor": 0.7
+    }
+  ],
+  "hot_water_systems": [
+    {
+      "demand": {
+        "January": 2737.5,
+        "February": 2737.5,
+        "March": 2737.5,
+        "April": 2737.5,
+        "May": 2737.5,
+        "June": 2737.5,
+        "July": 2737.5,
+        "August": 2737.5,
+        "September": 2737.5,
+        "October": 2737.5,
+        "November": 2737.5,
+        "December": 2737.5
+      },
+      "reference_temperature": 60,
+      "supply_temperature": 10,
+      "energy_source": "Natural gas",
+      "efficiency_cop": 0.85,
+      "nominal_capacity": 25,
+      "type": null
+    }
+  ]
+}
