@@ -74,6 +74,14 @@ total_annual_energy_used = simulation.energy_use.sum().sum()  # collaspse energy
 
 5. Run tests to verify installation: `uv run python -m unittest discover -s tests`
 
+## Release
+
+The package is automatically deployed to PyPI via GitHub Actions when a release is made.
+When commits are made, test publications are performed, so released code should always succeed in deployment.
+
+To issue a release, follow the Release > Draft New Release > ... workflow in GitHub.
+When the release is created, it will be published in PyPI via the Action.
+
 ## License
 
 The license for this project is under consideration. 
